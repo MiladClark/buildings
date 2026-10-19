@@ -15,10 +15,15 @@
 
 # next.js
 /.next/
+/.next-preview/
+/artifacts/
 /out/
 
 # production
 /build
+
+# local database
+/data/
 
 # misc
 .DS_Store
@@ -39,3 +44,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Keep the safe environment template in source control
+!.env.example

@@ -1,0 +1,1 @@
+ALTER TABLE `payment_request` ADD `deleted_at` integer;

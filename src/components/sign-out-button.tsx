@@ -1,0 +1,27 @@
+"use client";
+
+import { SignOut } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
+
+import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
+
+export function SignOutButton() {
+  const router = useRouter();
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="w-full justify-start gap-2"
+      onClick={async () => {
+        await authClient.signOut();
+        router.push("/login");
+        router.refresh();
+      }}
+    >
+      <SignOut size={18} />
+      خروج
+    </Button>
+  );
+}

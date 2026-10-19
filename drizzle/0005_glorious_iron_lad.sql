@@ -1,0 +1,1 @@
+ALTER TABLE `expense_line` ADD `maintenance_ticket_id` text REFERENCES maintenance_ticket(id);
