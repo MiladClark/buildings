@@ -309,11 +309,6 @@ aside {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
-@media (max-height: 1000px) {
-  aside .sidebar-note {
-    display: none;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

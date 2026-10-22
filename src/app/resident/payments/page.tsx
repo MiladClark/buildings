@@ -2,6 +2,7 @@ import { and, eq, desc, isNull } from "drizzle-orm";
 import { EmptyState } from "@/components/finance/forms";
 import { DataGrid } from "@/components/finance/data-grid";
 import { ReceiptForm } from "@/components/finance/receipt-form";
+import { CopyValue } from "@/components/resident/copy-value";
 import { getFinanceData } from "@/lib/queries/finance";
 import { getBuildingForUser } from "@/lib/queries/dashboard";
 import { requireResident } from "@/lib/session";
@@ -49,23 +50,35 @@ export default async function ResidentPaymentsPage() {
               <p className="text-xs text-muted-foreground">
                 شماره حساب یا کارت
               </p>
-              <p
-                dir="ltr"
-                className="my-4 break-all text-right text-xl font-bold numeric"
-              >
-                {ctx.building.bankAccount}
-              </p>
+              <div className="my-4 flex items-center gap-3">
+                <p
+                  dir="ltr"
+                  className="min-w-0 flex-1 break-all text-right text-xl font-bold numeric"
+                >
+                  {ctx.building.bankAccount}
+                </p>
+                <CopyValue
+                  value={ctx.building.bankAccount}
+                  label="شماره حساب یا کارت"
+                />
+              </div>
               {ctx.building.bankSheba && (
                 <>
                   <p className="mt-6 text-xs text-muted-foreground">
                     شماره شبا
                   </p>
-                  <p
-                    dir="ltr"
-                    className="my-4 break-all text-right text-sm font-semibold numeric"
-                  >
-                    {ctx.building.bankSheba}
-                  </p>
+                  <div className="my-4 flex items-center gap-3">
+                    <p
+                      dir="ltr"
+                      className="min-w-0 flex-1 break-all text-right text-sm font-semibold numeric"
+                    >
+                      {ctx.building.bankSheba}
+                    </p>
+                    <CopyValue
+                      value={ctx.building.bankSheba}
+                      label="شماره شبا"
+                    />
+                  </div>
                 </>
               )}
             </>

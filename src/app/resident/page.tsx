@@ -5,6 +5,8 @@ import {
   Receipt,
   Wallet,
   CheckCircle,
+  ChatCircleDots,
+  WarningCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/finance/forms";
@@ -61,12 +63,20 @@ export default async function ResidentDashboardPage() {
           <h1>{session.user.name.split(" ")[0]} عزیز، به خانه خوش آمدید.</h1>
           <p>واحد {u?.label}؛ فیش‌ها، واریزها و خبرهای ساختمان شما.</p>
         </div>
-        <Button asChild>
-          <Link href="/resident/payments">
-            اعلام واریز شارژ
-            <ArrowUpLeft size={16} />
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/resident/chat">
+              <ChatCircleDots size={17} />
+              گفتگوی ساختمان
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/resident/payments">
+              اعلام واریز شارژ
+              <ArrowUpLeft size={16} />
+            </Link>
+          </Button>
+        </div>
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="panel p-6">
@@ -110,33 +120,23 @@ export default async function ResidentDashboardPage() {
           </p>
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          { label: "بدهی تسویه‌نشده فیش‌ها", value: account.debtRial },
-          { label: "بستانکاری آزاد", value: account.creditRial },
-          {
-            label: "پیش‌پرداخت هزینه‌های پیش‌نویس",
-            value: account.reservedRial,
-          },
-        ].map((item) => (
-          <div className="panel p-5" key={item.label}>
-            <p className="text-xs text-muted-foreground">{item.label}</p>
-            <p className="mt-3 font-bold">{formatToman(item.value)}</p>
+      {balance > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--warning)_35%,var(--border))] bg-[var(--warning-bg)] px-4 py-3 text-xs">
+          <WarningCircle size={21} className="text-[var(--warning)]" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">مانده قابل پرداخت دارید</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {formatToman(balance)}
+              {latest?.period.dueDate
+                ? ` · سررسید ${formatJalaliDate(latest.period.dueDate)}`
+                : ""}
+            </p>
           </div>
-        ))}
-      </div>
-      <CostSettlements
-        resident
-        shares={finance.settlement.shares
-          .filter((s) => s.unitId === member.unitId)
-          .sort(
-            (a, b) =>
-              finance.periods.findIndex((p) => p.id === a.periodId) -
-              finance.periods.findIndex((p) => p.id === b.periodId),
-          )}
-        units={finance.units.filter((u) => u.id === member.unitId)}
-        accounts={[account]}
-      />
+          <Button asChild size="sm">
+            <Link href="/resident/payments">مشاهده اطلاعات پرداخت</Link>
+          </Button>
+        </div>
+      )}
       <div className="grid items-start gap-6 lg:grid-cols-[1.5fr_1fr]">
         <section className="panel">
           <div className="panel-head">
@@ -213,6 +213,18 @@ export default async function ResidentDashboardPage() {
           )}
         </section>
       </div>
+      <CostSettlements
+        resident
+        shares={finance.settlement.shares
+          .filter((s) => s.unitId === member.unitId)
+          .sort(
+            (a, b) =>
+              finance.periods.findIndex((p) => p.id === a.periodId) -
+              finance.periods.findIndex((p) => p.id === b.periodId),
+          )}
+        units={finance.units.filter((u) => u.id === member.unitId)}
+        accounts={[account]}
+      />
     </div>
   );
 }

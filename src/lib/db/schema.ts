@@ -1,6 +1,12 @@
 import { periodTypes } from "@/lib/billing/periods";
 import { relations, sql } from "drizzle-orm";
-import { check, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  index,
+  integer,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
@@ -344,6 +350,32 @@ export const appNotification = sqliteTable("app_notification", {
     .notNull()
     .default(sql`(unixepoch() * 1000)`),
 });
+
+export const chatMessage = sqliteTable(
+  "chat_message",
+  {
+    id: text("id").primaryKey(),
+    buildingId: text("building_id")
+      .notNull()
+      .references(() => building.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    body: text("body").notNull().default(""),
+    imageKey: text("image_key"),
+    imageMimeType: text("image_mime_type"),
+    imageName: text("image_name"),
+    editedAt: integer("edited_at", { mode: "timestamp_ms" }),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => [
+    index("idx_chat_message_building_created").on(t.buildingId, t.createdAt),
+    index("idx_chat_message_user").on(t.userId),
+  ],
+);
 
 export const chargeRecommendation = sqliteTable("charge_recommendation", {
   id: text("id").primaryKey(),

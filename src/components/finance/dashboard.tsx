@@ -12,7 +12,6 @@ import {
   Buildings,
   ArrowDownLeft,
   CheckCircle,
-  Clock,
   CaretLeft,
   BellRinging,
   Bank,
@@ -51,7 +50,6 @@ export function Dashboard({
   const expenses = data.expenses.filter(
     (e) => periodId === "all" || e.periodId === periodId,
   );
-  const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0);
   const received = data.payments.reduce((s, p) => s + p.amount, 0);
   const totalDebt = data.summaries.reduce(
     (s, u) => s + Math.max(0, u.balance),
@@ -130,14 +128,10 @@ export function Dashboard({
     <div className="space-y-6">
       <div className="page-heading !mb-0">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="h-px w-5 bg-primary" />
-            یک نگاه به خانه مشترک ما
-          </div>
-          <h1>همه‌چیز زیر یک سقف.</h1>
+          <h1>نمای کلی ساختمان</h1>
           <p>
-            {name ? `${name.split(" ")[0]} عزیز، ` : ""}وضعیت مالی ساختمان را در
-            یک نگاه ببینید.
+            {name ? `${name.split(" ")[0]} عزیز، ` : ""}مهم‌ترین وضعیت‌های مالی
+            و واحدها را اینجا ببینید.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -157,7 +151,7 @@ export function Dashboard({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-2 text-[11px]">
-          <span className="text-muted-foreground">هزینه‌های دوره</span>
+          <span className="text-muted-foreground">نمودار هزینه‌های</span>
           <Select
             aria-label="دوره مالی داشبورد"
             value={periodId}
@@ -210,7 +204,7 @@ export function Dashboard({
               </bdi>
               {s.money && <span className="currency">تومان</span>}
             </p>
-            <p className="mt-3 truncate text-[9px] text-muted-foreground">
+            <p className="mt-3 text-[9px] leading-5 text-muted-foreground">
               {s.note}
             </p>
           </div>
@@ -253,7 +247,7 @@ export function Dashboard({
         <MoneyTrend data={data.timeline} />
         <ExpenseDonut data={categories} />
       </div>
-      <div className="grid items-start gap-5 xl:grid-cols-[1.85fr_1fr]">
+      <div>
         <section className="panel min-w-0">
           <div className="panel-head">
             <div>
@@ -330,21 +324,8 @@ export function Dashboard({
             )}
           />
         </section>
-        <section className="panel">
-          <div className="panel-head">
-            <h2 className="panel-title">تقویم ساختمان</h2>
-            <Link
-              href="/manager/calendar"
-              aria-label="مشاهده تقویم کامل"
-              className="text-muted-foreground"
-            >
-              <ArrowUpLeft size={16} />
-            </Link>
-          </div>
-          <BuildingCalendar events={events} compact />
-        </section>
       </div>
-      <div className="grid gap-5 xl:grid-cols-[1.85fr_1fr]">
+      <div className="grid items-start gap-5 xl:grid-cols-[1.55fr_1fr]">
         <section className="panel">
           <div className="panel-head">
             <div>
@@ -363,7 +344,7 @@ export function Dashboard({
           </div>
           {data.payments.length ? (
             <div className="px-6 pb-2">
-              {data.payments.slice(0, 4).map((p) => (
+              {data.payments.slice(0, 3).map((p) => (
                 <div
                   className="flex items-center gap-3 border-t border-border py-3.5"
                   key={p.id}
@@ -409,31 +390,18 @@ export function Dashboard({
             />
           )}
         </section>
-        <section className="panel flex flex-col p-6">
-          <span className="mb-5 flex size-11 items-center justify-center rounded-xl bg-secondary text-primary">
-            <Clock size={25} weight="duotone" />
-          </span>
-          <h2 className="text-base font-bold">شارژ منصفانه، با حساب دقیق.</h2>
-          <p className="mb-6 mt-3 text-xs leading-7 text-muted-foreground">
-            میانگین هزینه‌های گذشته را ببینید و شارژ دوره بعد را با در نظر گرفتن
-            تغییر قیمت‌ها تنظیم کنید.
-          </p>
-          <div className="mb-5 border-t border-border pt-4 text-xs">
-            <span className="text-muted-foreground">هزینه دوره انتخابی</span>
-            <p className="mt-2 text-lg font-bold">
-              {formatToman(expenseTotal)}
-            </p>
-          </div>
-          <Button
-            asChild
-            variant="outline"
-            className="mt-auto w-full justify-between"
-          >
-            <Link href="/manager/reports">
-              بررسی و پیشنهاد شارژ
-              <ArrowUpLeft size={16} />
+        <section className="panel">
+          <div className="panel-head">
+            <h2 className="panel-title">تقویم ساختمان</h2>
+            <Link
+              href="/manager/calendar"
+              className="flex items-center gap-1 text-[10px] text-primary"
+            >
+              مشاهده کامل
+              <CaretLeft size={12} />
             </Link>
-          </Button>
+          </div>
+          <BuildingCalendar events={events} compact />
         </section>
       </div>
     </div>

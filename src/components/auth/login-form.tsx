@@ -17,13 +17,17 @@ export function LoginForm() {
     e.preventDefault();
     setLoading(true);
     const form = new FormData(e.currentTarget);
-    const email = String(form.get("email"));
+    const email = String(form.get("email")).trim().toLowerCase();
     const password = String(form.get("password"));
 
     try {
       const { error } = await authClient.signIn.email({ email, password });
       if (error) {
-        toast.error("ورود ناموفق بود. ایمیل یا رمز را بررسی کنید.");
+        toast.error(
+          error.status === 403
+            ? "آدرس ورود معتبر نیست؛ صفحه را بازخوانی کنید و دوباره وارد شوید."
+            : "ورود ناموفق بود. ایمیل یا رمز را بررسی کنید.",
+        );
         return;
       }
       router.push("/");
