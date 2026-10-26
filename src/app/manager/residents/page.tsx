@@ -13,7 +13,6 @@ import {
 } from "@/lib/actions/resident-accounts";
 import { db } from "@/lib/db";
 import { account, membership, user } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import type { ReactNode } from "react";
 
 import { requireManager } from "@/lib/session";
@@ -25,17 +24,23 @@ export default async function ResidentsPage() {
   const users = await db.select().from(user);
   const memberships = await db.select().from(membership);
   const credentials = await db
-    .select({ userId: account.userId, password: account.password })
-    .from(account)
-    .where(eq(account.providerId, "credential"));
+    .select({
+      userId: account.userId,
+      password: account.password,
+      providerId: account.providerId,
+    })
+    .from(account);
   const activated = new Set(
-    credentials.filter((row) => row.password).map((row) => row.userId),
+    credentials
+      .filter((row) => row.password || row.providerId !== "credential")
+      .map((row) => row.userId),
   );
   const candidates = users.filter((person) => {
     const own = memberships.filter((row) => row.userId === person.id);
     if (
       own.some(
-        (row) => row.role !== "resident" || row.buildingId !== member.buildingId,
+        (row) =>
+          row.role !== "resident" || row.buildingId !== member.buildingId,
       )
     )
       return false;
@@ -117,8 +122,8 @@ export default async function ResidentsPage() {
         <section className="panel p-6">
           <h2 className="mb-2 panel-title">منتظر ثبت‌نام</h2>
           <p className="mb-4 text-[11px] leading-6 text-muted-foreground">
-            نام و واحد اختیاری‌اند. تا وقتی رمز گذاشته نشده، این ردیف حذف
-            می‌شود.
+            برای اتصال خودکار، شماره و واحد را مشخص کنید. تا پیش از ثبت‌نام با
+            رمز یا گوگل، این ردیف قابل حذف است.
           </p>
           {waiting.length ? (
             waiting.map((row) => {
@@ -235,13 +240,17 @@ export default async function ResidentsPage() {
   );
 }
 
-function displayName(person: { name: string; phone: string | null } | undefined) {
+function displayName(
+  person: { name: string; phone: string | null } | undefined,
+) {
   if (!person) return "حساب حذف‌شده";
   if (person.phone && person.name === person.phone) return "بدون نام";
   return person.name;
 }
 
-function contactOf(person: { email: string; phone: string | null } | undefined) {
+function contactOf(
+  person: { email: string; phone: string | null } | undefined,
+) {
   if (!person) return "";
   if (person.phone) return person.phone;
   if (person.email.endsWith("@residents.internal"))

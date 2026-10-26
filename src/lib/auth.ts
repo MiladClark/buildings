@@ -4,8 +4,11 @@ import { nextCookies } from "better-auth/next-js";
 
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { googleCredentials } from "@/lib/auth/google-config";
+import { residentConnection } from "@/lib/auth/resident-plugin";
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3300";
+const google = googleCredentials();
 
 function trustedOrigins() {
   const origins = new Set(
@@ -31,6 +34,7 @@ function trustedOrigins() {
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
+    transaction: true,
     schema: {
       user: schema.user,
       session: schema.session,
@@ -43,13 +47,23 @@ export const auth = betterAuth({
       phone: {
         type: "string",
         required: false,
-        input: true,
+        input: false,
       },
     },
   },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+  },
+  socialProviders: google
+    ? { google: { ...google, prompt: "select_account" } }
+    : {},
+  account: {
+    accountLinking: {
+      enabled: true,
+      allowDifferentEmails: true,
+      disableImplicitLinking: true,
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 30,
@@ -58,7 +72,7 @@ export const auth = betterAuth({
   trustedOrigins: trustedOrigins(),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
-  plugins: [nextCookies()],
+  plugins: [residentConnection(), nextCookies()],
 });
 
 export type Session = typeof auth.$Infer.Session;

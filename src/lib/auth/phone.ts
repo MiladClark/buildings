@@ -47,8 +47,7 @@ export function claimedDisplayName(typedName: string, existingName: string) {
 }
 
 /**
- * Unit choice applies only to a phone the manager already created.
- * An empty choice keeps the manager's unit.
+ * A prepared account can only be claimed with the manager's exact assigned unit.
  */
 export function claimedUnitId(
   hasShell: boolean,
@@ -57,6 +56,9 @@ export function claimedUnitId(
 ) {
   if (!hasShell) return null;
   const selected = selectedUnitId.trim();
-  if (selected) return selected;
+  if (!selected || selected !== shellUnitId)
+    throw new Error(
+      "شماره تلفن و واحد باید با اطلاعات ثبت‌شده توسط مدیر مطابقت داشته باشند.",
+    );
   return shellUnitId;
 }

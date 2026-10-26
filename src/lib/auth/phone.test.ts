@@ -36,9 +36,7 @@ describe("Iranian mobile numbers", () => {
     expect(loginToEmail("  Manager@Preview.Local ")).toBe(
       "manager@preview.local",
     );
-    expect(loginToEmail("۰۹۱۲۳۴۵۶۷۸۹")).toBe(
-      "09123456789@residents.internal",
-    );
+    expect(loginToEmail("۰۹۱۲۳۴۵۶۷۸۹")).toBe("09123456789@residents.internal");
   });
 });
 
@@ -50,10 +48,11 @@ describe("claiming a manager-created account", () => {
     expect(claimedDisplayName("  ", "مهمان")).toBe("مهمان");
   });
 
-  it("syncs a chosen unit only when the phone was prepared", () => {
-    expect(claimedUnitId(true, "unit-b", "unit-a")).toBe("unit-b");
-    expect(claimedUnitId(true, "", "unit-a")).toBe("unit-a");
-    expect(claimedUnitId(true, "  ", null)).toBeNull();
+  it("requires the manager's exact unit for a prepared phone", () => {
+    expect(claimedUnitId(true, "unit-a", "unit-a")).toBe("unit-a");
+    expect(() => claimedUnitId(true, "unit-b", "unit-a")).toThrow();
+    expect(() => claimedUnitId(true, "", "unit-a")).toThrow();
+    expect(() => claimedUnitId(true, "  ", null)).toThrow();
     expect(claimedUnitId(false, "unit-b", null)).toBeNull();
   });
 });

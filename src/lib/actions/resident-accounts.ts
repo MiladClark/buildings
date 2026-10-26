@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import {
   claimedDisplayName,
+  claimedUnitId,
   joinedPersonName,
   normalizeIranMobile,
   phoneToAuthEmail,
@@ -37,10 +38,7 @@ function passwordOf(value: string) {
 
 async function unitInBuilding(unitId: string, buildingId: string) {
   const row = await db.query.unit.findFirst({
-    where: and(
-      eq(unit.id, unitId),
-      eq(unit.buildingId, buildingId),
-    ),
+    where: and(eq(unit.id, unitId), eq(unit.buildingId, buildingId)),
   });
   if (!row || row.deletedAt) throw new Error("واحد پیدا نشد.");
   return row;
@@ -99,13 +97,14 @@ export async function deleteResidentShell(userId: string) {
       ),
     });
     if (!row) throw new Error("حساب پیدا نشد.");
-    const credential = await tx.query.account.findFirst({
-      where: and(
-        eq(account.userId, userId),
-        eq(account.providerId, "credential"),
-      ),
+    const identities = await tx.query.account.findMany({
+      where: eq(account.userId, userId),
     });
-    if (credential?.password)
+    if (
+      identities.some(
+        (identity) => identity.providerId !== "credential" || identity.password,
+      )
+    )
       throw new Error("این شماره قبلاً ثبت‌نام کرده و حذف نمی‌شود.");
     await tx.delete(user).where(eq(user.id, userId));
   });
@@ -138,13 +137,15 @@ export async function registerWithPhone(input: {
     });
 
     if (existing) {
-      const credential = await db.query.account.findFirst({
-        where: and(
-          eq(account.userId, existing.id),
-          eq(account.providerId, "credential"),
-        ),
+      const identities = await db.query.account.findMany({
+        where: eq(account.userId, existing.id),
       });
-      if (credential?.password)
+      if (
+        identities.some(
+          (identity) =>
+            identity.providerId !== "credential" || identity.password,
+        )
+      )
         return {
           ok: false,
           message: "این شماره قبلاً ثبت شده است. وارد شوید.",
@@ -161,11 +162,29 @@ export async function registerWithPhone(input: {
           message: "این شماره به حساب ساختمان وصل نیست. با مدیر هماهنگ کنید.",
         };
       const selectedUnit = String(input.unitId ?? "").trim();
-      if (selectedUnit) await unitInBuilding(selectedUnit, member.buildingId);
+      claimedUnitId(true, selectedUnit, member.unitId);
+      await unitInBuilding(selectedUnit, member.buildingId);
       const context = await auth.$context;
       const passwordHash = await context.password.hash(password);
       const now = new Date();
       await db.transaction(async (tx) => {
+        const latest = await tx.query.account.findMany({
+          where: eq(account.userId, existing.id),
+        });
+        const latestMember = await tx.query.membership.findFirst({
+          where: eq(membership.id, member.id),
+        });
+        if (
+          latest.some(
+            (identity) =>
+              identity.providerId !== "credential" || identity.password,
+          )
+        )
+          throw new Error("این شماره قبلاً ثبت شده است. وارد شوید.");
+        if (latestMember?.unitId !== selectedUnit)
+          throw new Error(
+            "شماره تلفن و واحد باید با اطلاعات ثبت‌شده توسط مدیر مطابقت داشته باشند.",
+          );
         await tx
           .update(user)
           .set({
@@ -174,11 +193,6 @@ export async function registerWithPhone(input: {
             updatedAt: now,
           })
           .where(eq(user.id, existing.id));
-        if (selectedUnit)
-          await tx
-            .update(membership)
-            .set({ unitId: selectedUnit })
-            .where(eq(membership.id, member.id));
         await tx.insert(account).values({
           id: crypto.randomUUID(),
           accountId: existing.id,
@@ -206,7 +220,7 @@ export async function registerWithPhone(input: {
 
     const name = typedName || phone;
     await auth.api.signUpEmail({
-      body: { email, password, name, phone },
+      body: { email, password, name },
       headers: requestHeaders,
     });
     const created = await db.query.user.findFirst({
