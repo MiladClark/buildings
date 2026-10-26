@@ -17,8 +17,9 @@ export default async function PendingPage() {
         />
         <h1 className="text-xl font-bold">حساب شما آماده است.</h1>
         <p className="my-5 text-sm leading-8 text-muted-foreground">
-          از مدیر ساختمان بخواهید حساب شما را از بخش «حساب ساکنان» به واحدتان
-          متصل کند. بعد از اتصال، فیش‌ها و مانده حساب اینجا در دسترس است.
+          اگر مدیر شماره شما را از قبل نساخته باشد، از او بخواهید در «حساب
+          ساکنان» حساب را به واحدتان وصل کند. بعد از اتصال، فیش‌ها اینجا در
+          دسترس است.
         </p>
         <Link href="/" className="mb-5 block text-xs text-primary">
           بررسی دوباره اتصال واحد

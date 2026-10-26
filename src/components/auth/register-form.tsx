@@ -7,46 +7,38 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authClient } from "@/lib/auth-client";
-import { linkFirstManager } from "@/lib/actions/building";
+import { Select } from "@/components/ui/select";
+import { registerWithPhone } from "@/lib/actions/resident-accounts";
 
-export function RegisterForm({ isFirstUser }: { isFirstUser: boolean }) {
+export function RegisterForm({
+  isFirstUser,
+  units,
+}: {
+  isFirstUser: boolean;
+  units: { id: string; label: string }[];
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLoading(true);
-    const form = new FormData(e.currentTarget);
-    const name = String(form.get("name"));
-    const email = String(form.get("email"));
-    const password = String(form.get("password"));
-
-    try {
-      const { data, error } = await authClient.signUp.email({
-        email,
-        password,
-        name,
-      });
-      if (error || !data?.user) {
-        setLoading(false);
-        toast.error("ثبت‌نام انجام نشد. شاید این ایمیل قبلاً ثبت شده باشد.");
-        return;
-      }
-
-      if (isFirstUser) {
-        await linkFirstManager(data.user.id);
-      }
-
-      setLoading(false);
-      toast.success("حساب ساخته شد.");
-      router.push("/");
-      router.refresh();
-    } catch {
-      toast.error("ثبت‌نام کامل نشد. ارتباط با سامانه را بررسی کنید.");
-    } finally {
-      setLoading(false);
+    const form = new FormData(event.currentTarget);
+    const result = await registerWithPhone({
+      phone: String(form.get("phone") ?? ""),
+      password: String(form.get("password") ?? ""),
+      firstName: String(form.get("firstName") ?? ""),
+      lastName: String(form.get("lastName") ?? ""),
+      unitId: String(form.get("unitId") ?? ""),
+    });
+    setLoading(false);
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
     }
+    toast.success("حساب ساخته شد.");
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -55,18 +47,27 @@ export function RegisterForm({ isFirstUser }: { isFirstUser: boolean }) {
       onSubmit={onSubmit}
       className="flex w-full max-w-sm flex-col gap-4"
     >
-      <div className="space-y-2">
-        <Label htmlFor="name">نام</Label>
-        <Input id="name" name="name" required autoComplete="name" />
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="firstName">نام</Label>
+          <Input id="firstName" name="firstName" autoComplete="given-name" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="lastName">نام خانوادگی</Label>
+          <Input id="lastName" name="lastName" autoComplete="family-name" />
+        </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="email">ایمیل</Label>
+        <Label htmlFor="phone">شماره تلفن</Label>
         <Input
-          id="email"
-          name="email"
-          type="email"
+          id="phone"
+          name="phone"
+          type="tel"
+          inputMode="tel"
+          dir="ltr"
           required
-          autoComplete="email"
+          autoComplete="tel"
+          placeholder="۰۹۱۲۳۴۵۶۷۸۹"
         />
       </div>
       <div className="space-y-2">
@@ -80,6 +81,23 @@ export function RegisterForm({ isFirstUser }: { isFirstUser: boolean }) {
           autoComplete="new-password"
         />
       </div>
+      {!isFirstUser && units.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="unitId">واحد</Label>
+          <Select id="unitId" name="unitId">
+            <option value="">بعداً توسط مدیر</option>
+            {units.map((item) => (
+              <option key={item.id} value={item.id}>
+                واحد {item.label}
+              </option>
+            ))}
+          </Select>
+          <p className="text-[11px] leading-6 text-muted-foreground">
+            اگر مدیر این شماره را از قبل ساخته باشد، انتخاب واحد به همان حساب
+            وصل می‌شود.
+          </p>
+        </div>
+      )}
       <Button type="submit" disabled={loading} className="w-full">
         {loading
           ? "در حال ساخت حساب..."

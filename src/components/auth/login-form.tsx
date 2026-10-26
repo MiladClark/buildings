@@ -8,17 +8,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import { loginToEmail } from "@/lib/auth/phone";
 
 export function LoginForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setLoading(true);
-    const form = new FormData(e.currentTarget);
-    const email = String(form.get("email")).trim().toLowerCase();
+    const form = new FormData(event.currentTarget);
     const password = String(form.get("password"));
+    let email = "";
+    try {
+      email = loginToEmail(String(form.get("identifier") ?? ""));
+    } catch (error) {
+      setLoading(false);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "شماره تلفن را به صورت ۰۹۱۲۳۴۵۶۷۸۹ وارد کنید.",
+      );
+      return;
+    }
 
     try {
       const { error } = await authClient.signIn.email({ email, password });
@@ -26,7 +38,7 @@ export function LoginForm() {
         toast.error(
           error.status === 403
             ? "آدرس ورود معتبر نیست؛ صفحه را بازخوانی کنید و دوباره وارد شوید."
-            : "ورود ناموفق بود. ایمیل یا رمز را بررسی کنید.",
+            : "ورود ناموفق بود. شماره یا رمز را بررسی کنید.",
         );
         return;
       }
@@ -46,13 +58,15 @@ export function LoginForm() {
       className="flex w-full max-w-sm flex-col gap-4"
     >
       <div className="space-y-2">
-        <Label htmlFor="email">ایمیل</Label>
+        <Label htmlFor="identifier">شماره تلفن یا ایمیل</Label>
         <Input
-          id="email"
-          name="email"
-          type="email"
+          id="identifier"
+          name="identifier"
+          type="text"
+          dir="ltr"
           required
-          autoComplete="email"
+          autoComplete="username"
+          placeholder="۰۹۱۲۳۴۵۶۷۸۹"
         />
       </div>
       <div className="space-y-2">
