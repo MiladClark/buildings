@@ -41,11 +41,18 @@ export default async function PaymentsPage({
             : "تسویه‌شده",
   }));
   const receipts = data.payments.map(({ payment: p, unit: u }) => {
+    const standalone = data.standaloneExpenses.find(
+      (c) => c.id === p.standaloneExpenseId,
+    );
+    const held = !!standalone && !standalone.linkedExpenseId;
     const applied = data.applications
       .filter((a) => a.paymentId === p.id)
       .reduce((s, a) => s + a.amountRial, 0);
     return {
       id: p.id,
+      standaloneExpenseId: p.standaloneExpenseId,
+      standaloneTitle: standalone?.description,
+      kind: p.kind,
       unitId: p.unitId,
       periodId: p.periodId,
       categoryId: p.categoryId,
@@ -56,13 +63,17 @@ export default async function PaymentsPage({
       date: p.paidAt.toISOString(),
       method: p.method,
       note: p.note || "",
-      purpose: p.categoryId
-        ? `${data.categories.find((c) => c.id === p.categoryId)?.name ?? "هزینه"} · ${data.periods.find((r) => r.id === p.periodId)?.title ?? "دوره حذف‌شده"}`
-        : "واریز عمومی",
+      purpose: standalone
+        ? `${standalone.description} · ${held ? "مستقل" : "منتقل‌شده به دوره"}${p.kind === "advance" ? " · طلب واحد" : ""}`
+        : p.categoryId
+          ? `${data.categories.find((c) => c.id === p.categoryId)?.name ?? "هزینه"} · ${data.periods.find((r) => r.id === p.periodId)?.title ?? "دوره حذف‌شده"}`
+          : "واریز عمومی",
       applied: p.allocationTracked ? formatToman(applied) : "طبق تسویه قبلی",
-      credit: p.allocationTracked
-        ? formatToman(p.amountRial - applied)
-        : "در حساب واحد",
+      credit: held
+        ? `محفوظ بابت هزینه مستقل: ${formatToman(p.amountRial)}`
+        : p.allocationTracked
+          ? formatToman(p.amountRial - applied)
+          : "در حساب واحد",
     };
   });
   return (
@@ -91,6 +102,9 @@ export default async function PaymentsPage({
             units={data.units
               .filter((u) => !u.deletedAt)
               .map((u) => ({ id: u.id, label: u.label }))}
+            standaloneCosts={data.standaloneExpenses
+              .filter((c) => !c.deletedAt && !c.linkedExpenseId)
+              .map((c) => ({ id: c.id, description: c.description }))}
             shares={shares}
             today={isoDate(new Date())}
           />
@@ -100,14 +114,16 @@ export default async function PaymentsPage({
         {[
           {
             label: "کل دریافت‌های ثبت‌شده",
-            value: data.payments.reduce((s, p) => s + p.payment.amountRial, 0),
+            value: data.payments
+              .filter((p) => p.payment.kind !== "advance")
+              .reduce((s, p) => s + p.payment.amountRial, 0),
           },
           {
             label: "بستانکاری قابل استفاده",
             value: accounts.reduce((s, a) => s + a.creditRial, 0),
           },
           {
-            label: "پیش‌پرداخت هزینه‌های پیش‌نویس",
+            label: "مبالغ محفوظ مستقل و پیش‌نویس",
             value: accounts.reduce((s, a) => s + a.reservedRial, 0),
           },
         ].map((s) => (
@@ -120,6 +136,9 @@ export default async function PaymentsPage({
         ))}
       </div>
       <UnitAccounts
+        standaloneCosts={data.standaloneExpenses
+          .filter((c) => !c.deletedAt && !c.linkedExpenseId)
+          .map((c) => ({ id: c.id, description: c.description }))}
         shares={shares}
         accounts={accounts}
         receipts={receipts}

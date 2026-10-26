@@ -6,6 +6,7 @@ import { requireChatContext } from "@/lib/chat";
 import { readChatImage } from "@/lib/chat-images";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: Request,

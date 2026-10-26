@@ -1,11 +1,9 @@
 "use client";
+import { RowActions } from "@/components/ui/row-actions";
 import { Select } from "@/components/ui/select";
 
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { DataGrid } from "./data-grid";
-import { ActionButton } from "./forms";
 import { releaseCostSettlement } from "@/lib/actions/management";
 import { settleCostFromCredit } from "@/lib/actions/building";
 import type { CostShare } from "@/lib/billing/settlement-state";
@@ -95,49 +93,48 @@ export function CostSettlements({
           resident
             ? undefined
             : (r) => (
-                <div className="flex gap-1">
-                  {r.categoryId &&
+                <RowActions
+                  items={[
+                    ...(r.categoryId &&
                     r.balanceRial > 0 &&
-                    !units.find((u) => u.id === r.unitId)?.deletedAt && (
-                      <Button asChild variant="outline" size="sm">
-                        <Link
-                          href={`/manager/payments?new=1&unit=${r.unitId}&period=${r.periodId}&category=${r.categoryId}`}
-                        >
-                          ثبت واریز
-                        </Link>
-                      </Button>
-                    )}
-                  {r.balanceRial > 0 && r.credit > 0 ? (
-                    <ActionButton
-                      variant="outline"
-                      action={() =>
-                        settleCostFromCredit({
-                          unitId: r.unitId,
-                          periodId: r.periodId,
-                          categoryId: r.categoryId,
-                        })
-                      }
-                      confirm={`تا ${formatToman(Math.min(r.balanceRial, r.credit))} از بستانکاری ${r.unitLabel} بابت ${r.title} استفاده شود؟ دریافت جدیدی ثبت نمی‌شود.`}
-                    >
-                      از بستانکاری
-                    </ActionButton>
-                  ) : null}
-                  {r.paidRial > 0 && (
-                    <ActionButton
-                      variant="ghost"
-                      action={() =>
-                        releaseCostSettlement({
-                          unitId: r.unitId,
-                          periodId: r.periodId,
-                          categoryId: r.categoryId,
-                        })
-                      }
-                      confirm={`تسویه ${r.title} برای ${r.unitLabel} برگشت بخورد؟ ${formatToman(r.paidRial)} بستانکاری می‌شود؛ واریز واقعی حذف نمی‌شود و می‌توانید آن را به هزینه درست اختصاص دهید.`}
-                    >
-                      برگشت تسویه
-                    </ActionButton>
-                  )}
-                </div>
+                    !units.find((u) => u.id === r.unitId)?.deletedAt
+                      ? [
+                          {
+                            label: "ثبت واریز",
+                            href: `/manager/payments?new=1&unit=${r.unitId}&period=${r.periodId}&category=${r.categoryId}`,
+                          },
+                        ]
+                      : []),
+                    ...(r.balanceRial > 0 && r.credit > 0
+                      ? [
+                          {
+                            label: "از بستانکاری",
+                            action: () =>
+                              settleCostFromCredit({
+                                unitId: r.unitId,
+                                periodId: r.periodId,
+                                categoryId: r.categoryId,
+                              }),
+                            confirm: `تا ${formatToman(Math.min(r.balanceRial, r.credit))} از بستانکاری ${r.unitLabel} بابت ${r.title} استفاده شود؟ دریافت جدیدی ثبت نمی‌شود.`,
+                          },
+                        ]
+                      : []),
+                    ...(r.paidRial > 0
+                      ? [
+                          {
+                            label: "برگشت تسویه",
+                            action: () =>
+                              releaseCostSettlement({
+                                unitId: r.unitId,
+                                periodId: r.periodId,
+                                categoryId: r.categoryId,
+                              }),
+                            confirm: `تسویه ${r.title} برای ${r.unitLabel} برگشت بخورد؟ ${formatToman(r.paidRial)} بستانکاری می‌شود؛ واریز واقعی حذف نمی‌شود و می‌توانید آن را به هزینه درست اختصاص دهید.`,
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
               )
         }
       />

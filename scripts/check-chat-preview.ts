@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const base = "http://127.0.0.1:3301";
+const base = process.env.APP_URL || "http://127.0.0.1:3300";
 
 async function login(email: string) {
   const response = await fetch(`${base}/api/auth/sign-in/email`, {

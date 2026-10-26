@@ -27,6 +27,8 @@ export function ReceiptForm({
   defaultPurpose,
   lockUnit = false,
   onSaved,
+  standaloneCosts = [],
+  defaultStandaloneId,
 }: {
   units: { id: string; label: string }[];
   shares: CostShare[];
@@ -36,6 +38,8 @@ export function ReceiptForm({
   defaultPurpose?: { periodId: string; categoryId: string };
   lockUnit?: boolean;
   onSaved?: () => void;
+  standaloneCosts?: { id: string; description: string }[];
+  defaultStandaloneId?: string;
   initial?: {
     id: string;
     unitId: string;
@@ -45,6 +49,9 @@ export function ReceiptForm({
     paidAt: string;
     method: string;
     note: string;
+    standaloneExpenseId?: string | null;
+    standaloneTitle?: string;
+    kind?: "receipt" | "advance";
     applications: {
       unitId: string;
       periodId: string;
@@ -62,15 +69,39 @@ export function ReceiptForm({
           : ""),
   );
   const [purpose, setPurpose] = useState(
-    initial
-      ? initial.categoryId
-        ? JSON.stringify([initial.periodId, initial.categoryId])
-        : "general"
-      : defaultPurpose
-        ? JSON.stringify([defaultPurpose.periodId, defaultPurpose.categoryId])
-        : "",
+    initial?.standaloneExpenseId
+      ? `standalone:${initial.standaloneExpenseId}`
+      : defaultStandaloneId
+        ? `standalone:${defaultStandaloneId}`
+        : initial
+          ? initial.categoryId
+            ? JSON.stringify([initial.periodId, initial.categoryId])
+            : "general"
+          : defaultPurpose
+            ? JSON.stringify([
+                defaultPurpose.periodId,
+                defaultPurpose.categoryId,
+              ])
+            : "",
   );
   const [amount, setAmount] = useState(initial?.amountRial ?? 0);
+  const [kind, setKind] = useState<"receipt" | "advance">(
+    initial?.kind ?? "receipt",
+  );
+  const separateOptions =
+    initial?.standaloneExpenseId &&
+    !standaloneCosts.some((c) => c.id === initial.standaloneExpenseId)
+      ? [
+          ...standaloneCosts,
+          {
+            id: initial.standaloneExpenseId,
+            description: initial.standaloneTitle ?? "هزینه مستقل قبلی",
+          },
+        ]
+      : standaloneCosts;
+  const chosenStandalone = separateOptions.find(
+    (c) => `standalone:${c.id}` === purpose,
+  );
   const submission = useRef({ payload: "", key: "" });
   const adjustedShares = shares.map((s) => {
     const removed =
@@ -107,7 +138,7 @@ export function ReceiptForm({
             : "واریز ثبت و سهم هزینه به‌روز شد."
       }
       action={async (f) => {
-        if (!purpose || (purpose !== "general" && !chosen))
+        if (!purpose || (purpose !== "general" && !chosen && !chosenStandalone))
           throw new Error(
             "هزینه انتخاب‌شده تغییر کرده است؛ موضوع پرداخت را دوباره انتخاب کنید.",
           );
@@ -121,6 +152,8 @@ export function ReceiptForm({
         else {
           const data = {
             ...common,
+            standaloneExpenseId: chosenStandalone?.id,
+            kind: chosenStandalone ? kind : ("receipt" as const),
             unitId,
             method: String(f.get("method")) as
               "bank_transfer" | "cash" | "other",
@@ -154,7 +187,9 @@ export function ReceiptForm({
             value={unitId}
             onValueChange={(value) => {
               setUnitId(value);
-              setPurpose("");
+              const source =
+                initial?.standaloneExpenseId ?? defaultStandaloneId;
+              setPurpose(source ? `standalone:${source}` : "");
             }}
             required
           >
@@ -176,12 +211,20 @@ export function ReceiptForm({
           value={purpose}
           onValueChange={(value) => setPurpose(value)}
           required
-          disabled={!unitId}
+          disabled={
+            !unitId || !!initial?.standaloneExpenseId || !!defaultStandaloneId
+          }
         >
           <option value="" disabled>
             موضوع واریز را انتخاب کنید
           </option>
           <option value="general">واریز عمومی به حساب واحد</option>
+          {!resident &&
+            separateOptions.map((c) => (
+              <option key={c.id} value={`standalone:${c.id}`}>
+                {c.description} · هزینه مستقل
+              </option>
+            ))}
           {costs.map((s) => (
             <option
               key={JSON.stringify([s.periodId, s.categoryId])}
@@ -196,6 +239,29 @@ export function ReceiptForm({
           ))}
         </Select>
       </div>
+      {!resident && chosenStandalone && (
+        <>
+          <div className="form-field col-span-full">
+            <label htmlFor="receipt-kind">نوع ثبت</label>
+            <Select
+              id="receipt-kind"
+              value={kind}
+              onValueChange={(v) => setKind(v as "receipt" | "advance")}
+            >
+              <option value="receipt">واریز به مدیر بابت این هزینه</option>
+              <option value="advance">پرداخت مستقیم از جیب این واحد</option>
+            </Select>
+          </div>
+          <p className="col-span-full rounded-lg bg-secondary p-3 text-xs leading-7 text-muted-foreground">
+            {kind === "advance"
+              ? "این مبلغ طلب واحد از ساختمان است، نه پول واریزشده به صندوق. مبلغی را بنویسید که واحد به فروشنده یا مجری داده است."
+              : "مبلغی را بنویسید که از این واحد دریافت کرده‌اید؛ این ثبت، پرداخت به فروشنده محسوب نمی‌شود."}{" "}
+            تا وقتی هزینه به دوره منتقل نشود، مبلغ برای همین هزینه محفوظ می‌ماند
+            و شارژ دیگری را تسویه نمی‌کند. پس از انتقال، مازاد سهم به بستانکاری
+            آزاد تبدیل می‌شود.
+          </p>
+        </>
+      )}
       {chosen && (
         <div className="col-span-full rounded-xl border border-border bg-secondary/40 p-4 text-xs leading-7">
           <p className="font-medium">
@@ -215,7 +281,11 @@ export function ReceiptForm({
         </div>
       )}
       <div className="form-field">
-        <label htmlFor="receipt-amount">مبلغ واریز (تومان)</label>
+        <label htmlFor="receipt-amount">
+          {chosenStandalone && kind === "advance"
+            ? "مبلغ پرداخت مستقیم (تومان)"
+            : "مبلغ واریز (تومان)"}
+        </label>
         <MoneyInput
           id="receipt-amount"
           name="amountToman"
@@ -247,7 +317,11 @@ export function ReceiptForm({
           </div>
           <JalaliDateField
             name="paidAt"
-            label="تاریخ واریز"
+            label={
+              chosenStandalone && kind === "advance"
+                ? "تاریخ پرداخت مستقیم"
+                : "تاریخ واریز"
+            }
             defaultValue={
               initial?.paidAt ? isoDate(new Date(initial.paidAt)) : today
             }
@@ -302,7 +376,9 @@ export function ReceiptForm({
           ? "ثبت درخواست تأیید"
           : initial
             ? "ذخیره اصلاح واریز"
-            : "ثبت دریافت"}
+            : chosenStandalone && kind === "advance"
+              ? "ثبت پرداخت و طلب واحد"
+              : "ثبت دریافت"}
       </Button>
     </ActionForm>
   );

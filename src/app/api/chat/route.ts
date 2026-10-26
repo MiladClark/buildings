@@ -10,6 +10,8 @@ import { removeChatImage, saveChatImage } from "@/lib/chat-images";
 import { isSameOriginRequest } from "@/lib/request-security";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function errorResponse(error: unknown, fallback = "خطایی رخ داد.") {
   const message = error instanceof Error ? error.message : fallback;

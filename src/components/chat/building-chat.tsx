@@ -2,6 +2,8 @@
 "use client";
 
 import {
+  ArrowDown,
+  ArrowsClockwise,
   Check,
   ChatCircleDots,
   ImageSquare,
@@ -22,7 +24,8 @@ const timeFormatter = new Intl.DateTimeFormat("fa-IR", {
   hour: "2-digit",
   minute: "2-digit",
 });
-const dayFormatter = new Intl.DateTimeFormat("fa-IR", {
+
+const dayFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   timeZone: "Asia/Tehran",
   weekday: "long",
   day: "numeric",
@@ -30,7 +33,23 @@ const dayFormatter = new Intl.DateTimeFormat("fa-IR", {
 });
 
 function messageDay(value: string) {
-  return dayFormatter.format(new Date(value));
+  try {
+    const d = new Date(value);
+    const now = new Date();
+    const dStr = d.toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" });
+    const nowStr = now.toLocaleDateString("fa-IR", { timeZone: "Asia/Tehran" });
+    if (dStr === nowStr) return "امروز";
+
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const yStr = yesterday.toLocaleDateString("fa-IR", {
+      timeZone: "Asia/Tehran",
+    });
+    if (dStr === yStr) return "دیروز";
+
+    return dayFormatter.format(d);
+  } catch {
+    return "";
+  }
 }
 
 async function responseError(response: Response, fallback: string) {
@@ -42,25 +61,40 @@ async function responseError(response: Response, fallback: string) {
     : fallback;
 }
 
-export function BuildingChat({ buildingName }: { buildingName: string }) {
-  const [messages, setMessages] = useState<ChatMessageView[]>([]);
+export function BuildingChat({
+  buildingName,
+  initialMessages,
+}: {
+  buildingName: string;
+  initialMessages?: ChatMessageView[];
+}) {
+  const [messages, setMessages] = useState<ChatMessageView[]>(
+    initialMessages ?? [],
+  );
   const [body, setBody] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialMessages);
+  const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(
+    initialMessages ? new Date() : null,
+  );
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
   const listRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imagePreviewRef = useRef<string | null>(null);
   const followLatest = useRef(true);
-  const initialized = useRef(false);
+  const initialized = useRef(Boolean(initialMessages?.length));
 
   const loadMessages = useCallback(async (quiet = false) => {
+    if (!quiet) setRefreshing(true);
     try {
       const response = await fetch("/api/chat", {
         cache: "no-store",
@@ -70,20 +104,34 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
       const payload = (await response.json()) as {
         messages: ChatMessageView[];
       };
-      setMessages(payload.messages);
+
+      setMessages((prev) => {
+        if (
+          prev.length === payload.messages.length &&
+          prev.every(
+            (m, i) =>
+              m.id === payload.messages[i]?.id &&
+              m.editedAt === payload.messages[i]?.editedAt,
+          )
+        ) {
+          return prev;
+        }
+        return payload.messages;
+      });
       setLastUpdated(new Date());
     } catch {
-      if (!quiet) toast.error("گفتگو دریافت نشد. دوباره تلاش کنید.");
+      if (!quiet) toast.error("گفتگو دریافت نشد. لطفاً اتصال را بررسی کنید.");
     } finally {
-      if (!quiet) setLoading(false);
+      if (!quiet) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    const initialLoad = window.setTimeout(() => void loadMessages(), 0);
     const interval = window.setInterval(() => void loadMessages(true), 5_000);
     return () => {
-      window.clearTimeout(initialLoad);
       window.clearInterval(interval);
     };
   }, [loadMessages]);
@@ -103,6 +151,24 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
     }
   }, [messages]);
 
+  function scrollToBottom() {
+    if (listRef.current) {
+      listRef.current.scrollTo({
+        top: listRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+      followLatest.current = true;
+      setShowScrollBottom(false);
+    }
+  }
+
+  function handleScroll(element: HTMLDivElement) {
+    const isNearBottom =
+      element.scrollHeight - element.scrollTop - element.clientHeight < 120;
+    followLatest.current = isNearBottom;
+    setShowScrollBottom(!isNearBottom);
+  }
+
   function selectImage(selected: File | null) {
     if (imagePreviewRef.current) {
       URL.revokeObjectURL(imagePreviewRef.current);
@@ -113,23 +179,50 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
     setImagePreview(preview);
   }
 
-  async function sendMessage(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if ((!body.trim() && !image) || sending) return;
+  function handleBodyChange(value: string) {
+    setBody(value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+    }
+  }
+
+  async function sendMessage(event?: React.FormEvent<HTMLFormElement>) {
+    if (event) event.preventDefault();
+    const cleanBody = body.trim();
+    if ((!cleanBody && !image) || sending) return;
+
     setSending(true);
     try {
       const form = new FormData();
-      form.set("body", body.trim());
+      form.set("body", cleanBody);
       if (image) form.set("image", image);
+
       const response = await fetch("/api/chat", { method: "POST", body: form });
       if (!response.ok) {
         throw new Error(await responseError(response, "پیام ارسال نشد."));
       }
+
+      const payload = (await response.json()) as { message?: ChatMessageView };
+
       setBody("");
       selectImage(null);
       if (fileRef.current) fileRef.current.value = "";
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+
+      if (payload?.message) {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === payload.message!.id)) return prev;
+          return [...prev, payload.message!];
+        });
+      }
+
       followLatest.current = true;
-      await loadMessages(true);
+      if (listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight;
+      }
+
+      void loadMessages(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "پیام ارسال نشد.");
     } finally {
@@ -159,7 +252,14 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
         throw new Error(await responseError(response, "پیام ویرایش نشد."));
       }
       setEditingId(null);
-      await loadMessages(true);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? { ...m, body: nextBody, editedAt: new Date().toISOString() }
+            : m,
+        ),
+      );
+      void loadMessages(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "پیام ویرایش نشد.");
     } finally {
@@ -177,7 +277,8 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
       if (!response.ok) {
         throw new Error(await responseError(response, "پیام حذف نشد."));
       }
-      await loadMessages(true);
+      setMessages((prev) => prev.filter((m) => m.id !== message.id));
+      void loadMessages(true);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "پیام حذف نشد.");
     } finally {
@@ -186,163 +287,243 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
   }
 
   return (
-    <section className="panel overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
+    <section className="panel relative overflow-hidden border border-border shadow-xs">
+      {/* Header */}
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/90 px-4 py-3.5 backdrop-blur-xs sm:px-6">
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <ChatCircleDots size={22} weight="duotone" />
           </span>
           <div>
-            <h2 className="text-sm font-bold">گفتگوی {buildingName}</h2>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              پیام‌ها برای همه اعضای ساختمان قابل مشاهده است
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-foreground">
+                گفتگوی {buildingName}
+              </h2>
+              <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                <span className="size-1.5 rounded-full bg-primary" />
+                آنلاین
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              فضای تعامل، اطلاع‌رسانی و هماهنگی عمومی ساکنان و مدیریت
             </p>
           </div>
         </div>
-        <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
-          <span className="size-1.5 rounded-full bg-primary" />
-          {lastUpdated
-            ? `به‌روز تا ${timeFormatter.format(lastUpdated)}`
-            : "در حال همگام‌سازی"}
-        </span>
+
+        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span>
+            {lastUpdated
+              ? `به‌روز تا ${timeFormatter.format(lastUpdated)}`
+              : "در حال اتصال"}
+          </span>
+          <button
+            type="button"
+            onClick={() => void loadMessages(false)}
+            disabled={refreshing}
+            className="flex size-7 items-center justify-center rounded-lg border border-border/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+            title="به‌روزرسانی پیام‌ها"
+            aria-label="به‌روزرسانی پیام‌ها"
+          >
+            <ArrowsClockwise
+              size={13}
+              className={refreshing ? "animate-spin text-primary" : ""}
+            />
+          </button>
+        </div>
       </header>
 
+      {/* Messages Scroll Area */}
       <div
         ref={listRef}
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          followLatest.current =
-            element.scrollHeight - element.scrollTop - element.clientHeight <
-            100;
-        }}
-        className="h-[42dvh] min-h-[320px] overflow-y-auto bg-muted/30 px-3 py-5 sm:h-[min(62dvh,640px)] sm:min-h-[420px] sm:px-6"
+        onScroll={(e) => handleScroll(e.currentTarget)}
+        className="h-[46dvh] min-h-[340px] overflow-y-auto bg-muted/20 px-3 py-5 sm:h-[min(60dvh,620px)] sm:min-h-[420px] sm:px-6"
         aria-live="polite"
         aria-label="پیام‌های گروه ساختمان"
       >
         {loading ? (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-            <SpinnerGap className="me-2 animate-spin" size={18} />
-            در حال دریافت گفتگو...
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+            <SpinnerGap className="animate-spin text-primary" size={24} />
+            <span>در حال بارگذاری گفتگو...</span>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-secondary text-primary">
+            <span className="mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <ChatCircleDots size={30} weight="duotone" />
             </span>
-            <p className="text-sm font-semibold">هنوز پیامی ثبت نشده است</p>
-            <p className="mt-2 max-w-sm text-xs leading-7 text-muted-foreground">
-              اولین پیام را بفرستید؛ اطلاع‌رسانی‌های عمومی و هماهنگی همسایه‌ها
-              می‌تواند همین‌جا انجام شود.
+            <p className="text-sm font-semibold text-foreground">
+              هنوز پیامی ثبت نشده است
+            </p>
+            <p className="mt-1.5 max-w-sm text-xs leading-6 text-muted-foreground">
+              نخستین پیام را ارسال کنید. هماهنگی‌های ساختمان، اعلانات شارژ و
+              نظافت در این گفتگو به اشتراک گذاشته می‌شود.
             </p>
           </div>
         ) : (
           messages.map((message, index) => {
             const previous = messages[index - 1];
-            const showDay =
-              !previous ||
-              messageDay(previous.createdAt) !== messageDay(message.createdAt);
+            const currentDayLabel = messageDay(message.createdAt);
+            const prevDayLabel = previous
+              ? messageDay(previous.createdAt)
+              : null;
+            const showDay = !previous || currentDayLabel !== prevDayLabel;
+
             return (
               <div key={message.id}>
-                {showDay && (
-                  <div className="my-5 flex items-center gap-3 text-[10px] text-muted-foreground">
+                {showDay && currentDayLabel && (
+                  <div className="my-5 flex items-center justify-center gap-3">
                     <span className="h-px flex-1 bg-border" />
-                    {messageDay(message.createdAt)}
+                    <span className="rounded-full bg-muted px-3 py-0.5 text-[10px] font-medium text-muted-foreground shadow-2xs">
+                      {currentDayLabel}
+                    </span>
                     <span className="h-px flex-1 bg-border" />
                   </div>
                 )}
+
                 <article
-                  className={`mb-3 flex items-end gap-2 ${message.isOwn ? "flex-row-reverse" : ""}`}
+                  className={`mb-3.5 flex items-end gap-2.5 ${
+                    message.isOwn ? "flex-row-reverse" : "flex-row"
+                  }`}
                 >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-card text-[11px] font-bold text-primary shadow-sm ring-1 ring-border">
+                  {/* Avatar */}
+                  <span
+                    className={`flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-2xs ring-1 ${
+                      message.isOwn
+                        ? "bg-primary text-primary-foreground ring-primary/30"
+                        : "bg-card text-foreground ring-border"
+                    }`}
+                  >
                     {message.authorName.slice(0, 1)}
                   </span>
+
+                  {/* Bubble Container */}
                   <div
-                    className={`group max-w-[86%] sm:max-w-[72%] ${message.isOwn ? "items-end" : "items-start"}`}
+                    className={`group flex max-w-[85%] flex-col sm:max-w-[70%] ${
+                      message.isOwn ? "items-start" : "items-start"
+                    }`}
                   >
-                    <div className="mb-1.5 flex flex-wrap items-center gap-2 px-1 text-[10px] text-muted-foreground">
+                    {/* Author Meta */}
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
                       <span className="font-medium text-foreground">
-                        {message.isOwn ? "شما" : message.authorName}
+                        {message.authorName}
                       </span>
                       {message.authorUnit && (
-                        <span>واحد {message.authorUnit}</span>
-                      )}
-                      {message.authorRole === "manager" && (
-                        <span className="rounded bg-secondary px-1.5 py-0.5 text-primary">
-                          مدیر
+                        <span className="rounded bg-muted px-1.5 py-0.2 text-[9px] text-muted-foreground">
+                          واحد {message.authorUnit}
                         </span>
                       )}
                     </div>
+
+                    {/* Bubble Content */}
                     <div
-                      className={`rounded-2xl border p-3 shadow-sm ${message.isOwn ? "rounded-bl-md border-primary/20 bg-secondary" : "rounded-br-md border-border bg-card"}`}
+                      className={`relative w-fit max-w-full rounded-2xl border p-3 shadow-2xs transition-all ${
+                        message.isOwn
+                          ? "rounded-bl-xs border-primary/20 bg-secondary/85 text-foreground"
+                          : "rounded-br-xs border-border bg-card text-foreground"
+                      }`}
                     >
+                      {/* Attached Image */}
                       {message.imageUrl && (
                         <a
                           href={message.imageUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="mb-3 block overflow-hidden rounded-xl bg-muted"
+                          className="mb-2 block overflow-hidden rounded-xl bg-muted ring-1 ring-border transition-opacity hover:opacity-95"
+                          title="نمایش تصویر در ابعاد کامل"
                         >
                           <img
                             src={message.imageUrl}
-                            alt={message.imageName || "تصویر پیام"}
-                            className="max-h-80 w-full object-contain"
+                            alt={message.imageName || "تصویر ضمیمه"}
+                            className="max-h-72 w-full object-contain"
+                            onLoad={() => {
+                              if (followLatest.current && listRef.current) {
+                                listRef.current.scrollTop =
+                                  listRef.current.scrollHeight;
+                              }
+                            }}
                           />
                         </a>
                       )}
+
+                      {/* Message Body or Edit Field */}
                       {editingId === message.id ? (
-                        <div className="min-w-[240px] space-y-2">
+                        <div className="min-w-[240px] max-w-full space-y-2 pt-0.5 sm:min-w-[300px]">
                           <textarea
                             value={editBody}
-                            onChange={(event) =>
-                              setEditBody(event.target.value)
-                            }
-                            className="form-control form-textarea min-h-24 w-full bg-card text-xs"
+                            onChange={(e) => setEditBody(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                void saveEdit(message);
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                setEditingId(null);
+                              }
+                            }}
+                            autoFocus
+                            rows={3}
+                            className="form-control form-textarea w-full bg-background text-xs leading-relaxed"
                             maxLength={2_000}
                             aria-label="ویرایش متن پیام"
                           />
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setEditingId(null)}
-                            >
-                              انصراف
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => void saveEdit(message)}
-                              disabled={savingId === message.id}
-                            >
-                              <Check size={14} />
-                              ذخیره
-                            </Button>
+                          <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                            <span>Enter: ذخیره • Esc: انصراف</span>
+                            <div className="flex items-center gap-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => setEditingId(null)}
+                              >
+                                انصراف
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="h-7 px-2.5 text-xs"
+                                onClick={() => void saveEdit(message)}
+                                disabled={savingId === message.id}
+                              >
+                                {savingId === message.id ? (
+                                  <SpinnerGap
+                                    className="animate-spin"
+                                    size={13}
+                                  />
+                                ) : (
+                                  <Check size={13} weight="bold" />
+                                )}
+                                ذخیره
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ) : (
                         message.body && (
-                          <p className="whitespace-pre-wrap break-words text-xs leading-7">
+                          <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground select-text">
                             {message.body}
                           </p>
                         )
                       )}
-                      <div className="mt-2 flex items-center gap-2 text-[9px] text-muted-foreground">
+
+                      {/* Footer: Timestamp, Edit badge, Actions */}
+                      <div className="mt-1.5 flex items-center gap-2 text-[9px] text-muted-foreground">
                         <time dateTime={message.createdAt}>
                           {timeFormatter.format(new Date(message.createdAt))}
                         </time>
-                        {message.editedAt && <span>ویرایش‌شده</span>}
+                        {message.editedAt && <span>(ویرایش‌شده)</span>}
+
                         {editingId !== message.id &&
                           (message.canEdit || message.canDelete) && (
-                            <span className="ms-auto flex items-center gap-1">
+                            <span className="ms-auto flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
                               {message.canEdit && (
                                 <button
                                   type="button"
                                   onClick={() => beginEdit(message)}
-                                  className="rounded-md p-1.5 hover:bg-card hover:text-primary"
+                                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                  title="ویرایش پیام"
                                   aria-label="ویرایش پیام"
                                 >
-                                  <PencilSimple size={14} />
+                                  <PencilSimple size={13} />
                                 </button>
                               )}
                               {message.canDelete && (
@@ -350,16 +531,17 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
                                   type="button"
                                   onClick={() => void deleteMessage(message)}
                                   disabled={deletingId === message.id}
-                                  className="rounded-md p-1.5 hover:bg-card hover:text-destructive disabled:opacity-50"
+                                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                                  title="حذف پیام"
                                   aria-label="حذف پیام"
                                 >
                                   {deletingId === message.id ? (
                                     <SpinnerGap
                                       className="animate-spin"
-                                      size={14}
+                                      size={13}
                                     />
                                   ) : (
-                                    <Trash size={14} />
+                                    <Trash size={13} />
                                   )}
                                 </button>
                               )}
@@ -375,21 +557,38 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
         )}
       </div>
 
+      {/* Floating Scroll-to-bottom Button */}
+      {showScrollBottom && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className="absolute bottom-24 left-6 z-10 flex size-9 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-md transition-all hover:bg-muted active:scale-95"
+          title="رفتن به پیام‌های جدید"
+          aria-label="رفتن به پیام‌های جدید"
+        >
+          <ArrowDown size={16} weight="bold" />
+        </button>
+      )}
+
+      {/* Message Input Form */}
       <form
         onSubmit={sendMessage}
         className="border-t border-border bg-card p-3 sm:p-4"
       >
+        {/* Selected Image Preview */}
         {imagePreview && (
-          <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-muted/50 p-2">
+          <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-2">
             <img
               src={imagePreview}
               alt="پیش‌نمایش تصویر انتخابی"
-              className="size-16 rounded-lg object-cover"
+              className="size-14 rounded-lg object-cover ring-1 ring-border"
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium">{image?.name}</p>
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                تصویر پیش از ارسال بهینه می‌شود
+              <p className="truncate text-xs font-medium text-foreground">
+                {image?.name}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                تصویر بهینه شده و با فرمت WebP فشرده ارسال خواهد شد
               </p>
             </div>
             <button
@@ -398,14 +597,16 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
                 selectImage(null);
                 if (fileRef.current) fileRef.current.value = "";
               }}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-card hover:text-destructive"
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
               aria-label="حذف تصویر انتخابی"
             >
-              <X size={17} />
+              <X size={16} />
             </button>
           </div>
         )}
+
         <div className="flex items-end gap-2">
+          {/* File Input */}
           <input
             ref={fileRef}
             type="file"
@@ -422,47 +623,62 @@ export function BuildingChat({ buildingName }: { buildingName: string }) {
               selectImage(selected);
             }}
           />
+
           <label
             htmlFor="chat-image"
-            className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted hover:text-primary"
             aria-label="افزودن تصویر"
-            title="افزودن تصویر"
+            title="افزودن تصویر (حداکثر ۸ مگابایت)"
           >
-            <ImageSquare size={21} />
+            <ImageSquare size={20} />
           </label>
+
+          {/* Text Input */}
           <div className="min-w-0 flex-1">
             <textarea
+              ref={textareaRef}
               value={body}
-              onChange={(event) => setBody(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
+              onChange={(e) => handleBodyChange(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter without Shift sends immediately
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if ((body.trim() || image) && !sending) {
+                    void sendMessage();
+                  }
                 }
               }}
               maxLength={2_000}
               rows={1}
-              placeholder="پیام خود را بنویسید..."
+              placeholder="پیام خود را بنویسید... (Enter برای ارسال، Shift+Enter خط جدید)"
               aria-label="متن پیام"
-              className="form-control max-h-36 min-h-11 w-full resize-none bg-background py-2.5 text-xs"
+              className="form-control max-h-40 min-h-10 w-full resize-none bg-background py-2 px-3 text-xs leading-relaxed"
             />
           </div>
+
+          {/* Send Button */}
           <Button
             type="submit"
-            className="size-11 shrink-0 px-0"
+            className="size-10 shrink-0 p-0 shadow-2xs"
             disabled={sending || (!body.trim() && !image)}
             aria-label="ارسال پیام"
-            title="ارسال پیام"
+            title="ارسال پیام (Enter)"
           >
             {sending ? (
-              <SpinnerGap className="animate-spin" size={19} />
+              <SpinnerGap className="animate-spin" size={18} />
             ) : (
-              <PaperPlaneTilt size={19} weight="fill" />
+              <PaperPlaneTilt
+                size={18}
+                weight="fill"
+                className="-scale-x-100"
+              />
             )}
           </Button>
         </div>
-        <div className="mt-2 flex items-center justify-between px-1 text-[9px] text-muted-foreground">
-          <span>ارسال سریع: Ctrl + Enter</span>
+
+        {/* Shortcuts & Counter Footer */}
+        <div className="mt-2 flex items-center justify-between px-1 text-[10px] text-muted-foreground">
+          <span>ارسال: Enter • خط جدید: Shift + Enter</span>
           <span>{body.length.toLocaleString("fa-IR")} / ۲٬۰۰۰</span>
         </div>
       </form>

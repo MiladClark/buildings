@@ -1,14 +1,9 @@
 "use client";
-import { useId, useState } from "react";
-import {
-  Calculator,
-  PencilSimple,
-  SlidersHorizontal,
-} from "@phosphor-icons/react";
+import { useId } from "react";
+import { Calculator, PencilSimple } from "@phosphor-icons/react";
 import { ActionButton, ActionForm, FormModal } from "./forms";
 import { MoneyInput } from "./money-input";
 import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { FieldHint } from "@/components/ui/field-hint";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,21 +11,11 @@ import {
   tomanInputToRial,
   toPersianDigits as fa,
 } from "@/lib/format/money";
-import { formatJalaliDate } from "@/lib/format/jalali";
 import {
-  saveChargeBudget,
   saveManualMonthlyCharge,
+  saveSmartChargeSettings,
 } from "@/lib/actions/charge-plan";
-import type { BudgetMode } from "@/lib/billing/charge-plan";
 import type { PeriodChargePlanning } from "@/lib/queries/charge-plan";
-
-const modes: Record<BudgetMode, string> = {
-  monthly: "هزینه تکرارشونده ماهانه",
-  bill: "قبض با بازه چندماهه",
-  reserve: "ذخیره ماهانه تعمیرات",
-  separate: "جدا از شارژ پایه",
-  one_off: "خرید یا هزینه یک‌باره",
-};
 
 export function PeriodChargePlanningCards({
   periodId,
@@ -39,127 +24,170 @@ export function PeriodChargePlanningCards({
   periodId: string;
   plan: PeriodChargePlanning;
 }) {
-  const manualId = useId();
+  const prefix = useId();
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="grid items-stretch gap-4 lg:grid-cols-2">
         <section
           className="panel flex flex-col p-5 sm:p-6"
-          aria-label="شارژ پیشنهادی اپ"
+          aria-label="پیشنهاد شارژ پایه"
         >
           <div className="flex items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 text-sm font-semibold">
               <Calculator size={20} className="text-primary" />
-              شارژ پیشنهادی اپ
+              پیشنهاد شارژ پایه
             </h2>
-            <FieldHint label="شارژ پیشنهادی اپ">
-              برآورد ماهانه بر اساس میانگین هزینه‌ها و طول دوره قبض است. خرید
-              یک‌باره و آب نفرمحور وارد پایه نمی‌شوند. ذخیره تعمیرات مبلغی مستقل
-              و قابل تنظیم است.
+            <FieldHint label="پیشنهاد شارژ">
+              برآورد بودجه ماهانه است؛ آب در آن نیست. خریدها و تعمیرات به شکل
+              ذخیره سرشکن می‌شوند. ده درصد برای نوسان هزینه‌ها در نظر گرفته شده؛
+              پیشنهاد به‌خودی‌خود بدهی ایجاد نمی‌کند.
             </FieldHint>
           </div>
-          <p
-            className={`mt-5 text-2xl font-bold ${plan.complete ? "text-primary" : "text-muted-foreground"}`}
-          >
+          <p className="mt-5 text-2xl font-bold text-primary">
             {plan.complete
               ? formatToman(plan.suggestedMonthlyRial)
-              : "نیاز به تنظیم مبنا"}
+              : "هنوز داده کافی نیست"}
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            ماهانه برای هر واحد · تقسیم بین {fa(String(plan.unitCount))} واحد،
-            شامل واحدهای خالی و غایب
+            ماهانه برای هر واحد · {fa(String(plan.unitCount))} واحد، شامل خالی و
+            غایب
           </p>
-          {!plan.complete && (
-            <p className="mt-3 text-xs leading-6 text-[var(--warning)]">
-              {plan.unitCount === 0
-                ? "ابتدا واحدهای ساختمان را ثبت کنید."
-                : plan.missingCategories.length
-                  ? `بازه قبض یا ذخیره این موارد مشخص نیست: ${plan.missingCategories.join("، ")}`
-                  : "برای برآورد، هزینه تکرارشونده یا ذخیره ماهانه‌ای ثبت نشده است."}
-            </p>
-          )}
-          {plan.complete && (
-            <p className="mt-3 text-xs leading-6 text-muted-foreground">
-              {plan.preliminary ? "برآورد اولیه با سابقه محدود؛ " : ""}شامل{" "}
-              {fa(String(plan.bufferPercent))}٪ حاشیه نوسان هزینه‌ها
-            </p>
-          )}
-          <div className="mt-auto pt-5">
+          <div className="my-5 divide-y divide-border border-y border-border">
+            {plan.breakdown.map((row) => (
+              <div
+                key={row.key}
+                className="flex items-center justify-between gap-3 py-3 text-xs"
+              >
+                <span className="flex items-center gap-2">
+                  {row.name}
+                  <FieldHint label={row.name}>{fa(row.explanation)}</FieldHint>
+                </span>
+                <strong className="shrink-0 font-medium">
+                  {formatToman(row.monthlyRial)}
+                </strong>
+              </div>
+            ))}
+            <div className="flex items-center justify-between gap-3 py-3 text-xs text-muted-foreground">
+              <span>حاشیه نوسان ۱۰٪</span>
+              <span>
+                {formatToman(plan.withBufferRial - plan.monthlyBuildingRial)}
+              </span>
+            </div>
+          </div>
+          <p className="mb-4 text-xs leading-6 text-muted-foreground">
+            {plan.preliminary
+              ? "برآورد اولیه با سابقه محدود؛ "
+              : "میانگین بر اساس سوابق ثبت‌شده؛ "}
+            آب جداست، گاز اختصاصی وارد محاسبه نمی‌شود. ذخیره لوازم برای خرید
+            احتمالی آینده است.
+          </p>
+          <div className="mt-auto flex flex-wrap gap-2">
+            {plan.complete && (
+              <ActionButton
+                variant="outline"
+                action={() =>
+                  saveManualMonthlyCharge(periodId, plan.suggestedMonthlyRial)
+                }
+                confirm="مبلغ پیشنهادی به‌عنوان شارژ ماهانه این دوره ذخیره شود؟ هزینه‌های مشترک از محل همین شارژ تأمین می‌شوند؛ آب و هزینه فوق‌العاده جدا می‌مانند. دوره صادرشده برای اصلاح باز می‌شود."
+                success="مبلغ پیشنهادی برای این دوره ذخیره شد."
+              >
+                استفاده از پیشنهاد
+              </ActionButton>
+            )}
             <FormModal
-              title="مبنای محاسبه شارژ"
-              description="بازه واقعی قبض، هزینه‌های تکرارشونده و ذخیره تعمیرات را تنظیم کنید. این تنظیمات مبلغ هزینه‌های واقعی یا فیش‌ها را تغییر نمی‌دهند."
-              contentClassName="max-w-3xl"
+              title="برنامه نظافت"
+              description="فقط نرخ هر نوبت و فاصله معمول نظافت را مشخص کنید. این تنظیم هزینه واقعی ثبت نمی‌کند و مبلغ انتخاب‌شده شارژ را خودکار تغییر نمی‌دهد."
               trigger={
-                <Button variant="outline" size="sm">
-                  <SlidersHorizontal size={16} />
-                  تنظیم مبنای محاسبه
+                <Button variant="ghost" size="sm">
+                  تنظیم نظافت
                 </Button>
               }
             >
-              <BudgetSettings
-                key={JSON.stringify(plan)}
-                periodId={periodId}
-                plan={plan}
-              />
+              <ActionForm
+                className="space-y-5"
+                success="برآورد نظافت به‌روز شد."
+                action={async (f) =>
+                  saveSmartChargeSettings(periodId, {
+                    cleaningVisitRial: tomanInputToRial(f.get("visit")),
+                    cleaningEveryDays: Number(f.get("days")),
+                  })
+                }
+              >
+                <div className="form-field">
+                  <label htmlFor={`${prefix}-visit`}>
+                    دستمزد هر نوبت نظافتچی (تومان)
+                  </label>
+                  <MoneyInput
+                    id={`${prefix}-visit`}
+                    name="visit"
+                    defaultRial={plan.cleaningVisitRial ?? undefined}
+                    required
+                  />
+                </div>
+                <div className="form-field">
+                  <label htmlFor={`${prefix}-days`}>
+                    معمولاً هر چند روز یک‌بار؟
+                  </label>
+                  <Select
+                    id={`${prefix}-days`}
+                    name="days"
+                    defaultValue={String(plan.cleaningEveryDays)}
+                  >
+                    {[7, 14, 21, 30, 45, 60, 90].map((n) => (
+                      <option key={n} value={n}>
+                        هر {fa(String(n))} روز
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <Button type="submit">ذخیره برنامه نظافت</Button>
+              </ActionForm>
             </FormModal>
           </div>
         </section>
         <section
           className="panel flex flex-col p-5 sm:p-6"
-          aria-label="شارژ ثابت دستی"
+          aria-label="شارژ این دوره"
         >
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">شارژ ثابت دستی</h2>
-            <FieldHint label="شارژ ثابت دستی">
-              مبلغ ماهانه‌ای که مدیر برای هر واحد در نظر می‌گیرد. برای همین دوره
-              ذخیره می‌شود؛ به‌خودی‌خود بدهی یا هزینه تازه ایجاد نمی‌کند و از
-              حساب واحدها برداشت نمی‌شود.
+            <h2 className="text-sm font-semibold">شارژ این دوره</h2>
+            <FieldHint label="شارژ پایه">
+              بودجه مشترک ساختمان برای برق، نظافت، لوازم و تعمیرات است. این
+              هزینه‌ها دوباره به بدهی اضافه نمی‌شوند. آب بر اساس نفرات حاضر و
+              هزینه‌ای که صریحاً «دریافت جداگانه» انتخاب شود، جدا محاسبه می‌شود.
             </FieldHint>
           </div>
           <p className="mt-5 text-2xl font-bold">
-            {plan.manualMonthlyRial === null
+            {plan.manualMonthlyRial == null
               ? "تعیین نشده"
               : formatToman(plan.manualMonthlyRial)}
           </p>
           <p className="mt-2 text-xs leading-6 text-muted-foreground">
-            ماهانه برای هر واحد · مبلغ انتخابی مدیر برای این دوره
+            ماهانه برای هر واحد · مبلغ انتخابی مدیر
           </p>
-          {plan.manualMonthlyRial !== null && plan.periodMonths > 1 && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              برای دوره {fa(String(plan.periodMonths))}ماهه:{" "}
-              {formatToman(plan.manualMonthlyRial * plan.periodMonths)} برای هر
-              واحد
+          <div className="my-5 rounded-xl bg-muted/50 p-4 text-xs leading-7">
+            <p>برق مشترک، نظافت، آسانسور و لوازم از این شارژ تأمین می‌شوند.</p>
+            <p className="text-muted-foreground">
+              واحد خالی و غایب هم شارژ پایه می‌دهد؛ وقتی فرد حاضر ندارد، سهم آب
+              ندارد.
             </p>
-          )}
-          {plan.manualMonthlyRial !== null && plan.complete && (
-            <p
-              className={`mt-3 text-xs leading-6 ${plan.manualMonthlyRial < plan.suggestedMonthlyRial ? "text-[var(--warning)]" : "text-primary"}`}
-            >
-              {plan.manualMonthlyRial === plan.suggestedMonthlyRial ? (
-                "برابر با پیشنهاد ماهانه اپ"
-              ) : (
-                <>
-                  {formatToman(
-                    Math.abs(
-                      plan.manualMonthlyRial - plan.suggestedMonthlyRial,
-                    ),
-                  )}{" "}
-                  {plan.manualMonthlyRial < plan.suggestedMonthlyRial
-                    ? "کمتر"
-                    : "بیشتر"}{" "}
-                  از پیشنهاد ماهانه اپ
-                </>
-              )}
-            </p>
-          )}
-          <div className="mt-auto flex flex-wrap gap-2 pt-5">
+            {plan.periodMonths > 1 && plan.manualMonthlyRial != null && (
+              <p className="mt-2">
+                شارژ هر واحد در دوره {fa(String(plan.periodMonths))}ماهه:{" "}
+                <strong>
+                  {formatToman(plan.manualMonthlyRial * plan.periodMonths)}
+                </strong>
+              </p>
+            )}
+          </div>
+          <div className="mt-auto">
             <FormModal
-              title="تعیین شارژ ثابت دستی"
-              description="مبلغ ماهانه هر واحد را برای برنامه‌ریزی همین دوره ثبت کنید؛ این کار مبلغ فیش‌های فعلی را عوض نمی‌کند."
+              title="تعیین شارژ ماهانه"
+              description="با تعیین شارژ، هزینه‌های مشترک از همین مبلغ تأمین می‌شوند و دوباره به فیش اضافه نمی‌شوند. تغییر دوره صادرشده نیاز به صدور دوباره فیش دارد."
               trigger={
                 <Button variant="outline" size="sm">
                   <PencilSimple size={16} />
-                  {plan.manualMonthlyRial === null
+                  {plan.manualMonthlyRial == null
                     ? "تعیین مبلغ"
                     : "ویرایش مبلغ"}
                 </Button>
@@ -173,282 +201,71 @@ export function PeriodChargePlanningCards({
                     tomanInputToRial(f.get("manualToman")),
                   )
                 }
-                success="شارژ ثابت دستی این دوره ذخیره شد."
+                success="شارژ و حساب واحدها به‌روز شد."
               >
                 <div className="form-field">
-                  <label htmlFor={manualId}>شارژ ماهانه هر واحد (تومان)</label>
+                  <label htmlFor={`${prefix}-manual`}>
+                    شارژ ماهانه هر واحد (تومان)
+                  </label>
                   <MoneyInput
-                    id={manualId}
+                    id={`${prefix}-manual`}
                     name="manualToman"
                     defaultRial={plan.manualMonthlyRial ?? undefined}
-                    placeholder="مثلاً ۳۰۰٬۰۰۰"
                     required
                   />
                 </div>
-                <p className="text-xs leading-7 text-muted-foreground">
-                  آب طبق نفرات حاضر و هزینه‌های موردی طبق قواعد ساختمان جدا حساب
-                  می‌شوند. این مبلغ صرفاً بودجه پیشنهادی مدیر است.
-                </p>
-                <Button type="submit">ذخیره مبلغ ثابت</Button>
+                <Button type="submit">ذخیره مبلغ شارژ</Button>
               </ActionForm>
             </FormModal>
-            {plan.manualMonthlyRial !== null && (
-              <ActionButton
-                variant="ghost"
-                action={() => saveManualMonthlyCharge(periodId, null)}
-                success="مبلغ دستی پاک شد."
-              >
-                پاک کردن مبلغ
-              </ActionButton>
-            )}
           </div>
         </section>
       </div>
-      <p className="px-1 text-[11px] leading-7 text-muted-foreground">
-        این دو عدد برای برنامه‌ریزی ماهانه‌اند؛ مبلغ فیش‌ها از هزینه‌های ثبت‌شده
-        و قواعد تقسیم محاسبه می‌شود. قبض چندماهه در برآورد ماهانه سرشکن می‌شود و
-        خرید یک‌باره دوباره به شارژ ماه‌های بعد اضافه نمی‌شود.
-      </p>
+      {plan.fund && (
+        <section className="panel p-5 sm:p-6" aria-label="بودجه دوره">
+          <div className="mb-4 flex items-center gap-2">
+            <h2 className="text-sm font-semibold">بودجه دوره</h2>
+            <FieldHint label="بودجه دوره">
+              این اعداد بودجه و هزینه‌اند، موجودی نقدی حساب بانکی نیستند.
+              واریزهای واقعی و بستانکاری هر واحد در دریافت و پرداخت‌ها ثبت
+              می‌شوند. مانده بودجه متعلق به صندوق ساختمان است، نه بستانکاری شخصی
+              واحدها.
+            </FieldHint>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-muted-foreground">جمع شارژ واحدها</p>
+              <p className="mt-2 font-semibold">
+                {formatToman(plan.chargeTotalRial)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                هزینه‌های تأمین‌شده از شارژ
+              </p>
+              <p className="mt-2 font-semibold">
+                {formatToman(plan.coveredRial)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {plan.budgetRemainingRial < 0 ? "کسری بودجه" : "مانده بودجه"}
+              </p>
+              <p
+                className={`mt-2 font-semibold ${plan.budgetRemainingRial < 0 ? "text-destructive" : "text-primary"}`}
+              >
+                {formatToman(Math.abs(plan.budgetRemainingRial))}
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 border-t border-border pt-3 text-xs leading-6 text-muted-foreground">
+            جمع قابل مطالبه این دوره، با آب و هزینه‌های جداگانه:{" "}
+            <strong className="text-foreground">
+              {formatToman(plan.payableRial)}
+            </strong>
+            . مانده بودجه، موجودی نقدی بانک نیست.
+          </p>
+        </section>
+      )}
     </div>
-  );
-}
-
-function BudgetSettings({
-  periodId,
-  plan,
-}: {
-  periodId: string;
-  plan: PeriodChargePlanning;
-}) {
-  const [policies, setPolicies] = useState(
-    plan.breakdown.map((b) => ({ ...b.policy })),
-  );
-  const prefix = useId();
-  const setMode = (categoryId: string, mode: BudgetMode) =>
-    setPolicies((current) =>
-      current.map((p) => (p.categoryId === categoryId ? { ...p, mode } : p)),
-    );
-  return (
-    <ActionForm
-      className="space-y-6"
-      success="مبنای محاسبه ذخیره و پیشنهاد به‌روز شد."
-      action={async (f) => {
-        const optionalMonths = (value: FormDataEntryValue | null) =>
-          value && value !== "unknown" ? Number(value) : null;
-        await saveChargeBudget(periodId, {
-          bufferPercent: Number(f.get("buffer")),
-          roundToRial: Number(f.get("round")),
-          policies: policies.map((p) => ({
-            ...p,
-            intervalMonths:
-              p.mode === "bill"
-                ? optionalMonths(f.get(`interval-${p.categoryId}`))
-                : p.intervalMonths,
-            monthlyReserveRial:
-              p.mode === "reserve"
-                ? String(f.get(`reserve-${p.categoryId}`) ?? "").trim()
-                  ? tomanInputToRial(f.get(`reserve-${p.categoryId}`))
-                  : null
-                : p.monthlyReserveRial,
-          })),
-          coverage: plan.breakdown.flatMap((b) =>
-            policies.find((p) => p.categoryId === b.categoryId)?.mode === "bill"
-              ? b.expenses.map((e) => ({
-                  expenseId: e.id,
-                  months: optionalMonths(f.get(`coverage-${e.id}`)),
-                }))
-              : [],
-          ),
-        });
-      }}
-    >
-      <div className="rounded-xl bg-muted p-4 text-xs leading-7 text-muted-foreground">
-        قبض آب یا برق لزوماً ماهانه نیست؛ طول دوره واقعی قبض را وارد کنید.
-        میانگین قبض‌ها برابر مجموع مبالغ تقسیم بر مجموع ماه‌های پوشش‌داده‌شده
-        است. هزینه ماهانه از آخرین دوره دارای هزینه گرفته می‌شود تا نرخ جدید
-        نظافت لحاظ شود؛ چند نوبت نظافت همان دوره با هم جمع می‌شوند.
-      </div>
-      {plan.breakdown.map((b) => {
-        const policy = policies.find((p) => p.categoryId === b.categoryId)!;
-        return (
-          <section
-            key={b.categoryId}
-            className="rounded-xl border border-border p-4"
-          >
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold">{b.name}</h3>
-              <span className="text-[11px] text-muted-foreground">
-                مبنای ماهانه فعلی:{" "}
-                {b.policy.mode === "one_off" || b.policy.mode === "separate"
-                  ? "خارج از پایه"
-                  : b.missing
-                    ? "نیازمند تنظیم"
-                    : formatToman(b.monthlyRial)}
-              </span>
-            </div>
-            <div className="grid items-start gap-4 sm:grid-cols-2">
-              <div className="form-field">
-                <label htmlFor={`${prefix}-${b.categoryId}`}>
-                  نحوه ورود به پیشنهاد
-                </label>
-                <Select
-                  id={`${prefix}-${b.categoryId}`}
-                  value={policy.mode}
-                  onValueChange={(v) => setMode(b.categoryId, v as BudgetMode)}
-                >
-                  {(b.perPerson ? ["separate"] : Object.keys(modes)).map(
-                    (key) => (
-                      <option key={key} value={key}>
-                        {modes[key as BudgetMode]}
-                      </option>
-                    ),
-                  )}
-                </Select>
-              </div>
-              {policy.mode === "bill" && (
-                <div className="form-field">
-                  <label htmlFor={`${prefix}-interval-${b.categoryId}`}>
-                    بازه پیش‌فرض قبض‌های بدون بازه{" "}
-                    <FieldHint label={`بازه قبض ${b.name}`}>
-                      فقط برای قبض‌هایی استفاده می‌شود که بازه اختصاصی ندارند.
-                      برای قبض‌های دوماهه و سه‌ماهه می‌توانید در ردیف هر قبض،
-                      بازه جدا تعیین کنید.
-                    </FieldHint>
-                  </label>
-                  <Select
-                    id={`${prefix}-interval-${b.categoryId}`}
-                    name={`interval-${b.categoryId}`}
-                    defaultValue={
-                      policy.intervalMonths
-                        ? String(policy.intervalMonths)
-                        : "unknown"
-                    }
-                  >
-                    <option value="unknown">
-                      نامشخص؛ از روی قبض تعیین شود
-                    </option>
-                    {Array.from({ length: 36 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        {fa(String(i + 1))} ماه
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-              {policy.mode === "reserve" && (
-                <div className="form-field">
-                  <label htmlFor={`${prefix}-reserve-${b.categoryId}`}>
-                    ذخیره ماهانه کل ساختمان (تومان)
-                  </label>
-                  <MoneyInput
-                    id={`${prefix}-reserve-${b.categoryId}`}
-                    name={`reserve-${b.categoryId}`}
-                    defaultRial={policy.monthlyReserveRial ?? undefined}
-                    placeholder="مبلغ دلخواه؛ صفر یعنی بدون ذخیره"
-                  />
-                </div>
-              )}
-            </div>
-            {policy.mode === "reserve" && (
-              <p className="mt-3 text-[11px] leading-6 text-muted-foreground">
-                مبلغ یک تعمیر یا بازدید، هزینه هر ماه فرض نمی‌شود. مبلغ کوچکی که
-                می‌خواهید ماهانه برای تعمیرات کنار بگذارید را وارد کنید؛ هزینه
-                واقعی همچنان جدا ثبت می‌شود.
-              </p>
-            )}
-            {policy.mode === "one_off" && (
-              <p className="mt-3 text-[11px] leading-6 text-muted-foreground">
-                این خرید در فیش دوره خودش باقی می‌ماند و در شارژ پایه ماه‌های
-                بعد تکرار نمی‌شود.
-              </p>
-            )}
-            {policy.mode === "separate" && (
-              <p className="mt-3 text-[11px] leading-6 text-muted-foreground">
-                خارج از شارژ پایه؛ سهم واقعی طبق قواعد تقسیم هزینه محاسبه
-                می‌شود.{b.perPerson ? " واحد بدون فرد حاضر، سهم آب ندارد." : ""}
-              </p>
-            )}
-            {policy.mode === "bill" && b.expenses.length > 0 && (
-              <div className="mt-4 space-y-3 border-t border-border pt-4">
-                <p className="text-[11px] text-muted-foreground">
-                  بازه اختصاصی آخرین قبض‌ها؛ اولویت با این مقدار است.
-                </p>
-                {b.expenses.map((e) => (
-                  <div
-                    key={e.id}
-                    className="grid items-center gap-3 sm:grid-cols-[1fr_180px]"
-                  >
-                    <label
-                      htmlFor={`${prefix}-${e.id}`}
-                      className="text-xs leading-6"
-                    >
-                      {formatToman(e.amountRial)} ·{" "}
-                      {formatJalaliDate(new Date(e.expenseDate))}
-                    </label>
-                    <Select
-                      id={`${prefix}-${e.id}`}
-                      name={`coverage-${e.id}`}
-                      defaultValue={
-                        e.coverageMonths ? String(e.coverageMonths) : "unknown"
-                      }
-                    >
-                      <option value="unknown">از بازه پیش‌فرض</option>
-                      {Array.from({ length: 36 }, (_, i) => (
-                        <option value={i + 1} key={i + 1}>
-                          {fa(String(i + 1))} ماه
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        );
-      })}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="form-field">
-          <label htmlFor={`${prefix}-buffer`}>
-            حاشیه نوسان هزینه‌ها (درصد)
-          </label>
-          <Input
-            id={`${prefix}-buffer`}
-            name="buffer"
-            type="number"
-            min={0}
-            max={100}
-            step={1}
-            defaultValue={plan.bufferPercent}
-            required
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor={`${prefix}-round`}>گرد کردن پیشنهاد به بالا</label>
-          <Select
-            id={`${prefix}-round`}
-            name="round"
-            defaultValue={String(plan.roundToRial)}
-          >
-            {[100000, 250000, 500000, 1000000].map((n) => (
-              <option key={n} value={n}>
-                {formatToman(n)}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
-      <div className="rounded-xl bg-muted p-4 text-xs leading-7">
-        <p>
-          جمع ماهانه مبنای فعلی:{" "}
-          <strong>{formatToman(plan.monthlyBuildingRial)}</strong>
-        </p>
-        <p className="text-muted-foreground">
-          برای قبض‌ها حداکثر ۶ قبض آخر، و برای هزینه ماهانه آخرین دوره دارای
-          هزینه بررسی می‌شود. مبنای دسته‌ها و بازه قبض‌ها برای ساختمان ذخیره
-          می‌شود؛ حاشیه نوسان و مبلغ دستی مخصوص این دوره است.
-        </p>
-      </div>
-      <Button type="submit">ذخیره مبنا و محاسبه پیشنهاد</Button>
-    </ActionForm>
   );
 }

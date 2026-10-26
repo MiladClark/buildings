@@ -1,4 +1,5 @@
 "use client";
+import { RowActions } from "@/components/ui/row-actions";
 import { Select } from "@/components/ui/select";
 
 import Link from "next/link";
@@ -13,7 +14,6 @@ import {
   ArrowDownLeft,
   CheckCircle,
   CaretLeft,
-  BellRinging,
   Bank,
   Info,
 } from "@phosphor-icons/react";
@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { MoneyTrend, ExpenseDonut } from "@/components/finance/charts";
 import { BuildingCalendar } from "@/components/finance/calendar";
 import { DataGrid } from "@/components/finance/data-grid";
-import { ActionButton, EmptyState } from "@/components/finance/forms";
+import { EmptyState } from "@/components/finance/forms";
 import { sendUnitReminder } from "@/lib/actions/building";
 import {
   formatToman,
@@ -300,27 +300,27 @@ export function Dashboard({
             filename="unit-balances"
             pageSize={5}
             renderAction={(u) => (
-              <div className="flex items-center gap-1">
-                {u.invoiceId && (
-                  <Link
-                    href={`/api/export/invoice/${u.invoiceId}/pdf`}
-                    title="دریافت فیش PDF"
-                    className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-primary"
-                  >
-                    <DownloadSimple size={16} />
-                  </Link>
-                )}
-                {u.balance > 0 && u.canRemind && (
-                  <ActionButton
-                    ariaLabel={`یادآوری پرداخت واحد ${u.label}`}
-                    action={() => sendUnitReminder(u.id)}
-                    variant="ghost"
-                    success="یادآوری در پنل ساکن ثبت شد."
-                  >
-                    <BellRinging size={15} />
-                  </ActionButton>
-                )}
-              </div>
+              <RowActions
+                items={[
+                  ...(u.invoiceId
+                    ? [
+                        {
+                          label: "دریافت فیش PDF",
+                          href: `/api/export/invoice/${u.invoiceId}/pdf`,
+                        },
+                      ]
+                    : []),
+                  ...(u.balance > 0 && u.canRemind
+                    ? [
+                        {
+                          label: `یادآوری پرداخت واحد ${u.label}`,
+                          action: () => sendUnitReminder(u.id),
+                          success: "یادآوری در پنل ساکن ثبت شد.",
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             )}
           />
         </section>

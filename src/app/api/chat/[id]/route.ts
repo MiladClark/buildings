@@ -11,6 +11,8 @@ import { removeChatImage } from "@/lib/chat-images";
 import { isSameOriginRequest } from "@/lib/request-security";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 async function findMessage(id: string, buildingId: string) {
   return db.query.chatMessage.findFirst({

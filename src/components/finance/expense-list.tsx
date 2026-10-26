@@ -1,14 +1,14 @@
 "use client";
 import { Select } from "@/components/ui/select";
 
-import Link from "next/link";
 import { useState } from "react";
-import { ArrowUpLeft } from "@phosphor-icons/react";
 import { DataGrid } from "@/components/finance/data-grid";
 import { ExpenseActions } from "./expense-actions";
 
 import { formatJalaliDate } from "@/lib/format/jalali";
 type ExpenseRow = {
+  coverageMonths?: number | null;
+  billingTreatment?: "auto" | "separate";
   id: string;
   periodId: string;
   maintenanceTicketId: string | null;
@@ -21,6 +21,7 @@ type ExpenseRow = {
   method: string;
   period: string;
   draft: boolean;
+  standaloneId?: string;
 };
 export function ExpenseList({
   rows,
@@ -84,28 +85,26 @@ export function ExpenseList({
           { key: "amount", label: "مبلغ", type: "money" },
         ]}
         renderAction={(r) => (
-          <div className="flex items-center gap-1">
-            <Link
-              aria-label="مشاهده دوره هزینه"
-              className="p-2 text-muted-foreground"
-              href={`/manager/periods/${r.periodId}`}
-            >
-              <ArrowUpLeft size={16} />
-            </Link>
-            <ExpenseActions
-              expense={r}
-              categories={categoryOptions}
-              tickets={tickets}
-            />
-            {r.maintenanceTicketId && (
-              <Link
-                className="p-2 text-xs text-primary"
-                href={`/manager/maintenance?ticket=${r.maintenanceTicketId}`}
-              >
-                درخواست
-              </Link>
-            )}
-          </div>
+          <ExpenseActions
+            links={[
+              {
+                label: "مشاهده دوره هزینه",
+                href: `/manager/periods/${r.periodId}`,
+              },
+              ...(r.maintenanceTicketId
+                ? [
+                    {
+                      label: "درخواست مرتبط",
+                      href: `/manager/maintenance?ticket=${r.maintenanceTicketId}`,
+                    },
+                  ]
+                : []),
+            ]}
+            standaloneId={r.standaloneId}
+            expense={r}
+            categories={categoryOptions}
+            tickets={tickets}
+          />
         )}
       />
     </section>

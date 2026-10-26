@@ -1,20 +1,11 @@
 "use client";
+import { RowActions } from "@/components/ui/row-actions";
 import { Select } from "@/components/ui/select";
 
 import { useState } from "react";
-import {
-  Buildings,
-  PencilSimple,
-  Trash,
-  Users,
-  House,
-} from "@phosphor-icons/react";
+import { Buildings, PencilSimple, Users, House } from "@phosphor-icons/react";
 import { DataGrid } from "@/components/finance/data-grid";
-import {
-  ActionButton,
-  ActionForm,
-  FormModal,
-} from "@/components/finance/forms";
+import { ActionForm, FormModal } from "@/components/finance/forms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { upsertUnit, deleteUnit } from "@/lib/actions/building";
@@ -225,31 +216,37 @@ export function UnitsView({ units }: { units: Unit[] }) {
           filename="building-units"
           searchPlaceholder="جست‌وجوی واحد یا نام ساکن"
           renderAction={(u) => (
-            <div className="flex gap-1">
-              <FormModal
-                title={`ویرایش واحد ${u.label}`}
-                description="تغییرات برای محاسبه دوره‌های بعد استفاده می‌شوند."
-                trigger={
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`ویرایش واحد ${u.label}`}
-                  >
-                    <PencilSimple size={16} />
-                  </Button>
-                }
-              >
-                <UnitForm value={u} />
-              </FormModal>
-              <ActionButton
-                ariaLabel={`حذف واحد ${u.label}`}
-                variant="ghost"
-                action={() => deleteUnit(u.id)}
-                confirm={`واحد ${u.label} حذف شود؟ از محاسبه پیش‌نویس‌ها کنار می‌رود؛ فیش‌ها و مانده قبلی حفظ می‌شوند. از «سابقه و بازیابی» قابل برگشت است.`}
-              >
-                <Trash size={16} className="text-destructive" />
-              </ActionButton>
-            </div>
+            <RowActions
+              label={`عملیات واحد ${fa(u.label)}`}
+              items={[
+                {
+                  label: `ویرایش واحد ${u.label}`,
+                  dialog: (
+                    <FormModal
+                      title={`ویرایش واحد ${u.label}`}
+                      description="تغییرات برای محاسبه دوره‌های بعد استفاده می‌شوند."
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`ویرایش واحد ${u.label}`}
+                        >
+                          <PencilSimple size={16} />
+                        </Button>
+                      }
+                    >
+                      <UnitForm value={u} />
+                    </FormModal>
+                  ),
+                },
+                {
+                  label: `حذف واحد ${u.label}`,
+                  action: () => deleteUnit(u.id),
+                  confirm: `واحد ${u.label} حذف شود؟ از محاسبه پیش‌نویس‌ها کنار می‌رود؛ فیش‌ها و مانده قبلی حفظ می‌شوند. از «سابقه و بازیابی» قابل برگشت است.`,
+                  danger: true,
+                },
+              ]}
+            />
           )}
         />
       </section>

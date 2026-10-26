@@ -1,11 +1,12 @@
 "use client";
+import { RowActions } from "@/components/ui/row-actions";
 import { Select } from "@/components/ui/select";
 
 import Link from "next/link";
 import { formatToman } from "@/lib/format/money";
 import { useState } from "react";
 import { Wrench, CheckCircle, Clock } from "@phosphor-icons/react";
-import { ActionForm, ActionButton } from "@/components/finance/forms";
+import { ActionForm } from "@/components/finance/forms";
 import { LinkedFormModal as FormModal } from "./linked-modal";
 import { DataGrid } from "@/components/finance/data-grid";
 import { JalaliDateField } from "@/components/finance/calendar";
@@ -27,7 +28,13 @@ export function MaintenanceView({
     status: string;
     date: string;
     scheduled: string | null;
-    costs?: { id: string; amount: number; periodId: string; title: string }[];
+    costs?: {
+      id: string;
+      amount: number;
+      periodId?: string;
+      href?: string;
+      title: string;
+    }[];
   }[];
   manager: boolean;
   focusId?: string;
@@ -170,138 +177,158 @@ export function MaintenanceView({
               : []),
           ]}
           renderAction={(t) => (
-            <div className="flex gap-1">
-              <FormModal
-                title={t.title}
-                description={t.description || "توضیح بیشتری ثبت نشده است."}
-                trigger={
-                  <Button variant="ghost" size="sm">
-                    جزئیات
-                  </Button>
-                }
-              >
-                <p className="text-xs leading-7 text-muted-foreground">
-                  وضعیت: {t.statusLabel}
-                </p>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  اولویت: {t.priorityLabel}
-                </p>
-                {manager && (
-                  <div className="mt-5 space-y-3 border-t border-border pt-4">
-                    <p className="text-xs">
-                      هزینه‌های مرتبط: {formatToman(t.costTotal)}
-                    </p>
-                    {t.costs?.map((c) => (
-                      <Link
-                        className="block text-xs text-primary"
-                        key={c.id}
-                        href={`/manager/periods/${c.periodId}`}
-                      >
-                        {c.title} · {formatToman(c.amount)}
-                      </Link>
-                    ))}
-                    <p className="text-[11px] leading-6 text-muted-foreground">
-                      وضعیت رسیدگی جدا از حساب هزینه است؛ انجام‌شدن تعمیر، واریز
-                      یا تسویه مالی ثبت نمی‌کند.
-                    </p>
-                  </div>
-                )}
-              </FormModal>
-              {manager && (
-                <>
-                  <FormModal
-                    initialOpen={t.id === focusId}
-                    title="ویرایش و تغییر وضعیت"
-                    description="می‌توانید وضعیت را به هر مرحله برگردانید، متن را اصلاح کنید یا تاریخ رسیدگی را بردارید."
-                    trigger={
-                      <Button variant="outline" size="sm">
-                        مدیریت
-                      </Button>
-                    }
-                  >
-                    <ActionForm
-                      action={(f) => editMaintenance(t.id, f)}
-                      className="form-grid"
+            <RowActions
+              label={`عملیات درخواست ${t.title}`}
+              items={[
+                {
+                  label: "جزئیات",
+                  dialog: (
+                    <FormModal
+                      title={t.title}
+                      description={
+                        t.description || "توضیح بیشتری ثبت نشده است."
+                      }
+                      trigger={
+                        <Button variant="ghost" size="sm">
+                          جزئیات
+                        </Button>
+                      }
                     >
-                      <div className="form-field col-span-full">
-                        <label htmlFor={`edit-title-${t.id}`}>
-                          عنوان درخواست
-                        </label>
-                        <Input
-                          id={`edit-title-${t.id}`}
-                          name="title"
-                          defaultValue={t.title}
-                          maxLength={150}
-                          required
-                        />
-                      </div>
-                      <div className="form-field col-span-full">
-                        <label htmlFor={`edit-desc-${t.id}`}>
-                          شرح و محل مشکل
-                        </label>
-                        <textarea
-                          id={`edit-desc-${t.id}`}
-                          name="description"
-                          defaultValue={t.description ?? ""}
-                          maxLength={3000}
-                          className="form-control form-textarea w-full"
-                        />
-                      </div>
-                      <div className="form-field">
-                        <label htmlFor={`edit-status-${t.id}`}>
-                          وضعیت رسیدگی
-                        </label>
-                        <Select
-                          id={`edit-status-${t.id}`}
-                          name="status"
-                          defaultValue={t.status}
-                        >
-                          <option value="open">در انتظار رسیدگی</option>
-                          <option value="in_progress">در حال رسیدگی</option>
-                          <option value="resolved">انجام‌شده</option>
-                        </Select>
-                      </div>
-                      <div className="form-field">
-                        <label htmlFor={`edit-priority-${t.id}`}>اولویت</label>
-                        <Select
-                          id={`edit-priority-${t.id}`}
-                          name="priority"
-                          defaultValue={t.priority}
-                        >
-                          <option value="normal">عادی</option>
-                          <option value="urgent">فوری</option>
-                        </Select>
-                      </div>
-                      <JalaliDateField
-                        name="scheduledAt"
-                        label="تاریخ برنامه‌ریزی‌شده"
-                        defaultValue={
-                          t.scheduled
-                            ? isoDate(new Date(t.scheduled))
-                            : undefined
-                        }
-                      />
-                      <Button type="submit" className="w-fit col-span-full">
-                        ذخیره تغییرات
-                      </Button>
-                    </ActionForm>
-                  </FormModal>
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/manager/expenses?new=1&ticket=${t.id}`}>
-                      ثبت هزینه
-                    </Link>
-                  </Button>
-                  <ActionButton
-                    variant="ghost"
-                    ariaLabel={`حذف درخواست ${t.title}`}
-                    action={() => setRecordDeleted("maintenance", t.id, true)}
-                    confirm={`«${t.title}» حذف شود؟ از بخش سابقه و بازیابی قابل برگشت است. هزینه‌های ثبت‌شده این درخواست حذف نمی‌شوند.`}
-                  >
-                    حذف
-                  </ActionButton>
-                </>
-              )}
-            </div>
+                      <p className="text-xs leading-7 text-muted-foreground">
+                        وضعیت: {t.statusLabel}
+                      </p>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        اولویت: {t.priorityLabel}
+                      </p>
+                      {manager && (
+                        <div className="mt-5 space-y-3 border-t border-border pt-4">
+                          <p className="text-xs">
+                            هزینه‌های مرتبط: {formatToman(t.costTotal)}
+                          </p>
+                          {t.costs?.map((c) => (
+                            <Link
+                              className="block text-xs text-primary"
+                              key={c.id}
+                              href={c.href ?? `/manager/periods/${c.periodId}`}
+                            >
+                              {c.title} · {formatToman(c.amount)}
+                            </Link>
+                          ))}
+                          <p className="text-[11px] leading-6 text-muted-foreground">
+                            وضعیت رسیدگی جدا از حساب هزینه است؛ انجام‌شدن تعمیر،
+                            واریز یا تسویه مالی ثبت نمی‌کند.
+                          </p>
+                        </div>
+                      )}
+                    </FormModal>
+                  ),
+                },
+                ...(manager
+                  ? [
+                      {
+                        label: "مدیریت",
+                        dialog: (
+                          <FormModal
+                            initialOpen={t.id === focusId}
+                            title="ویرایش و تغییر وضعیت"
+                            description="می‌توانید وضعیت را به هر مرحله برگردانید، متن را اصلاح کنید یا تاریخ رسیدگی را بردارید."
+                            trigger={
+                              <Button variant="outline" size="sm">
+                                مدیریت
+                              </Button>
+                            }
+                          >
+                            <ActionForm
+                              action={(f) => editMaintenance(t.id, f)}
+                              className="form-grid"
+                            >
+                              <div className="form-field col-span-full">
+                                <label htmlFor={`edit-title-${t.id}`}>
+                                  عنوان درخواست
+                                </label>
+                                <Input
+                                  id={`edit-title-${t.id}`}
+                                  name="title"
+                                  defaultValue={t.title}
+                                  maxLength={150}
+                                  required
+                                />
+                              </div>
+                              <div className="form-field col-span-full">
+                                <label htmlFor={`edit-desc-${t.id}`}>
+                                  شرح و محل مشکل
+                                </label>
+                                <textarea
+                                  id={`edit-desc-${t.id}`}
+                                  name="description"
+                                  defaultValue={t.description ?? ""}
+                                  maxLength={3000}
+                                  className="form-control form-textarea w-full"
+                                />
+                              </div>
+                              <div className="form-field">
+                                <label htmlFor={`edit-status-${t.id}`}>
+                                  وضعیت رسیدگی
+                                </label>
+                                <Select
+                                  id={`edit-status-${t.id}`}
+                                  name="status"
+                                  defaultValue={t.status}
+                                >
+                                  <option value="open">در انتظار رسیدگی</option>
+                                  <option value="in_progress">
+                                    در حال رسیدگی
+                                  </option>
+                                  <option value="resolved">انجام‌شده</option>
+                                </Select>
+                              </div>
+                              <div className="form-field">
+                                <label htmlFor={`edit-priority-${t.id}`}>
+                                  اولویت
+                                </label>
+                                <Select
+                                  id={`edit-priority-${t.id}`}
+                                  name="priority"
+                                  defaultValue={t.priority}
+                                >
+                                  <option value="normal">عادی</option>
+                                  <option value="urgent">فوری</option>
+                                </Select>
+                              </div>
+                              <JalaliDateField
+                                name="scheduledAt"
+                                label="تاریخ برنامه‌ریزی‌شده"
+                                defaultValue={
+                                  t.scheduled
+                                    ? isoDate(new Date(t.scheduled))
+                                    : undefined
+                                }
+                              />
+                              <Button
+                                type="submit"
+                                className="w-fit col-span-full"
+                              >
+                                ذخیره تغییرات
+                              </Button>
+                            </ActionForm>
+                          </FormModal>
+                        ),
+                      },
+                      {
+                        label: "ثبت هزینه",
+                        href: `/manager/expenses?new=1&ticket=${t.id}`,
+                      },
+                      {
+                        label: "حذف",
+                        action: () =>
+                          setRecordDeleted("maintenance", t.id, true),
+                        confirm: `«${t.title}» حذف شود؟ از بخش سابقه و بازیابی قابل برگشت است. هزینه‌های ثبت‌شده این درخواست حذف نمی‌شوند.`,
+                        danger: true,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
           )}
         />
       </section>

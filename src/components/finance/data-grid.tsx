@@ -1,5 +1,6 @@
 "use client";
 import { Select } from "@/components/ui/select";
+import { tableExportFilename } from "@/lib/export/filenames";
 import { Input } from "@/components/ui/input";
 
 import { useId, useMemo, useState } from "react";
@@ -55,7 +56,7 @@ export function downloadCsv(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${name}.csv`;
+  a.download = tableExportFilename(name);
   a.click();
   URL.revokeObjectURL(url);
 }

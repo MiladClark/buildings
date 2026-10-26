@@ -52,6 +52,7 @@ type Props = {
   accounts: UnitAccount[];
   shares: CostShare[];
   receipts: PaymentHistoryRow[];
+  standaloneCosts?: { id: string; description: string }[];
   today: string;
 };
 
@@ -117,8 +118,8 @@ export function UnitAccounts(props: Props) {
                 "بدهی فیش‌ها (تومان)",
                 "مانده پیش‌نویس (تومان)",
                 "بستانکاری آزاد (تومان)",
-                "پیش‌پرداخت محفوظ (تومان)",
-                "کل واریزی (تومان)",
+                "مبلغ محفوظ (تومان)",
+                "کل واریز و اعتبار (تومان)",
               ],
               filtered.map((u) => [
                 u.label,
@@ -228,7 +229,7 @@ export function UnitAccounts(props: Props) {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">کل واریزی</dt>
+                  <dt className="text-muted-foreground">واریز و اعتبار</dt>
                   <dd className="mt-2 font-semibold">
                     {formatToman(u.account.receivedRial)}
                   </dd>
@@ -237,7 +238,7 @@ export function UnitAccounts(props: Props) {
               <div className="mt-5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
                 <span>
                   {u.account.reservedRial > 0
-                    ? `پیش‌پرداخت محفوظ: ${formatToman(u.account.reservedRial)}`
+                    ? `مبلغ محفوظ: ${formatToman(u.account.reservedRial)}`
                     : u.occupancy}
                 </span>
                 <span className="inline-flex items-center gap-1 font-medium text-primary">
@@ -361,6 +362,7 @@ function UnitAccountDetail({
   shares,
   receipts,
   units,
+  standaloneCosts,
   today,
 }: Props & { selected: ReturnType<typeof unitAccountSummary> }) {
   const [tab, setTab] = useState("costs");
@@ -400,9 +402,9 @@ function UnitAccountDetail({
         <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
           {[
             {
-              label: "کل واریزی ثبت‌شده",
+              label: "کل واریز و اعتبار ثبت‌شده",
               value: selected.account.receivedRial,
-              hint: "جمع واریزهای واقعی و فعال این واحد است. واریز ابطال‌شده در این جمع حساب نمی‌شود.",
+              hint: "جمع واریزهای فعال و پرداخت‌های مستقیم از جیب این واحد است. پرداخت مستقیم، درآمد نقدی صندوق نیست. ثبت ابطال‌شده حساب نمی‌شود.",
             },
             {
               label: "بستانکاری آزاد",
@@ -410,9 +412,9 @@ function UnitAccountDetail({
               hint: "پولی که دریافت شده ولی هنوز بابت هزینه‌ای مصرف نشده است. با دکمه «از بستانکاری» می‌توانید آن را به هزینه دلخواه تخصیص دهید.",
             },
             {
-              label: "پیش‌پرداخت محفوظ",
+              label: "مبلغ محفوظ",
               value: selected.account.reservedRial,
-              hint: "پولی که بابت هزینه یک دوره پیش‌نویس کنار گذاشته‌اید. برای مصرف آن در هزینه‌ای دیگر، ابتدا تسویه همان هزینه را به بستانکاری برگردانید.",
+              hint: "مبالغ محفوظ بابت هزینه‌های مستقل و دوره‌های پیش‌نویس است. مبلغ مستقل فقط با انتقال هزینه به دوره وارد محاسبه سهم و بستانکاری آزاد می‌شود.",
             },
             {
               label: "بدهی فیش‌های صادرشده",
@@ -667,6 +669,7 @@ function UnitAccountDetail({
               lockUnit
               units={[{ id: selected.id, label: selected.label }]}
               shares={ownShares}
+              standaloneCosts={standaloneCosts}
               today={today}
               defaultUnitId={selected.id}
               defaultPurpose={receiptPurpose}

@@ -1,9 +1,9 @@
 "use client";
+import { RowActions } from "@/components/ui/row-actions";
 import { useState } from "react";
-import { Check, X } from "@phosphor-icons/react";
 import { DataGrid, downloadCsv } from "@/components/finance/data-grid";
 import { Input } from "@/components/ui/input";
-import { ActionButton, EmptyState } from "@/components/finance/forms";
+import { EmptyState } from "@/components/finance/forms";
 import { LinkedFormModal as FormModal } from "./linked-modal";
 import { Button } from "@/components/ui/button";
 import { ReceiptForm } from "./receipt-form";
@@ -32,6 +32,9 @@ export type PaymentHistoryRow = {
   purpose: string;
   applied: string;
   credit: string;
+  standaloneExpenseId?: string | null;
+  standaloneTitle?: string;
+  kind?: "receipt" | "advance";
 };
 export function PaymentHistory({
   rows,
@@ -56,50 +59,62 @@ export function PaymentHistory({
       ...r,
       dateLabel: formatJalaliDate(new Date(r.date)),
       methodLabel:
-        r.method === "bank_transfer"
-          ? "واریز بانکی"
-          : r.method === "cash"
-            ? "نقدی"
-            : "سایر",
+        r.kind === "advance"
+          ? "پرداخت از جیب واحد"
+          : r.method === "bank_transfer"
+            ? "واریز بانکی"
+            : r.method === "cash"
+              ? "نقدی"
+              : "سایر",
       status: "تأییدشده",
     }));
   const receiptActions = (r: PaymentHistoryRow) => (
-    <div className="flex gap-1">
-      <FormModal
-        initialOpen={r.id === focusReceiptId}
-        title="ویرایش واریز"
-        description="مبلغ، واحد، موضوع، تاریخ و شرح واریز را اصلاح کنید؛ مانده‌ها دوباره محاسبه می‌شوند."
-        trigger={
-          <Button variant="outline" size="sm">
-            ویرایش
-          </Button>
-        }
-      >
-        <ReceiptForm
-          units={units}
-          shares={shares}
-          today={r.date.slice(0, 10)}
-          initial={{
-            id: r.id,
-            unitId: r.unitId,
-            periodId: r.periodId,
-            categoryId: r.categoryId,
-            amountRial: r.amount,
-            paidAt: r.date,
-            method: r.method,
-            note: r.note,
-            applications: r.applications,
-          }}
-        />
-      </FormModal>
-      <ActionButton
-        variant="ghost"
-        action={() => setRecordDeleted("payment", r.id, true)}
-        confirm={`واریز ${r.unit} ابطال شود؟ تسویه‌های همین واریز برگشت می‌خورند و بدهی و بستانکاری دوباره محاسبه می‌شوند. از «سابقه و بازیابی» قابل برگشت است.`}
-      >
-        ابطال
-      </ActionButton>
-    </div>
+    <RowActions
+      label={`عملیات ${r.unit}`}
+      items={[
+        {
+          label: "ویرایش",
+          dialog: (
+            <FormModal
+              initialOpen={r.id === focusReceiptId}
+              title="ویرایش واریز"
+              description="مبلغ، واحد، موضوع، تاریخ و شرح واریز را اصلاح کنید؛ مانده‌ها دوباره محاسبه می‌شوند."
+              trigger={
+                <Button variant="outline" size="sm">
+                  ویرایش
+                </Button>
+              }
+            >
+              <ReceiptForm
+                units={units}
+                shares={shares}
+                today={r.date.slice(0, 10)}
+                initial={{
+                  id: r.id,
+                  unitId: r.unitId,
+                  periodId: r.periodId,
+                  categoryId: r.categoryId,
+                  amountRial: r.amount,
+                  paidAt: r.date,
+                  method: r.method,
+                  note: r.note,
+                  kind: r.kind,
+                  standaloneExpenseId: r.standaloneExpenseId,
+                  standaloneTitle: r.standaloneTitle,
+                  applications: r.applications,
+                }}
+              />
+            </FormModal>
+          ),
+        },
+        {
+          label: "ابطال",
+          action: () => setRecordDeleted("payment", r.id, true),
+          confirm: `واریز ${r.unit} ابطال شود؟ تسویه‌های همین واریز برگشت می‌خورند و بدهی و بستانکاری دوباره محاسبه می‌شوند. از «سابقه و بازیابی» قابل برگشت است.`,
+          danger: true,
+        },
+      ]}
+    />
   );
   const normalize = (value: string) =>
     value
@@ -238,7 +253,7 @@ export function PaymentHistory({
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2 className="panel-title">دفتر دریافت‌ها</h2>
+        <h2 className="panel-title">دفتر واریز و اعتبار</h2>
         <span className="text-[10px] text-muted-foreground">
           ثبت و اصلاح دریافت‌ها توسط مدیر
         </span>
@@ -315,42 +330,43 @@ export function PaymentRequests({
         emptyTitle="درخواستی در انتظار نیست"
         emptyDescription="هر زمان ساکنی واریز خود را اعلام کند، درخواست او برای بررسی اینجا قرار می‌گیرد."
         renderAction={(r) => (
-          <div className="flex gap-1">
-            {r.status === "pending" ? (
-              <div className="flex gap-1">
-                <ActionButton
-                  action={() => reviewPaymentRequest(r.id, true)}
-                  confirm="واریز بانکی را بررسی کرده‌اید؟ با تأیید، مبلغ در حساب واحد ثبت و بدهی تسویه می‌شود."
-                  success="واریز تأیید و در حساب واحد ثبت شد."
-                >
-                  <Check size={14} />
-                  تأیید
-                </ActionButton>
-                <ActionButton
-                  variant="ghost"
-                  ariaLabel={`رد درخواست ${r.unit}`}
-                  action={() => reviewPaymentRequest(r.id, false)}
-                  confirm="این درخواست رد شود؟ ساکن از نیاز به بررسی اطلاعات واریز مطلع می‌شود."
-                >
-                  <X size={14} />
-                </ActionButton>
-              </div>
-            ) : (
-              <ActionButton
-                action={() => resetPaymentReport(r.id)}
-                confirm="این اعلام واریز به انتظار بررسی برگردد؟ اگر قبلاً تأیید شده، واریز مرتبط ابطال می‌شود و تسویه آن برمی‌گردد."
-              >
-                برگشت به بررسی
-              </ActionButton>
-            )}
-            <ActionButton
-              variant="ghost"
-              action={() => setRecordDeleted("request", r.id, true)}
-              confirm="این اعلام واریز حذف شود؟ دریافت مالی تأییدشده باقی می‌ماند؛ فقط اعلام ساکن از این فهرست کنار می‌رود و قابل بازیابی است."
-            >
-              حذف اعلام
-            </ActionButton>
-          </div>
+          <RowActions
+            label={`عملیات اعلام ${r.unit}`}
+            items={[
+              ...(r.status === "pending"
+                ? [
+                    {
+                      label: "تأیید",
+                      action: () => reviewPaymentRequest(r.id, true),
+                      confirm:
+                        "واریز بانکی را بررسی کرده‌اید؟ با تأیید، مبلغ در حساب واحد ثبت و بدهی تسویه می‌شود.",
+                      success: "واریز تأیید و در حساب واحد ثبت شد.",
+                    },
+                    {
+                      label: `رد درخواست ${r.unit}`,
+                      action: () => reviewPaymentRequest(r.id, false),
+                      confirm:
+                        "این درخواست رد شود؟ ساکن از نیاز به بررسی اطلاعات واریز مطلع می‌شود.",
+                      danger: true,
+                    },
+                  ]
+                : [
+                    {
+                      label: "برگشت به بررسی",
+                      action: () => resetPaymentReport(r.id),
+                      confirm:
+                        "این اعلام واریز به انتظار بررسی برگردد؟ اگر قبلاً تأیید شده، واریز مرتبط ابطال می‌شود و تسویه آن برمی‌گردد.",
+                    },
+                  ]),
+              {
+                label: "حذف اعلام",
+                action: () => setRecordDeleted("request", r.id, true),
+                confirm:
+                  "این اعلام واریز حذف شود؟ دریافت مالی تأییدشده باقی می‌ماند؛ فقط اعلام ساکن از این فهرست کنار می‌رود و قابل بازیابی است.",
+                danger: true,
+              },
+            ]}
+          />
         )}
       />
     </section>

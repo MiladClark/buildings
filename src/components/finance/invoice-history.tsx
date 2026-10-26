@@ -1,6 +1,5 @@
 "use client";
-import Link from "next/link";
-import { FilePdf, Image as ImageIcon } from "@phosphor-icons/react";
+import { RowActions } from "@/components/ui/row-actions";
 import { DataGrid } from "@/components/finance/data-grid";
 import { formatJalaliDate } from "@/lib/format/jalali";
 export function InvoiceHistory({
@@ -39,22 +38,18 @@ export function InvoiceHistory({
         emptyTitle="هنوز فیشی صادر نشده"
         emptyDescription="پس از نهایی‌شدن دوره توسط مدیر، فیش شما اینجا قرار می‌گیرد."
         renderAction={(r) => (
-          <div className="flex gap-3">
-            <Link
-              aria-label={`دریافت PDF ${r.period}`}
-              className="text-muted-foreground hover:text-primary"
-              href={`/api/export/invoice/${r.id}/pdf`}
-            >
-              <FilePdf size={19} />
-            </Link>
-            <Link
-              aria-label={`دریافت تصویر ${r.period}`}
-              className="text-muted-foreground hover:text-primary"
-              href={`/api/export/invoice/${r.id}/png`}
-            >
-              <ImageIcon size={19} />
-            </Link>
-          </div>
+          <RowActions
+            items={[
+              {
+                label: `دریافت PDF ${r.period}`,
+                href: `/api/export/invoice/${r.id}/pdf`,
+              },
+              {
+                label: `دریافت تصویر ${r.period}`,
+                href: `/api/export/invoice/${r.id}/png`,
+              },
+            ]}
+          />
         )}
       />
     </section>

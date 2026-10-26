@@ -34,6 +34,8 @@ import { formatJalaliDate, isoDate } from "@/lib/format/jalali";
 import { formatAllocationBasis } from "@/lib/format/allocation-basis";
 import { getPeriodChargePlan } from "@/lib/queries/charge-plan";
 import { PeriodChargePlanningCards } from "@/components/finance/period-charge-planning";
+import { costCoveredByCharge } from "@/lib/billing/charge-model";
+import { BillCoverageField } from "@/components/finance/bill-coverage-field";
 export default async function PeriodDetailPage({
   params,
 }: {
@@ -61,6 +63,11 @@ export default async function PeriodDetailPage({
   async function save(f: FormData) {
     "use server";
     await addExpenseLine({
+      coverageMonths: f.get("coverageMonths")
+        ? Number(f.get("coverageMonths"))
+        : null,
+      billingTreatment: String(f.get("billingTreatment") || "auto") as
+        "auto" | "separate",
       periodId: id,
       categoryId: String(f.get("categoryId")),
       amountRial: tomanInputToRial(f.get("amountToman")),
@@ -160,7 +167,7 @@ export default async function PeriodDetailPage({
             value: expenses.reduce((s, r) => s + r.expense.amountRial, 0),
           },
           {
-            label: "جمع شارژ واحدها",
+            label: "جمع قابل مطالبه از واحدها",
             value: rows.reduce((s, r) => s + r.total, 0),
           },
           {
@@ -182,7 +189,11 @@ export default async function PeriodDetailPage({
         <div className="panel-head flex-wrap gap-4">
           <div>
             <h2 className="panel-title">ریز هزینه‌های دوره</h2>
-            <p className="panel-subtitle">مبنای محاسبه سهم هر واحد</p>
+            <p className="panel-subtitle">
+              {chargePlan.fund
+                ? "دفتر هزینه‌ها؛ هزینه‌های مشترک از محل شارژ تأمین می‌شوند"
+                : "مبنای محاسبه سهم هر واحد"}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="outline" size="sm">
@@ -242,6 +253,22 @@ export default async function PeriodDetailPage({
                     <label htmlFor="detail-desc">شرح هزینه</label>
                     <Input id="detail-desc" name="description" />
                   </div>
+                  <BillCoverageField />
+                  <div className="form-field col-span-full">
+                    <label htmlFor="detail-billing">روش تأمین هزینه</label>
+                    <Select
+                      id="detail-billing"
+                      name="billingTreatment"
+                      defaultValue="auto"
+                    >
+                      <option value="auto">
+                        از محل شارژ؛ آب جدا بر اساس نفرات
+                      </option>
+                      <option value="separate">
+                        دریافت جداگانه از واحدها (فوق‌العاده)
+                      </option>
+                    </Select>
+                  </div>
                   <Button type="submit" className="w-fit">
                     افزودن هزینه
                   </Button>
@@ -263,6 +290,15 @@ export default async function PeriodDetailPage({
                   </p>
                   <p className="mt-1.5 text-[10px] text-muted-foreground">
                     {c.name} · {formatJalaliDate(e.expenseDate)}
+                    {chargePlan.fund && (
+                      <>
+                        {" "}
+                        ·{" "}
+                        {costCoveredByCharge(c, e, true)
+                          ? "از محل شارژ"
+                          : "دریافت جداگانه"}
+                      </>
+                    )}
                     {e.maintenanceTicketId && (
                       <Link
                         className="ms-2 text-primary"
@@ -277,7 +313,14 @@ export default async function PeriodDetailPage({
                   {formatToman(e.amountRial)}
                 </span>
                 <ExpenseActions
+                  standaloneId={
+                    data.standaloneExpenses.find(
+                      (cost) => cost.linkedExpenseId === e.id,
+                    )?.id
+                  }
                   expense={{
+                    billingTreatment: e.billingTreatment,
+                    coverageMonths: e.coverageMonths,
                     id: e.id,
                     maintenanceTicketId: e.maintenanceTicketId,
                     categoryId: e.categoryId,

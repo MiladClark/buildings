@@ -20,12 +20,14 @@ export function ActionForm({
   className,
   success = "اطلاعات با موفقیت ذخیره شد.",
   onSuccess,
+  closeOnSuccess = true,
 }: {
   action: (form: FormData) => Promise<void>;
   children: React.ReactNode;
   className?: string;
   success?: string;
   onSuccess?: () => void;
+  closeOnSuccess?: boolean;
 }) {
   const [pending, start] = useTransition();
   const [message, setMessage] = useState("");
@@ -40,7 +42,7 @@ export function ActionForm({
             await action(form);
             toast.success(success);
             onSuccess?.();
-            closeModal?.();
+            if (closeOnSuccess) closeModal?.();
           } catch (e) {
             const msg =
               e instanceof Error
@@ -84,6 +86,10 @@ export function FormModal({
   initialOpen = false,
   onClose,
   contentClassName,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+  onCloseAutoFocus,
 }: {
   title: string;
   description: string;
@@ -92,25 +98,34 @@ export function FormModal({
   initialOpen?: boolean;
   onClose?: () => void;
   contentClassName?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  onCloseAutoFocus?: (event: Event) => void;
 }) {
-  const [open, setOpen] = useState(initialOpen);
+  const [localOpen, setOpen] = useState(initialOpen);
+  const open = controlledOpen ?? localOpen;
   const changeOpen = (value: boolean) => {
     setOpen(value);
+    onOpenChange?.(value);
     if (!value) onClose?.();
   };
   return (
     <Dialog.Root open={open} onOpenChange={changeOpen}>
-      <Dialog.Trigger asChild>
-        {trigger || (
-          <Button>
-            <Plus size={17} />
-            {title}
-          </Button>
-        )}
-      </Dialog.Trigger>
+      {!hideTrigger && (
+        <Dialog.Trigger asChild>
+          {trigger || (
+            <Button>
+              <Plus size={17} />
+              {title}
+            </Button>
+          )}
+        </Dialog.Trigger>
+      )}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px]" />
         <Dialog.Content
+          onCloseAutoFocus={onCloseAutoFocus}
           dir="rtl"
           className={cn(
             "fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl",

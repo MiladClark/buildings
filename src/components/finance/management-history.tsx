@@ -1,8 +1,9 @@
 "use client";
+import { RowActions } from "@/components/ui/row-actions";
 import Link from "next/link";
 import { ArrowCounterClockwise } from "@phosphor-icons/react";
 import { DataGrid } from "./data-grid";
-import { ActionButton, FormModal } from "./forms";
+import { FormModal } from "./forms";
 import { Button } from "@/components/ui/button";
 import { setRecordDeleted } from "@/lib/actions/management";
 import type { RecoverableEntity } from "@/lib/billing/corrections";
@@ -20,6 +21,7 @@ const names: Record<string, string> = {
   request: "اعلام واریز",
   settings: "تنظیمات",
   charge_plan: "برنامه‌ریزی شارژ",
+  standalone_expense: "هزینه مستقل",
 };
 const actions: Record<string, string> = {
   release: "برگشت به بستانکاری",
@@ -32,6 +34,9 @@ const actions: Record<string, string> = {
   unarchive: "خروج از بایگانی",
   status: "تغییر وضعیت",
   unlink: "قطع اتصال",
+  create: "ثبت",
+  include: "انتقال به شارژ دوره",
+  detach: "خروج از شارژ",
 };
 const labels: Record<string, string> = {
   title: "عنوان",
@@ -175,14 +180,16 @@ export function ManagementHistory({
           emptyTitle="مورد حذف‌شده‌ای نیست"
           emptyDescription="واریز، دوره، هزینه، واحد و درخواست حذف‌شده برای بازیابی اینجا قرار می‌گیرند."
           renderAction={(r) => (
-            <ActionButton
-              action={() => setRecordDeleted(r.type, r.id, false)}
-              confirm={`«${r.label}» بازیابی شود؟ ${r.detail}`}
-              success="مورد بازیابی و محاسبات به‌روز شد."
-            >
-              <ArrowCounterClockwise size={15} />
-              بازیابی
-            </ActionButton>
+            <RowActions
+              items={[
+                {
+                  label: "بازیابی",
+                  action: () => setRecordDeleted(r.type, r.id, false),
+                  confirm: `«${r.label}» بازیابی شود؟ ${r.detail}`,
+                  success: "مورد بازیابی و محاسبات به‌روز شد.",
+                },
+              ]}
+            />
           )}
         />
       </section>
@@ -223,59 +230,72 @@ export function ManagementHistory({
               ? before.invoices
               : [];
             return (
-              <FormModal
-                title={r.label}
-                description={`${r.kind} · ${r.operation} · ${r.dateLabel}`}
-                trigger={
-                  <Button variant="ghost" size="sm">
-                    جزئیات تغییر
-                  </Button>
-                }
-              >
-                {keys.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-right text-xs">
-                      <thead>
-                        <tr className="border-b border-border text-muted-foreground">
-                          <th className="p-3">فیلد</th>
-                          <th className="p-3">قبل</th>
-                          <th className="p-3">بعد</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {keys.map((key) => (
-                          <tr className="border-b border-border" key={key}>
-                            <td className="p-3">{labels[key]}</td>
-                            <td className="p-3 break-words">
-                              {readable(key, before?.[key])}
-                            </td>
-                            <td className="p-3 break-words">
-                              {after && key in after
-                                ? readable(key, after[key])
-                                : "—"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                {revokedInvoices.length > 0 && (
-                  <p className="rounded-lg bg-muted p-4 text-xs leading-7">
-                    نسخه قبلی {revokedInvoices.length.toLocaleString("fa-IR")}{" "}
-                    فیش، ریز اقلام و وضعیت سکونت در سابقه محفوظ است. فیش فعال از
-                    صفحه دوره دریافت می‌شود.
-                  </p>
-                )}
-                {r.entityType === "period" && (
-                  <Link
-                    className="mt-5 inline-block text-xs text-primary"
-                    href="/manager/periods"
-                  >
-                    مدیریت دوره‌های مالی
-                  </Link>
-                )}
-              </FormModal>
+              <RowActions
+                items={[
+                  {
+                    label: "جزئیات تغییر",
+                    dialog: (
+                      <FormModal
+                        title={r.label}
+                        description={`${r.kind} · ${r.operation} · ${r.dateLabel}`}
+                        trigger={
+                          <Button variant="ghost" size="sm">
+                            جزئیات تغییر
+                          </Button>
+                        }
+                      >
+                        {keys.length > 0 && (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-right text-xs">
+                              <thead>
+                                <tr className="border-b border-border text-muted-foreground">
+                                  <th className="p-3">فیلد</th>
+                                  <th className="p-3">قبل</th>
+                                  <th className="p-3">بعد</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {keys.map((key) => (
+                                  <tr
+                                    className="border-b border-border"
+                                    key={key}
+                                  >
+                                    <td className="p-3">{labels[key]}</td>
+                                    <td className="p-3 break-words">
+                                      {readable(key, before?.[key])}
+                                    </td>
+                                    <td className="p-3 break-words">
+                                      {after && key in after
+                                        ? readable(key, after[key])
+                                        : "—"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                        {revokedInvoices.length > 0 && (
+                          <p className="rounded-lg bg-muted p-4 text-xs leading-7">
+                            نسخه قبلی{" "}
+                            {revokedInvoices.length.toLocaleString("fa-IR")}{" "}
+                            فیش، ریز اقلام و وضعیت سکونت در سابقه محفوظ است. فیش
+                            فعال از صفحه دوره دریافت می‌شود.
+                          </p>
+                        )}
+                        {r.entityType === "period" && (
+                          <Link
+                            className="mt-5 inline-block text-xs text-primary"
+                            href="/manager/periods"
+                          >
+                            مدیریت دوره‌های مالی
+                          </Link>
+                        )}
+                      </FormModal>
+                    ),
+                  },
+                ]}
+              />
             );
           }}
         />

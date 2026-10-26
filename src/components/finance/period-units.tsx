@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";
-import { Image as ImageIcon, FilePdf, Eye } from "@phosphor-icons/react";
+import { RowActions } from "@/components/ui/row-actions";
+import { Eye } from "@phosphor-icons/react";
 import { DataGrid } from "@/components/finance/data-grid";
 import { FormModal } from "@/components/finance/forms";
 import { Button } from "@/components/ui/button";
@@ -46,60 +46,63 @@ export function PeriodUnits({
           { key: "balance", label: "مانده این دوره", type: "money" },
         ]}
         renderAction={(r) => (
-          <div className="flex gap-1">
-            <FormModal
-              title={`ریز محاسبه واحد ${r.label}`}
-              description="سهم همین دوره نمایش داده می‌شود. بدهی دوره‌های دیگر در مانده حساب واحد قابل مشاهده است."
-              trigger={
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`جزئیات محاسبه واحد ${r.label}`}
-                >
-                  <Eye size={17} />
-                </Button>
-              }
-            >
-              <div>
-                {r.lines.map((l, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between gap-3 border-b border-border py-4"
+          <RowActions
+            items={[
+              {
+                label: `جزئیات محاسبه واحد ${r.label}`,
+                dialog: (
+                  <FormModal
+                    title={`ریز محاسبه واحد ${r.label}`}
+                    description="سهم همین دوره نمایش داده می‌شود. بدهی دوره‌های دیگر در مانده حساب واحد قابل مشاهده است."
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`جزئیات محاسبه واحد ${r.label}`}
+                      >
+                        <Eye size={17} />
+                      </Button>
+                    }
                   >
                     <div>
-                      <p className="text-sm font-medium">{l.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {l.basis}
+                      {r.lines.map((l, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between gap-3 border-b border-border py-4"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">{l.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {l.basis}
+                            </p>
+                          </div>
+                          <span className="text-xs">
+                            {formatToman(l.amount)}
+                          </span>
+                        </div>
+                      ))}
+                      <p className="mt-6 flex justify-between text-sm font-bold">
+                        <span>جمع سهم دوره</span>
+                        {formatToman(r.total)}
                       </p>
                     </div>
-                    <span className="text-xs">{formatToman(l.amount)}</span>
-                  </div>
-                ))}
-                <p className="mt-6 flex justify-between text-sm font-bold">
-                  <span>جمع سهم دوره</span>
-                  {formatToman(r.total)}
-                </p>
-              </div>
-            </FormModal>
-            {r.invoiceId && (
-              <>
-                <Link
-                  className="rounded p-2 text-muted-foreground hover:text-primary"
-                  aria-label={`دریافت PDF واحد ${r.label}`}
-                  href={`/api/export/invoice/${r.invoiceId}/pdf`}
-                >
-                  <FilePdf size={18} />
-                </Link>
-                <Link
-                  className="rounded p-2 text-muted-foreground hover:text-primary"
-                  aria-label={`دریافت تصویر واحد ${r.label}`}
-                  href={`/api/export/invoice/${r.invoiceId}/png`}
-                >
-                  <ImageIcon size={18} />
-                </Link>
-              </>
-            )}
-          </div>
+                  </FormModal>
+                ),
+              },
+              ...(r.invoiceId
+                ? [
+                    {
+                      label: `دریافت PDF واحد ${r.label}`,
+                      href: `/api/export/invoice/${r.invoiceId}/pdf`,
+                    },
+                    {
+                      label: `دریافت تصویر واحد ${r.label}`,
+                      href: `/api/export/invoice/${r.invoiceId}/png`,
+                    },
+                  ]
+                : []),
+            ]}
+          />
         )}
       />
     </section>

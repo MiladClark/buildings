@@ -20,14 +20,29 @@ export default async function MaintenancePage({
           ...t,
           date: t.createdAt.toISOString(),
           scheduled: t.scheduledAt?.toISOString() ?? null,
-          costs: data.expenses
-            .filter((e) => e.expense.maintenanceTicketId === t.id)
-            .map((e) => ({
-              id: e.expense.id,
-              amount: e.expense.amountRial,
-              periodId: e.expense.periodId,
-              title: e.expense.description || e.category.name,
-            })),
+          costs: [
+            ...data.expenses
+              .filter((e) => e.expense.maintenanceTicketId === t.id)
+              .map((e) => ({
+                id: e.expense.id,
+                amount: e.expense.amountRial,
+                periodId: e.expense.periodId,
+                title: e.expense.description || e.category.name,
+              })),
+            ...data.standaloneExpenses
+              .filter(
+                (c) =>
+                  !c.deletedAt &&
+                  !c.linkedExpenseId &&
+                  c.maintenanceTicketId === t.id,
+              )
+              .map((c) => ({
+                id: c.id,
+                amount: c.amountRial,
+                title: `${c.description} · مستقل`,
+                href: `/manager/expenses/independent/${c.id}`,
+              })),
+          ],
         }))}
     />
   );
