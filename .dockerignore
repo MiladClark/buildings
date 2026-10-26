@@ -1,0 +1,14 @@
+node_modules
+.git
+.next*
+.env*
+!.env.example
+data
+output
+tmp
+artifacts
+.taste-skill
+coverage
+*.db*
+*.tsbuildinfo
+*.log

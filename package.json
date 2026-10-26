@@ -11,6 +11,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/lib/db/seed.ts",
+    "db:deploy": "node scripts/production/migrate.mjs",
+    "db:backup": "node scripts/production/backup.mjs",
+    "test:deployment": "node scripts/verify-production.mjs",
     "test": "vitest run",
     "format": "prettier --write src scripts"
   },

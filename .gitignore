@@ -17,6 +17,9 @@
 /.next/
 /.next-preview/
 /artifacts/
+/output/
+/tmp/
+/.taste-skill/
 /out/
 
 # production
@@ -24,6 +27,9 @@
 
 # local database
 /data/
+*.db
+*.db-shm
+*.db-wal
 
 # misc
 .DS_Store
