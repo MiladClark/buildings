@@ -18,11 +18,11 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
           <span className="mb-8 inline-block border-r-2 border-primary pr-3 text-xs text-primary">
             مدیریت ساختمان، با خیال راحت
           </span>
-          <h1 className="text-[54px] font-extrabold leading-[1.65] tracking-tight xl:text-[64px]">
+          <p className="text-[54px] font-extrabold leading-[1.65] tracking-tight xl:text-[64px]">
             حساب روشن.
             <br />
             همسایگی آرام.
-          </h1>
+          </p>
           <p className="mt-7 max-w-sm text-sm leading-8 text-muted-foreground">
             هزینه‌ها را منصفانه تقسیم کنید، شارژ را به‌موقع بگیرید و حساب‌وکتاب
             ساختمان را همیشه در دسترس داشته باشید.
@@ -48,8 +48,8 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
               <div key={r.title} className="flex items-center gap-4">
                 <r.icon size={23} weight="duotone" className="text-primary" />
                 <div>
-                  <p className="text-xs font-semibold">{r.title}</p>
-                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  <p className="text-[13px] font-semibold">{r.title}</p>
+                  <p className="mt-1.5 text-[13px] text-muted-foreground">
                     {r.text}
                   </p>
                 </div>
@@ -57,7 +57,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
             ))}
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           برای خانه‌هایی که کنار هم زندگی می‌کنیم.
         </p>
       </section>

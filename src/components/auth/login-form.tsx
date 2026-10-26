@@ -8,9 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { loginToEmail } from "@/lib/auth/phone";
 
-export function LoginForm() {
+export function LoginForm({
+  connectGoogle = false,
+}: {
+  connectGoogle?: boolean;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -18,28 +21,36 @@ export function LoginForm() {
     event.preventDefault();
     setLoading(true);
     const form = new FormData(event.currentTarget);
-    const password = String(form.get("password"));
-    let email = "";
     try {
-      email = loginToEmail(String(form.get("identifier") ?? ""));
-    } catch (error) {
-      setLoading(false);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "شماره تلفن را به صورت ۰۹۱۲۳۴۵۶۷۸۹ وارد کنید.",
-      );
-      return;
-    }
-
-    try {
-      const { error } = await authClient.signIn.email({ email, password });
-      if (error) {
+      const response = await fetch("/api/auth/sign-in/identifier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: form.get("identifier"),
+          password: form.get("password"),
+        }),
+      });
+      if (!response.ok) {
         toast.error(
-          error.status === 403
+          response.status === 403
             ? "آدرس ورود معتبر نیست؛ صفحه را بازخوانی کنید و دوباره وارد شوید."
-            : "ورود ناموفق بود. شماره یا رمز را بررسی کنید.",
+            : response.status === 429
+              ? "کمی صبر کنید و دوباره تلاش کنید."
+              : "ورود ناموفق بود. شماره یا رمز را بررسی کنید.",
         );
+        return;
+      }
+      if (connectGoogle) {
+        const result = await authClient.linkSocial({
+          provider: "google",
+          callbackURL: "/login?connected=1",
+          errorCallbackURL: "/login?error=google",
+        });
+        if (result.error) {
+          router.replace("/login?connect=google");
+          router.refresh();
+          toast.error("ورود انجام شد؛ برای اتصال گوگل دوباره تلاش کنید.");
+        }
         return;
       }
       router.push("/");

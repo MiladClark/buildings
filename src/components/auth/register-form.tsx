@@ -84,17 +84,16 @@ export function RegisterForm({
       {!isFirstUser && units.length > 0 && (
         <div className="space-y-2">
           <Label htmlFor="unitId">واحد</Label>
-          <Select id="unitId" name="unitId">
-            <option value="">بعداً توسط مدیر</option>
+          <Select id="unitId" name="unitId" required>
+            <option value="">واحد را انتخاب کنید</option>
             {units.map((item) => (
               <option key={item.id} value={item.id}>
                 واحد {item.label}
               </option>
             ))}
           </Select>
-          <p className="text-[11px] leading-6 text-muted-foreground">
-            اگر مدیر این شماره را از قبل ساخته باشد، انتخاب واحد به همان حساب
-            وصل می‌شود.
+          <p className="text-[13px] leading-6 text-muted-foreground">
+            شماره و واحد باید با اطلاعات ثبت‌شده توسط مدیر مطابقت داشته باشند.
           </p>
         </div>
       )}

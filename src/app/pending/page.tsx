@@ -3,10 +3,18 @@ import Link from "next/link";
 import { Buildings } from "@phosphor-icons/react/dist/ssr";
 import { getSession, getMembershipForUser } from "@/lib/session";
 import { SignOutButton } from "@/components/sign-out-button";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { account } from "@/lib/db/schema";
 export default async function PendingPage() {
   const s = await getSession();
   if (!s) redirect("/login");
   if (await getMembershipForUser(s.user.id)) redirect("/");
+  const identities = await db.query.account.findMany({
+    where: eq(account.userId, s.user.id),
+  });
+  if (identities.length === 1 && identities[0].providerId === "google")
+    redirect("/login");
   return (
     <main className="flex min-h-[100dvh] items-center justify-center p-6">
       <div className="panel max-w-md p-8 text-center">
