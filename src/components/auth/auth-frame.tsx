@@ -12,7 +12,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
           <span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Buildings size={28} weight="bold" />
           </span>
-          <span className="text-2xl font-extrabold">هم‌خانه.</span>
+          <span className="text-2xl font-extrabold">واحدبان.</span>
         </div>
         <div className="my-14">
           <span className="mb-8 inline-block border-r-2 border-primary pr-3 text-xs text-primary">
@@ -58,16 +58,19 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <p className="text-[13px] text-muted-foreground">
-          برای خانه‌هایی که کنار هم زندگی می‌کنیم.
+          توسعه و طراحی با میلاد رضاپور
         </p>
       </section>
       <section className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-[370px]">
           <div className="mb-10 flex items-center gap-2 text-lg font-bold lg:hidden">
             <Buildings size={24} className="text-primary" />
-            هم‌خانه.
+            واحدبان.
           </div>
           {children}
+          <p className="mt-8 text-center text-[12px] text-muted-foreground lg:hidden">
+            توسعه و طراحی با میلاد رضاپور
+          </p>
         </div>
       </section>
     </div>

@@ -71,7 +71,7 @@ export function Brand() {
       </span>
       <div>
         <p className="text-[22px] font-extrabold tracking-tight">
-          هم‌خانه<span className="text-primary">.</span>
+          واحدبان<span className="text-primary">.</span>
         </p>
         <p className="mt-0.5 text-[9px] text-muted-foreground">
           زندگی مشترک، حساب‌وکتاب روشن

@@ -128,7 +128,7 @@ export function DetailedInvoicePdfDocument({
   return (
     <Document
       title={`فیش تفصیلی ${periodTitle} واحد ${unitLabel}`}
-      author="هم‌خانه"
+      author="واحدبان"
     >
       <Page size="A4" style={s.page}>
         <View fixed style={s.running}>
@@ -136,7 +136,7 @@ export function DetailedInvoicePdfDocument({
             {buildingName} · واحد {unitLabel} · {periodTitle}
           </Text>
         </View>
-        <Text style={s.brand}>هم‌خانه.</Text>
+        <Text style={s.brand}>واحدبان.</Text>
         <Text style={s.title}>صورت‌حساب تفصیلی واحد {unitLabel}</Text>
         <Text style={s.muted}>
           {buildingName} · {periodTitle}

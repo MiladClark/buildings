@@ -16,7 +16,7 @@ export async function GET() {
   const data = await getFinanceData(m.buildingId);
   const d = dashboardData(data);
   const book = new ExcelJS.Workbook();
-  book.creator = "هم‌خانه";
+  book.creator = "واحدبان";
   book.created = new Date();
   const balances = book.addWorksheet("مانده واحدها", {
     views: [{ rightToLeft: true }],

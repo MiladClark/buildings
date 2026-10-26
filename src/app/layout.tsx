@@ -6,7 +6,7 @@ import { vazirmatn } from "@/lib/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "هم‌خانه | مدیریت ساختمان",
+  title: "واحدبان | مدیریت ساختمان",
   description: "حساب‌وکتاب روشن ساختمان؛ شارژ، هزینه‌ها و پرداخت ساکنان",
 };
 

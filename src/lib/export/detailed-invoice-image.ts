@@ -73,7 +73,7 @@ export async function renderDetailedInvoiceImage(
   const rule = async (y: number) => box(y, 1, "#e0e8e2", 0);
   let y = 52;
   y +=
-    (await text("هم‌خانه.", y, { size: 39, bold: true, color: "#26745d" })) +
+    (await text("واحدبان.", y, { size: 39, bold: true, color: "#26745d" })) +
     24;
   y +=
     (await text(`صورت‌حساب تفصیلی واحد ${data.unitLabel}`, y, {

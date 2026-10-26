@@ -117,10 +117,10 @@ export function InvoicePdfDocument({
       />
     );
   return (
-    <Document title={`فیش ${periodTitle} واحد ${unitLabel}`} author="هم‌خانه">
+    <Document title={`فیش ${periodTitle} واحد ${unitLabel}`} author="واحدبان">
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.brand}>هم‌خانه.</Text>
+          <Text style={styles.brand}>واحدبان.</Text>
           <Text style={{ fontSize: 16, fontWeight: 700, marginTop: 12 }}>
             {buildingName}
           </Text>

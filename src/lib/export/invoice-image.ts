@@ -101,7 +101,7 @@ export async function renderInvoiceImage(data: InvoiceImageData) {
       left: padding,
     });
   let y = 58;
-  y += (await right("هم‌خانه.", y, 40, "#26745d", true)) + 35;
+  y += (await right("واحدبان.", y, 40, "#26745d", true)) + 35;
   y += (await right(data.buildingName, y, 31, "#202c29", true)) + 23;
   y += (await right(data.periodTitle, y, 24)) + 19;
   y +=

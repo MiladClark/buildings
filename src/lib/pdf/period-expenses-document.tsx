@@ -100,10 +100,10 @@ export function PeriodExpensesPdfDocument({
   report: PeriodExpensesReport;
 }) {
   return (
-    <Document title={`ریز هزینه‌های ${report.periodTitle}`} author="هم‌خانه">
+    <Document title={`ریز هزینه‌های ${report.periodTitle}`} author="واحدبان">
       <Page size="A4" style={styles.page}>
         <View fixed>
-          <Text style={styles.brand}>هم‌خانه.</Text>
+          <Text style={styles.brand}>واحدبان.</Text>
           <Text style={styles.title}>ریز هزینه‌های دوره</Text>
           <Text style={styles.building}>{report.buildingName}</Text>
           <View style={styles.meta}>

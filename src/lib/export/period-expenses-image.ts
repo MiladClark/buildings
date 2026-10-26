@@ -70,7 +70,7 @@ export async function renderPeriodExpensesImage(report: PeriodExpensesReport) {
   };
   let y = 52;
   y +=
-    (await text("هم‌خانه.", y, { size: 38, bold: true, color: "#26745d" })) +
+    (await text("واحدبان.", y, { size: 38, bold: true, color: "#26745d" })) +
     24;
   y += (await text("ریز هزینه‌های دوره", y, { size: 32, bold: true })) + 15;
   y +=
