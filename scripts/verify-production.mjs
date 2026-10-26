@@ -1,145 +1,119 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
+import { migrate } from "drizzle-orm/pglite/migrator";
+import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createClient } from "@libsql/client";
-import { readMigrationFiles } from "drizzle-orm/migrator";
+import { gzipSync } from "node:zlib";
+import {
+  canonicalRows,
+  digest,
+  importBundle,
+} from "./production/import-bundle.mjs";
+import {
+  importOrder,
+  schemaManifest,
+  validateMigrationHistory,
+  migrationFolder,
+} from "./production/postgres.mjs";
 
-// Run database assertions in a child so Windows releases all native SQLite
-// handles before the parent removes the temporary directory.
-if (process.argv[2] !== "--worker") {
-  const temporary = await mkdtemp(path.join(tmpdir(), "vahedban-deploy-"));
-  let status = 1;
-  try {
-    const result = spawnSync(
-      process.execPath,
-      ["scripts/verify-production.mjs", "--worker", temporary],
-      { stdio: "inherit" },
-    );
-    status = result.status ?? 1;
-  } finally {
-    await rm(temporary, {
-      recursive: true,
-      force: true,
-      maxRetries: 5,
-      retryDelay: 100,
-    });
-  }
-  process.exit(status);
-}
-const directory = process.argv[3];
-const filename = path.join(directory, "fresh.db");
-const env = { ...process.env, DATABASE_URL: `file:${filename}` };
-const migrate = () =>
-  execFileSync(process.execPath, ["scripts/production/migrate.mjs"], {
-    env,
-    encoding: "utf8",
-  });
-let client;
-try {
-  migrate();
-  client = createClient({ url: env.DATABASE_URL });
-  for (const table of [
-    "user",
-    "unit",
-    "payment",
-    "unit_invoice",
-    "billing_period",
-  ]) {
-    assert.equal(
-      (await client.execute(`SELECT count(*) AS count FROM ${table}`)).rows[0]
-        .count,
-      0,
-      `${table} must start empty`,
-    );
-  }
-  assert.equal(
-    (await client.execute("SELECT count(*) AS count FROM building")).rows[0]
-      .count,
-    1,
-  );
-  assert.equal(
-    (await client.execute("SELECT count(*) AS count FROM expense_category"))
-      .rows[0].count,
-    7,
-  );
-  const migrations = readMigrationFiles({ migrationsFolder: "./drizzle" });
-  assert.equal(
-    (await client.execute("SELECT count(*) AS count FROM __drizzle_migrations"))
-      .rows[0].count,
-    migrations.length,
-  );
-  await client.execute("UPDATE building SET name = 'Preserved building'");
-  client.close();
-  migrate();
-  client = createClient({ url: env.DATABASE_URL });
-  assert.equal(
-    (await client.execute("SELECT name FROM building")).rows[0].name,
-    "Preserved building",
-  );
-  client.close();
-  execFileSync(process.execPath, ["scripts/production/backup.mjs"], { env });
-  const backups = await readdir(path.join(directory, "backups"));
-  assert.equal(backups.length, 1);
-  client = createClient({
-    url: `file:${path.join(directory, "backups", backups[0])}`,
-  });
-  assert.equal(
-    (await client.execute("PRAGMA quick_check")).rows[0].quick_check,
-    "ok",
-  );
-  assert.equal(
-    (await client.execute("SELECT name FROM building")).rows[0].name,
-    "Preserved building",
-  );
-  client.close();
-  // Simulate a previous release, then verify the pending migration and automatic backup.
-  client = createClient({ url: env.DATABASE_URL });
-  await client.execute("DROP INDEX user_phone_unique");
-  await client.execute("ALTER TABLE user DROP COLUMN phone");
-  await client.execute({
-    sql: "DELETE FROM __drizzle_migrations WHERE created_at = ?",
-    args: [migrations.at(-1).folderMillis],
-  });
-  client.close();
-  migrate();
-  assert.equal(
-    (await readdir(path.join(directory, "backups"))).filter((name) =>
-      name.startsWith("before-migration-"),
-    ).length,
-    1,
-  );
-  client = createClient({ url: env.DATABASE_URL });
-  assert.ok(
-    (await client.execute("PRAGMA table_info(user)")).rows.some(
-      (row) => row.name === "phone",
+const directory = await mkdtemp(path.join(tmpdir(), "vahedban-pg-check-"));
+let client = new PGlite();
+const query = async (sql, values = []) =>
+  (await client.query(sql, values)).rows;
+const adapter = {
+  query,
+  transaction: (fn) =>
+    client.transaction((tx) =>
+      fn(async (sql, values = []) => (await tx.query(sql, values)).rows),
     ),
+};
+const encode = (bundle) => gzipSync(JSON.stringify(bundle)).toString("base64");
+try {
+  await validateMigrationHistory(query);
+  await migrate(drizzle(client), { migrationsFolder: migrationFolder });
+  await validateMigrationHistory(query);
+  await migrate(drizzle(client), { migrationsFolder: migrationFolder });
+  const manifest = await schemaManifest();
+  let encoded;
+  if (process.argv[2]) {
+    encoded = await readFile(process.argv[2], "utf8");
+  } else {
+    await query(
+      "INSERT INTO building (id, name) VALUES ('building', 'Preserved building')",
+    );
+    await query(
+      "INSERT INTO unit (id, building_id, label, sort_order) VALUES ('unit', 'building', '1', 1793000000000)",
+    );
+    await query(
+      "INSERT INTO payment (id, building_id, unit_id, amount_rial, method, paid_at) VALUES ('receipt', 'building', 'unit', 3000000000, 'bank_transfer', '2026-10-26T12:00:00.123Z')",
+    );
+    const bundle = { version: 1, tables: {}, files: [] };
+    for (const table of importOrder) {
+      const rows = await query('SELECT * FROM "' + table + '"');
+      for (const row of rows)
+        for (const [name, column] of Object.entries(manifest[table])) {
+          if (row[name] != null && column.type.startsWith("timestamp"))
+            row[name] = new Date(row[name]).getTime();
+          if (row[name] != null && column.type === "boolean")
+            row[name] = Number(row[name]);
+          if (row[name] != null && column.type === "bigint")
+            row[name] = Number(row[name]);
+        }
+      bundle.tables[table] = {
+        rows,
+        sha256: digest(canonicalRows(rows, manifest[table])),
+      };
+    }
+    encoded = encode(bundle);
+  }
+  await client.close();
+  client = new PGlite();
+  await migrate(drizzle(client), { migrationsFolder: migrationFolder });
+  const broken = JSON.parse(
+    (await import("node:zlib")).gunzipSync(Buffer.from(encoded, "base64")),
   );
-  await client.execute(
-    "UPDATE __drizzle_migrations SET hash = 'modified' WHERE created_at = (SELECT max(created_at) FROM __drizzle_migrations)",
+  broken.tables.building.sha256 = "corrupt";
+  await assert.rejects(
+    importBundle(adapter, encode(broken), directory),
+    /Data comparison failed/,
   );
-  client.close();
-  const mismatch = spawnSync(
-    process.execPath,
-    ["scripts/production/migrate.mjs"],
-    { env, encoding: "utf8" },
+  assert.equal(
+    (await query("SELECT count(*) AS count FROM building"))[0].count,
+    0,
   );
-  assert.notEqual(mismatch.status, 0);
-  assert.match(mismatch.stderr, /Migration history differs/);
-  client = createClient({ url: env.DATABASE_URL });
-  await client.execute("DROP TABLE __drizzle_migrations");
-  client.close();
-  const legacy = spawnSync(
-    process.execPath,
-    ["scripts/production/migrate.mjs"],
-    { env, encoding: "utf8" },
+  await importBundle(adapter, encoded, directory);
+  await importBundle(adapter, encoded, directory);
+  if (!process.argv[2]) {
+    assert.equal(
+      Number((await query("SELECT amount_rial FROM payment"))[0].amount_rial),
+      3000000000,
+    );
+    assert.equal(
+      Number((await query('SELECT sort_order FROM "unit"'))[0].sort_order),
+      1793000000000,
+    );
+  }
+  await query("UPDATE drizzle.__drizzle_migrations SET hash = 'tampered'");
+  await assert.rejects(
+    validateMigrationHistory(query),
+    /Migration history differs/,
   );
-  assert.notEqual(legacy.status, 0);
-  assert.match(legacy.stderr, /Unversioned existing database/);
+  await query("DROP SCHEMA drizzle CASCADE");
+  await assert.rejects(
+    validateMigrationHistory(query),
+    /Unversioned existing database/,
+  );
   console.log(
-    "Production checks passed: clean install, idempotent restart, backup restore, upgrade backup, history validation, legacy protection.",
+    "PostgreSQL deployment checks passed: migrations, full-row transfer checksums, rollback, repeated import, 64-bit amounts, and history protection.",
   );
 } finally {
-  client?.close();
+  await client.close();
+  await rm(directory, {
+    recursive: true,
+    force: true,
+    maxRetries: 5,
+    retryDelay: 100,
+  });
 }

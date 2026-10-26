@@ -1,30 +1,30 @@
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-import path from "path";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { sql } from "drizzle-orm";
 
 import * as schema from "./schema";
 
-function databaseUrl(): string {
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
-  }
-  const filePath = path.join(process.cwd(), "data", "buildings.db");
-  return `file:${filePath}`;
-}
-
+const url =
+  process.env.DATABASE_URL ??
+  "postgresql://vahedban:vahedban@localhost:5432/vahedban";
+if (!/^postgres(?:ql)?:\/\//.test(url))
+  throw new Error(
+    "DATABASE_URL must be a PostgreSQL connection URL. Use the SQLite transfer tool for existing local data.",
+  );
 const globalForDb = globalThis as unknown as {
-  client?: ReturnType<typeof createClient>;
+  sqlClient?: ReturnType<typeof postgres>;
 };
-
 const client =
-  globalForDb.client ??
-  createClient({
-    url: databaseUrl(),
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.client = client;
-}
+  globalForDb.sqlClient ??
+  postgres(url, { max: 10, idle_timeout: 20, connect_timeout: 10 });
+if (process.env.NODE_ENV !== "production") globalForDb.sqlClient = client;
 
 export const db = drizzle(client, { schema });
+// Serialize ledger writes across PostgreSQL sessions, as in the original ledger.
+const transact = db.transaction.bind(db);
+db.transaction = (callback, config) =>
+  transact(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(8662301)`);
+    return callback(tx);
+  }, config);
 export { schema };

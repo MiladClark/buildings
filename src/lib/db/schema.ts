@@ -4,33 +4,54 @@ import {
   check,
   index,
   integer,
-  sqliteTable,
+  pgTable,
+  boolean,
+  timestamp,
+  bigint,
   text,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
-export const user = sqliteTable("user", {
+export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone").unique(),
-  emailVerified: integer("email_verified", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const session = sqliteTable("session", {
+export const session = pgTable("session", {
   id: text("id").primaryKey(),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  expiresAt: timestamp("expires_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
   token: text("token").notNull().unique(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   userId: text("user_id")
@@ -38,7 +59,7 @@ export const session = sqliteTable("session", {
     .references(() => user.id, { onDelete: "cascade" }),
 });
 
-export const account = sqliteTable("account", {
+export const account = pgTable("account", {
   id: text("id").primaryKey(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),
@@ -48,28 +69,52 @@ export const account = sqliteTable("account", {
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   idToken: text("id_token"),
-  accessTokenExpiresAt: integer("access_token_expires_at", {
-    mode: "timestamp_ms",
+  accessTokenExpiresAt: timestamp("access_token_expires_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
   }),
-  refreshTokenExpiresAt: integer("refresh_token_expires_at", {
-    mode: "timestamp_ms",
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
   }),
   scope: text("scope"),
   password: text("password"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
 });
 
-export const verification = sqliteTable("verification", {
+export const verification = pgTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
+  expiresAt: timestamp("expires_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
 });
 
-export const building = sqliteTable("building", {
+export const building = pgTable("building", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   address: text("address"),
@@ -81,17 +126,25 @@ export const building = sqliteTable("building", {
     .notNull()
     .default("monthly"),
   paymentDueDay: integer("payment_due_day").notNull().default(10),
-  perUnitIncludeEmpty: integer("per_unit_include_empty", { mode: "boolean" })
+  perUnitIncludeEmpty: boolean("per_unit_include_empty")
     .notNull()
     .default(false),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const unit = sqliteTable("unit", {
+export const unit = pgTable("unit", {
   id: text("id").primaryKey(),
-  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  deletedAt: timestamp("deleted_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
   buildingId: text("building_id")
     .notNull()
     .references(() => building.id, { onDelete: "cascade" }),
@@ -103,19 +156,21 @@ export const unit = sqliteTable("unit", {
     .notNull()
     .default("occupied"),
   occupantCount: integer("occupant_count").notNull().default(1),
-  temporarilyAbsent: integer("temporarily_absent", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  temporarilyAbsent: boolean("temporarily_absent").notNull().default(false),
   ownerName: text("owner_name"),
   tenantName: text("tenant_name"),
   areaSqm: integer("area_sqm"),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  sortOrder: bigint("sort_order", { mode: "number" }).notNull().default(0),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const membership = sqliteTable("membership", {
+export const membership = pgTable("membership", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -125,12 +180,16 @@ export const membership = sqliteTable("membership", {
     .references(() => building.id, { onDelete: "cascade" }),
   unitId: text("unit_id").references(() => unit.id, { onDelete: "set null" }),
   role: text("role", { enum: ["manager", "resident", "accountant"] }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const expenseCategory = sqliteTable("expense_category", {
+export const expenseCategory = pgTable("expense_category", {
   id: text("id").primaryKey(),
   buildingId: text("building_id")
     .notNull()
@@ -143,39 +202,63 @@ export const expenseCategory = sqliteTable("expense_category", {
   allocationMethod: text("allocation_method", {
     enum: ["per_person", "per_unit", "fixed_per_unit", "excluded"],
   }).notNull(),
-  includeEmptyUnits: integer("include_empty_units", { mode: "boolean" })
-    .notNull()
-    .default(false),
-  fixedMonthlyAmount: integer("fixed_monthly_amount"),
+  includeEmptyUnits: boolean("include_empty_units").notNull().default(false),
+  fixedMonthlyAmount: bigint("fixed_monthly_amount", { mode: "number" }),
   inflationPercent: integer("inflation_percent").default(0),
-  sortOrder: integer("sort_order").notNull().default(0),
-  active: integer("active", { mode: "boolean" }).notNull().default(true),
+  sortOrder: bigint("sort_order", { mode: "number" }).notNull().default(0),
+  active: boolean("active").notNull().default(true),
 });
 
-export const billingPeriod = sqliteTable("billing_period", {
+export const billingPeriod = pgTable("billing_period", {
   id: text("id").primaryKey(),
-  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  deletedAt: timestamp("deleted_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
   buildingId: text("building_id")
     .notNull()
     .references(() => building.id, { onDelete: "cascade" }),
-  chargeModel: text("charge_model", { enum: ["direct", "fund"] }).notNull().default("direct"),
+  chargeModel: text("charge_model", { enum: ["direct", "fund"] })
+    .notNull()
+    .default("direct"),
   title: text("title").notNull(),
   periodType: text("period_type", {
     enum: periodTypes,
   }).notNull(),
-  startDate: integer("start_date", { mode: "timestamp_ms" }).notNull(),
-  endDate: integer("end_date", { mode: "timestamp_ms" }).notNull(),
-  dueDate: integer("due_date", { mode: "timestamp_ms" }),
+  startDate: timestamp("start_date", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
+  endDate: timestamp("end_date", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
+  dueDate: timestamp("due_date", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
   status: text("status", { enum: ["draft", "finalized", "archived"] })
     .notNull()
     .default("draft"),
-  finalizedAt: integer("finalized_at", { mode: "timestamp_ms" }),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  finalizedAt: timestamp("finalized_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const periodSnapshot = sqliteTable("period_snapshot", {
+export const periodSnapshot = pgTable("period_snapshot", {
   id: text("id").primaryKey(),
   periodId: text("period_id")
     .notNull()
@@ -184,17 +267,19 @@ export const periodSnapshot = sqliteTable("period_snapshot", {
     .notNull()
     .references(() => unit.id, { onDelete: "cascade" }),
   occupantCount: integer("occupant_count").notNull(),
-  temporarilyAbsent: integer("temporarily_absent", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  temporarilyAbsent: boolean("temporarily_absent").notNull().default(false),
   status: text("status", {
     enum: ["occupied", "empty", "owner_occupied"],
   }).notNull(),
 });
 
-export const expenseLine = sqliteTable("expense_line", {
+export const expenseLine = pgTable("expense_line", {
   id: text("id").primaryKey(),
-  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  deletedAt: timestamp("deleted_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
   periodId: text("period_id")
     .notNull()
     .references(() => billingPeriod.id, { onDelete: "cascade" }),
@@ -205,20 +290,30 @@ export const expenseLine = sqliteTable("expense_line", {
     () => maintenanceTicket.id,
     { onDelete: "set null" },
   ),
-  amountRial: integer("amount_rial").notNull(),
-  billingTreatment: text("billing_treatment", { enum: ["auto", "separate"] }).notNull().default("auto"),
+  amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
+  billingTreatment: text("billing_treatment", { enum: ["auto", "separate"] })
+    .notNull()
+    .default("auto"),
   coverageMonths: integer("coverage_months"),
   sourceStandaloneId: text("source_standalone_id"),
   description: text("description"),
-  expenseDate: integer("expense_date", { mode: "timestamp_ms" }).notNull(),
+  expenseDate: timestamp("expense_date", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
   attachmentPath: text("attachment_path"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
 /** Budget assumptions never change issued invoice lines or create a receivable. */
-export const chargeBudgetPolicy = sqliteTable("charge_budget_policy", {
+export const chargeBudgetPolicy = pgTable("charge_budget_policy", {
   categoryId: text("category_id")
     .primaryKey()
     .references(() => expenseCategory.id, { onDelete: "cascade" }),
@@ -229,22 +324,24 @@ export const chargeBudgetPolicy = sqliteTable("charge_budget_policy", {
     enum: ["monthly", "bill", "reserve", "separate", "one_off"],
   }).notNull(),
   intervalMonths: integer("interval_months"),
-  monthlyReserveRial: integer("monthly_reserve_rial"),
+  monthlyReserveRial: bigint("monthly_reserve_rial", { mode: "number" }),
 });
 
-export const periodChargePlan = sqliteTable("period_charge_plan", {
+export const periodChargePlan = pgTable("period_charge_plan", {
   periodId: text("period_id")
     .primaryKey()
     .references(() => billingPeriod.id, { onDelete: "cascade" }),
-  manualMonthlyRial: integer("manual_monthly_rial"),
-  cleaningVisitRial: integer("cleaning_visit_rial"),
+  manualMonthlyRial: bigint("manual_monthly_rial", { mode: "number" }),
+  cleaningVisitRial: bigint("cleaning_visit_rial", { mode: "number" }),
   cleaningEveryDays: integer("cleaning_every_days").notNull().default(30),
   bufferPercent: integer("buffer_percent").notNull().default(10),
-  roundToRial: integer("round_to_rial").notNull().default(500000),
+  roundToRial: bigint("round_to_rial", { mode: "number" })
+    .notNull()
+    .default(500000),
 });
 
 // Recorded costs held outside billing until the manager explicitly includes them.
-export const standaloneExpense = sqliteTable("standalone_expense", {
+export const standaloneExpense = pgTable("standalone_expense", {
   id: text("id").primaryKey(),
   buildingId: text("building_id")
     .notNull()
@@ -253,21 +350,33 @@ export const standaloneExpense = sqliteTable("standalone_expense", {
     .notNull()
     .references(() => expenseCategory.id),
   description: text("description").notNull(),
-  amountRial: integer("amount_rial").notNull(),
-  expenseDate: integer("expense_date", { mode: "timestamp_ms" }).notNull(),
+  amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
+  expenseDate: timestamp("expense_date", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
   maintenanceTicketId: text("maintenance_ticket_id").references(
     () => maintenanceTicket.id,
   ),
   linkedExpenseId: text("linked_expense_id")
     .unique()
     .references(() => expenseLine.id),
-  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  deletedAt: timestamp("deleted_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const unitInvoice = sqliteTable("unit_invoice", {
+export const unitInvoice = pgTable("unit_invoice", {
   id: text("id").primaryKey(),
   periodId: text("period_id")
     .notNull()
@@ -275,18 +384,26 @@ export const unitInvoice = sqliteTable("unit_invoice", {
   unitId: text("unit_id")
     .notNull()
     .references(() => unit.id, { onDelete: "cascade" }),
-  subtotalRial: integer("subtotal_rial").notNull(),
-  previousBalanceRial: integer("previous_balance_rial").notNull().default(0),
-  totalRial: integer("total_rial").notNull(),
-  paidRial: integer("paid_rial").notNull().default(0),
-  legacyPaidRial: integer("legacy_paid_rial").notNull().default(0),
-  balanceRial: integer("balance_rial").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  subtotalRial: bigint("subtotal_rial", { mode: "number" }).notNull(),
+  previousBalanceRial: bigint("previous_balance_rial", { mode: "number" })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .default(0),
+  totalRial: bigint("total_rial", { mode: "number" }).notNull(),
+  paidRial: bigint("paid_rial", { mode: "number" }).notNull().default(0),
+  legacyPaidRial: bigint("legacy_paid_rial", { mode: "number" })
+    .notNull()
+    .default(0),
+  balanceRial: bigint("balance_rial", { mode: "number" }).notNull(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
+    .notNull()
+    .defaultNow(),
 });
 
-export const invoiceLineItem = sqliteTable("invoice_line_item", {
+export const invoiceLineItem = pgTable("invoice_line_item", {
   id: text("id").primaryKey(),
   invoiceId: text("invoice_id")
     .notNull()
@@ -294,13 +411,17 @@ export const invoiceLineItem = sqliteTable("invoice_line_item", {
   categoryId: text("category_id").references(() => expenseCategory.id),
   title: text("title").notNull(),
   basis: text("basis"),
-  amountRial: integer("amount_rial").notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
+  amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
+  sortOrder: bigint("sort_order", { mode: "number" }).notNull().default(0),
 });
 
-export const payment = sqliteTable("payment", {
+export const payment = pgTable("payment", {
   id: text("id").primaryKey(),
-  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  deletedAt: timestamp("deleted_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
   buildingId: text("building_id")
     .notNull()
     .references(() => building.id, { onDelete: "cascade" }),
@@ -315,46 +436,60 @@ export const payment = sqliteTable("payment", {
   kind: text("kind", { enum: ["receipt", "advance"] })
     .notNull()
     .default("receipt"),
-  allocationTracked: integer("allocation_tracked", { mode: "boolean" })
-    .notNull()
-    .default(false),
+  allocationTracked: boolean("allocation_tracked").notNull().default(false),
   receiptKey: text("receipt_key").unique(),
-  amountRial: integer("amount_rial").notNull(),
+  amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
   method: text("method", {
     enum: ["bank_transfer", "cash", "other"],
   }).notNull(),
-  paidAt: integer("paid_at", { mode: "timestamp_ms" }).notNull(),
+  paidAt: timestamp("paid_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
   note: text("note"),
   recordedByUserId: text("recorded_by_user_id").references(() => user.id),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const paymentRequest = sqliteTable("payment_request", {
+export const paymentRequest = pgTable("payment_request", {
   id: text("id").primaryKey(),
-  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  deletedAt: timestamp("deleted_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
   unitId: text("unit_id")
     .notNull()
     .references(() => unit.id, { onDelete: "cascade" }),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
-  amountRial: integer("amount_rial").notNull(),
+  amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
   periodId: text("period_id").references(() => billingPeriod.id),
   categoryId: text("category_id").references(() => expenseCategory.id),
   status: text("status", { enum: ["pending", "approved", "rejected"] })
     .notNull()
     .default("pending"),
   note: text("note"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
 // An application reserves money against one cost, including before invoice issue.
 // A null source denotes credit predating this ledger, preserved by legacyPaidRial.
-export const paymentApplication = sqliteTable(
+export const paymentApplication = pgTable(
   "payment_application",
   {
     id: text("id").primaryKey(),
@@ -366,28 +501,36 @@ export const paymentApplication = sqliteTable(
       .references(() => billingPeriod.id),
     categoryId: text("category_id").references(() => expenseCategory.id),
     paymentId: text("payment_id").references(() => payment.id),
-    amountRial: integer("amount_rial").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
+    amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "date",
+      precision: 3,
+    })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
+      .defaultNow(),
   },
   (t) => [check("positive_application", sql`${t.amountRial} > 0`)],
 );
 
-export const appNotification = sqliteTable("app_notification", {
+export const appNotification = pgTable("app_notification", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   body: text("body").notNull(),
-  read: integer("read", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const chatMessage = sqliteTable(
+export const chatMessage = pgTable(
   "chat_message",
   {
     id: text("id").primaryKey(),
@@ -401,11 +544,23 @@ export const chatMessage = sqliteTable(
     imageKey: text("image_key"),
     imageMimeType: text("image_mime_type"),
     imageName: text("image_name"),
-    editedAt: integer("edited_at", { mode: "timestamp_ms" }),
-    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
+    editedAt: timestamp("edited_at", {
+      withTimezone: true,
+      mode: "date",
+      precision: 3,
+    }),
+    deletedAt: timestamp("deleted_at", {
+      withTimezone: true,
+      mode: "date",
+      precision: 3,
+    }),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "date",
+      precision: 3,
+    })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
+      .defaultNow(),
   },
   (t) => [
     index("idx_chat_message_building_created").on(t.buildingId, t.createdAt),
@@ -413,35 +568,49 @@ export const chatMessage = sqliteTable(
   ],
 );
 
-export const chargeRecommendation = sqliteTable("charge_recommendation", {
+export const chargeRecommendation = pgTable("charge_recommendation", {
   id: text("id").primaryKey(),
   buildingId: text("building_id")
     .notNull()
     .references(() => building.id, { onDelete: "cascade" }),
   monthsWindow: integer("months_window").notNull(),
-  suggestedMonthlyRial: integer("suggested_monthly_rial").notNull(),
+  suggestedMonthlyRial: bigint("suggested_monthly_rial", {
+    mode: "number",
+  }).notNull(),
   breakdownJson: text("breakdown_json").notNull(),
-  computedAt: integer("computed_at", { mode: "timestamp_ms" }).notNull(),
+  computedAt: timestamp("computed_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }).notNull(),
 });
 
-export const rateAdjustment = sqliteTable("rate_adjustment", {
+export const rateAdjustment = pgTable("rate_adjustment", {
   id: text("id").primaryKey(),
   categoryId: text("category_id")
     .notNull()
     .references(() => expenseCategory.id, { onDelete: "cascade" }),
-  previousValue: integer("previous_value"),
-  newValue: integer("new_value"),
+  previousValue: bigint("previous_value", { mode: "number" }),
+  newValue: bigint("new_value", { mode: "number" }),
   percentChange: integer("percent_change"),
   reason: text("reason"),
   adjustedByUserId: text("adjusted_by_user_id").references(() => user.id),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
-export const maintenanceTicket = sqliteTable("maintenance_ticket", {
+export const maintenanceTicket = pgTable("maintenance_ticket", {
   id: text("id").primaryKey(),
-  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  deletedAt: timestamp("deleted_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
   buildingId: text("building_id")
     .notNull()
     .references(() => building.id, { onDelete: "cascade" }),
@@ -457,10 +626,18 @@ export const maintenanceTicket = sqliteTable("maintenance_ticket", {
   status: text("status", { enum: ["open", "in_progress", "resolved"] })
     .notNull()
     .default("open"),
-  scheduledAt: integer("scheduled_at", { mode: "timestamp_ms" }),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  scheduledAt: timestamp("scheduled_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  }),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });
 
 export const buildingRelations = relations(building, ({ many }) => ({
@@ -478,7 +655,7 @@ export const unitRelations = relations(unit, ({ one, many }) => ({
 }));
 
 /** Manager corrections are reversible; snapshots retain the original financial evidence. */
-export const managementEvent = sqliteTable("management_event", {
+export const managementEvent = pgTable("management_event", {
   id: text("id").primaryKey(),
   buildingId: text("building_id")
     .notNull()
@@ -490,7 +667,11 @@ export const managementEvent = sqliteTable("management_event", {
   label: text("label").notNull(),
   beforeJson: text("before_json"),
   afterJson: text("after_json"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+    mode: "date",
+    precision: 3,
+  })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .defaultNow(),
 });

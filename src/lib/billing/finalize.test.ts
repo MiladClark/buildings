@@ -1,17 +1,11 @@
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
-import { readFile, readdir } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 vi.mock("@/lib/db", async () => {
-  const { createClient } = await import("@libsql/client");
-  const { drizzle } = await import("drizzle-orm/libsql");
+  const { PGlite } = await import("@electric-sql/pglite");
+  const { drizzle } = await import("drizzle-orm/pglite");
   const schema = await import("@/lib/db/schema");
-  const { mkdtemp } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  const dir = await mkdtemp(join(tmpdir(), "hamkhane-billing-test-"));
-  const file = join(dir, "test.db");
-  const client = createClient({ url: `file:${file}` });
-  return { db: drizzle(client, { schema }), client, file, dir };
+  const client = new PGlite();
+  return { db: drizzle(client, { schema }), client };
 });
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -52,33 +46,17 @@ import {
 } from "./standalone-expenses";
 beforeAll(async () => {
   const { client } = (await import("@/lib/db")) as unknown as {
-    client: import("@libsql/client").Client;
+    client: import("@electric-sql/pglite").PGlite;
   };
-  const migrations = (await readdir("drizzle"))
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
-  for (const migration of migrations) {
-    const sql = await readFile(`drizzle/${migration}`, "utf8");
-    for (const statement of sql.split("--> statement-breakpoint"))
-      if (statement.trim()) await client.execute(statement);
-  }
+  const { drizzle } = await import("drizzle-orm/pglite");
+  const { migrate } = await import("drizzle-orm/pglite/migrator");
+  await migrate(drizzle(client), { migrationsFolder: "./drizzle/postgresql" });
 });
 afterAll(async () => {
-  const { client, file, dir } = (await import("@/lib/db")) as unknown as {
-    client: import("@libsql/client").Client;
-    file: string;
-    dir: string;
+  const { client } = (await import("@/lib/db")) as unknown as {
+    client: import("@electric-sql/pglite").PGlite;
   };
-  client.close();
-  const { unlink, rmdir } = await import("node:fs/promises");
-  await Promise.allSettled(
-    [file, `${file}-wal`, `${file}-shm`].map((p) => unlink(p)),
-  );
-  // Windows may keep a SQLite transaction handle until the worker exits.
-  await rmdir(dir).catch((error: NodeJS.ErrnoException) => {
-    if (!["ENOTEMPTY", "EBUSY", "EPERM"].includes(error.code ?? ""))
-      throw error;
-  });
+  await client.close();
 });
 async function fixture(empty = false) {
   const buildingId = crypto.randomUUID(),

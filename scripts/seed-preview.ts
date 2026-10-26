@@ -3,8 +3,8 @@ import { loadEnvConfig } from "@next/env";
 import jalaali from "jalaali-js";
 loadEnvConfig(process.cwd());
 async function main() {
-  if (!process.env.DATABASE_URL?.endsWith("/preview.db"))
-    throw new Error("Preview requires DATABASE_URL=file:./data/preview.db");
+  if (!process.env.DATABASE_URL?.endsWith("/vahedban_preview"))
+    throw new Error("Preview requires a separate PostgreSQL database named vahedban_preview");
   const { db } = await import("../src/lib/db");
   const s = await import("../src/lib/db/schema");
   const { auth } = await import("../src/lib/auth");

@@ -1,8 +1,8 @@
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 async function main() {
-  if (!process.env.DATABASE_URL?.endsWith("/preview.db"))
-    throw new Error("Only preview.db is allowed.");
+  if (!process.env.DATABASE_URL?.endsWith("/vahedban_preview"))
+    throw new Error("Only the separate vahedban_preview PostgreSQL database is allowed.");
   const { db } = await import("../src/lib/db");
   const s = await import("../src/lib/db/schema");
   const { eq } = await import("drizzle-orm");

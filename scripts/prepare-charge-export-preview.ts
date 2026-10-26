@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 loadEnvConfig(process.cwd());
 
 async function main() {
-  if (process.env.DATABASE_URL !== "file:./data/preview.db")
+  if (!process.env.DATABASE_URL?.endsWith("/vahedban_preview"))
     throw new Error("Only the isolated preview database is allowed.");
   const { db } = await import("../src/lib/db");
   const s = await import("../src/lib/db/schema");

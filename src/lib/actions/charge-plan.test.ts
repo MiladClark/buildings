@@ -7,9 +7,6 @@ import {
   it,
   vi,
 } from "vitest";
-import { readFile, readdir, mkdtemp, unlink, rmdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { finalizeBillingPeriod } from "@/lib/billing/finalize";
 import { insertUnitPayment } from "@/lib/billing/settlement-store";
@@ -18,12 +15,11 @@ const auth = vi.hoisted(() => ({ manager: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireManager: auth.manager }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/db", async () => {
-  const { createClient } = await import("@libsql/client");
-  const { drizzle } = await import("drizzle-orm/libsql");
+  const { PGlite } = await import("@electric-sql/pglite");
+  const { drizzle } = await import("drizzle-orm/pglite");
   const schema = await import("@/lib/db/schema");
-  const folder = await mkdtemp(join(tmpdir(), "hamkhane-plan-test-"));
-  const client = createClient({ url: `file:${join(folder, "test.db")}` });
-  return { db: drizzle(client, { schema }), client, folder };
+  const client = new PGlite();
+  return { db: drizzle(client, { schema }), client };
 });
 import { db } from "@/lib/db";
 import * as s from "@/lib/db/schema";
@@ -43,15 +39,11 @@ const buildingId = "plan-building",
   expenseId = "plan-bill";
 beforeAll(async () => {
   const { client } = (await import("@/lib/db")) as unknown as {
-    client: import("@libsql/client").Client;
+    client: import("@electric-sql/pglite").PGlite;
   };
-  for (const file of (await readdir("drizzle"))
-    .filter((f) => f.endsWith(".sql"))
-    .sort())
-    for (const statement of (await readFile(`drizzle/${file}`, "utf8")).split(
-      "--> statement-breakpoint",
-    ))
-      if (statement.trim()) await client.execute(statement);
+  const { drizzle } = await import("drizzle-orm/pglite");
+  const { migrate } = await import("drizzle-orm/pglite/migrator");
+  await migrate(drizzle(client), { migrationsFolder: "./drizzle/postgresql" });
   await db
     .insert(s.user)
     .values({ id: actorId, name: "مدیر آزمایشی", email: "plan@test.local" });
@@ -132,16 +124,10 @@ beforeEach(() => {
   });
 });
 afterAll(async () => {
-  const { client, folder } = (await import("@/lib/db")) as unknown as {
-    client: import("@libsql/client").Client;
-    folder: string;
+  const { client } = (await import("@/lib/db")) as unknown as {
+    client: import("@electric-sql/pglite").PGlite;
   };
-  client.close();
-  const file = join(folder, "test.db");
-  await Promise.allSettled(
-    [file, `${file}-wal`, `${file}-shm`].map((p) => unlink(p)),
-  );
-  await rmdir(folder).catch(() => {});
+  await client.close();
 });
 const payload = {
   bufferPercent: 10,
