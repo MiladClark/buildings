@@ -61,8 +61,13 @@ export const auth = betterAuth({
   account: {
     accountLinking: {
       enabled: true,
+      trustedProviders: ["google"],
       allowDifferentEmails: true,
-      disableImplicitLinking: true,
+      // A verified Google mailbox signs into the user who already has that email,
+      // including the manager. Resident shells use an internal phone email, so
+      // they are still claimed only through the phone-and-unit check.
+      disableImplicitLinking: false,
+      requireLocalEmailVerified: false,
     },
   },
   session: {

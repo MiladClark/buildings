@@ -356,7 +356,7 @@ describe("signed HTTP session boundary", () => {
 });
 
 describe("OAuth callback and repeat sign-in through the actual auth handler", () => {
-  it.each(["new resident", "existing password"])(
+  it.each(["new resident", "existing password", "existing manager"])(
     "validates Google OAuth, connects %s and preserves the canonical user on later sign-in",
     async (mode) => {
       await db.delete(s.user).where(eq(s.user.id, "google-user"));
@@ -410,8 +410,10 @@ describe("OAuth callback and repeat sign-in through the actual auth handler", ()
           account: {
             accountLinking: {
               enabled: true,
+              trustedProviders: ["google"],
               allowDifferentEmails: true,
-              disableImplicitLinking: true,
+              disableImplicitLinking: false,
+              requireLocalEmailVerified: false,
             },
           },
         });
@@ -475,7 +477,27 @@ describe("OAuth callback and repeat sign-in through the actual auth handler", ()
               ?.split(";")[0] ?? linkCookie!
           );
         }
-        if (mode === "existing password") {
+        if (mode === "existing manager") {
+          await db
+            .update(s.user)
+            .set({
+              email: "resident@example.com",
+              emailVerified: false,
+              name: "میلاد رضاپور",
+            })
+            .where(eq(s.user.id, "shell"));
+          await db.update(s.membership).set({ role: "manager" });
+          await db.insert(s.account).values({
+            id: "password-account",
+            accountId: "shell",
+            userId: "shell",
+            providerId: "credential",
+            password: "existing-hash",
+            createdAt: now,
+            updatedAt: now,
+          });
+          await signIn();
+        } else if (mode === "existing password") {
           const hash = await (
             await oauth.$context
           ).password.hash("existing-password");
