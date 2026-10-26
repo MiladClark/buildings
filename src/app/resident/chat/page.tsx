@@ -1,5 +1,5 @@
 import { BuildingChat } from "@/components/chat/building-chat";
-import { listChatMessages } from "@/lib/chat";
+import { listChatMembers, listChatMessages } from "@/lib/chat";
 import { getBuildingForUser } from "@/lib/queries/dashboard";
 import { requireResident } from "@/lib/session";
 
@@ -10,11 +10,15 @@ export default async function ResidentChatPage() {
   const context = await getBuildingForUser(session.user.id);
   if (!context) throw new Error("FORBIDDEN");
 
-  const initialMessages = await listChatMessages({ session, member });
+  const chatContext = { session, member };
+  const [initialMessages, initialMembers] = await Promise.all([
+    listChatMessages(chatContext),
+    listChatMembers(chatContext),
+  ]);
 
   return (
-    <div className="space-y-6">
-      <div className="page-heading">
+    <div className="lg:space-y-6">
+      <div className="page-heading hidden lg:block">
         <div>
           <h1>گفتگوی ساختمان</h1>
           <p>
@@ -23,8 +27,10 @@ export default async function ResidentChatPage() {
         </div>
       </div>
       <BuildingChat
+        buildingId={context.building.id}
         buildingName={context.building.name}
         initialMessages={initialMessages}
+        initialMembers={initialMembers}
       />
     </div>
   );

@@ -3,7 +3,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Buildings,
@@ -23,6 +23,7 @@ import {
   ChatCircleDots,
 } from "@phosphor-icons/react";
 import { SignOutButton } from "@/components/sign-out-button";
+import { CHAT_SEEN_EVENT, readChatSeen } from "@/lib/chat-seen";
 import { cn } from "@/lib/utils";
 
 const managerNav = [
@@ -92,6 +93,46 @@ export function AppShell({
 }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const [unreadChat, setUnreadChat] = useState(false);
+  const onChat = path.endsWith("/chat");
+  const showUnread = unreadChat && !onChat;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkUnread() {
+      try {
+        const response = await fetch("/api/chat/status", {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const status = (await response.json()) as {
+          buildingId?: string;
+          latestId?: string | null;
+          fromSelf?: boolean;
+        };
+        if (cancelled || !status.buildingId) return;
+        const seen = readChatSeen(status.buildingId);
+        setUnreadChat(
+          Boolean(
+            status.latestId && !status.fromSelf && status.latestId !== seen,
+          ),
+        );
+      } catch {
+        // The badge is optional; a failed poll should not interrupt the page.
+      }
+    }
+
+    void checkUnread();
+    const interval = window.setInterval(() => void checkUnread(), 8_000);
+    window.addEventListener(CHAT_SEEN_EVENT, checkUnread);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener(CHAT_SEEN_EVENT, checkUnread);
+    };
+  }, [path]);
   const nav = role === "manager" ? managerNav : residentNav;
   const current =
     [...nav, ...secondaryNav].find((n) => n.href === path) ??
@@ -118,8 +159,15 @@ export function AppShell({
         >
           <item.icon size={20} weight={active ? "duotone" : "regular"} />
           <span>{item.label}</span>
-          {active && (
-            <span className="ms-auto size-1.5 rounded-full bg-primary" />
+          {item.href.endsWith("/chat") && showUnread ? (
+            <span
+              className="ms-auto size-2 rounded-full bg-destructive"
+              aria-label="پیام خوانده‌نشده"
+            />
+          ) : (
+            active && (
+              <span className="ms-auto size-1.5 rounded-full bg-primary" />
+            )
           )}
         </Link>
       );
@@ -192,12 +240,27 @@ export function AppShell({
         {sidebar}
       </aside>
       <div className="lg:mr-[240px]">
-        <header className="flex h-16 items-center justify-between border-b border-border bg-card px-5 lg:px-9">
+        <header
+          className={cn(
+            "flex h-16 items-center justify-between border-b border-border bg-card px-5 lg:px-9",
+            onChat && "max-lg:hidden",
+          )}
+        >
           <div className="flex items-center gap-2.5 text-xs">
             <Dialog.Root open={open} onOpenChange={setOpen}>
               <Dialog.Trigger asChild>
-                <button className="p-2 lg:hidden" aria-label="باز کردن منو">
+                <button
+                  className="relative p-2 lg:hidden"
+                  aria-label={
+                    showUnread
+                      ? "باز کردن منو، پیام جدید دارید"
+                      : "باز کردن منو"
+                  }
+                >
                   <List size={23} />
+                  {showUnread && (
+                    <span className="absolute top-1.5 start-1.5 size-2 rounded-full bg-destructive" />
+                  )}
                 </button>
               </Dialog.Trigger>
               <Dialog.Portal>
@@ -229,12 +292,13 @@ export function AppShell({
           id="main-content"
           className={cn(
             "mx-auto max-w-[1600px] px-4 py-7 sm:px-6 lg:px-9 lg:py-8",
-            role === "resident" && "pb-24 lg:pb-8",
+            role === "resident" && !onChat && "pb-24 lg:pb-8",
+            onChat && "max-lg:max-w-none max-lg:p-0",
           )}
         >
           {children}
         </main>
-        {role === "resident" && (
+        {role === "resident" && !onChat && (
           <nav
             aria-label="دسترسی سریع ساکن"
             className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
@@ -255,7 +319,12 @@ export function AppShell({
                       : "text-muted-foreground",
                   )}
                 >
-                  <item.icon size={20} weight={active ? "fill" : "regular"} />
+                  <span className="relative">
+                    <item.icon size={20} weight={active ? "fill" : "regular"} />
+                    {item.href.endsWith("/chat") && showUnread && (
+                      <span className="absolute -top-0.5 -start-1 size-2 rounded-full bg-destructive" />
+                    )}
+                  </span>
                   <span className="max-w-full truncate">
                     {"shortLabel" in item ? item.shortLabel : item.label}
                   </span>

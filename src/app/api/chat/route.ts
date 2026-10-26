@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { chatMessage } from "@/lib/db/schema";
 import {
   isValidChatBody,
+  listChatMembers,
   listChatMessages,
   normalizeChatBody,
   requireChatContext,
@@ -23,7 +24,11 @@ function errorResponse(error: unknown, fallback = "خطایی رخ داد.") {
 export async function GET() {
   try {
     const context = await requireChatContext();
-    return Response.json({ messages: await listChatMessages(context) });
+    const [messages, members] = await Promise.all([
+      listChatMessages(context),
+      listChatMembers(context),
+    ]);
+    return Response.json({ messages, members });
   } catch (error) {
     return errorResponse(error, "گفتگو قابل دریافت نیست.");
   }

@@ -3,21 +3,65 @@
 
 import {
   ArrowDown,
-  ArrowsClockwise,
+  ArrowRight,
   Check,
   ChatCircleDots,
   ImageSquare,
   PaperPlaneTilt,
   PencilSimple,
+  Smiley,
   SpinnerGap,
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import type { ChatMessageView } from "@/lib/chat";
+import type { ChatMemberView, ChatMessageView } from "@/lib/chat";
+import { markChatSeen } from "@/lib/chat-seen";
+
+const EMOJIS = [
+  "😀",
+  "😁",
+  "😂",
+  "🤣",
+  "😊",
+  "😍",
+  "😘",
+  "😎",
+  "🤔",
+  "😅",
+  "😢",
+  "😭",
+  "😡",
+  "🤯",
+  "😴",
+  "🤝",
+  "👍",
+  "👎",
+  "👏",
+  "🙏",
+  "💪",
+  "👌",
+  "❤️",
+  "🔥",
+  "✨",
+  "🎉",
+  "✅",
+  "❌",
+  "⚠️",
+  "📌",
+  "🏠",
+  "🔑",
+  "💡",
+  "📅",
+  "💰",
+  "🧹",
+  "🔧",
+  "📞",
+];
 
 const timeFormatter = new Intl.DateTimeFormat("fa-IR", {
   timeZone: "Asia/Tehran",
@@ -31,6 +75,12 @@ const dayFormatter = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   day: "numeric",
   month: "long",
 });
+
+const roleLabel: Record<ChatMemberView["role"], string> = {
+  manager: "مدیر",
+  resident: "ساکن",
+  accountant: "حسابدار",
+};
 
 function messageDay(value: string) {
   try {
@@ -52,6 +102,63 @@ function messageDay(value: string) {
   }
 }
 
+function mentionAt(value: string, cursor: number) {
+  const upto = value.slice(0, cursor);
+  const match = upto.match(/(^|[\s\n])@([^\s@]*)$/);
+  if (!match) return null;
+  const query = match[2] ?? "";
+  return { query, start: upto.length - query.length - 1 };
+}
+
+function isMentionBoundary(char: string | undefined) {
+  if (!char) return true;
+  return /[\s.,!?;:،؛!?»«()[\]{}]/.test(char);
+}
+
+function highlightMentions(
+  body: string,
+  members: ChatMemberView[],
+  own: boolean,
+) {
+  const names = [...members].sort((a, b) => b.name.length - a.name.length);
+  const parts: React.ReactNode[] = [];
+  let index = 0;
+
+  while (index < body.length) {
+    if (body[index] === "@") {
+      const rest = body.slice(index + 1);
+      const hit = names.find(
+        (member) =>
+          rest.startsWith(member.name) &&
+          isMentionBoundary(rest[member.name.length]),
+      );
+      if (hit) {
+        parts.push(
+          <span
+            key={index}
+            className={
+              own
+                ? "font-semibold underline decoration-primary-foreground/50 underline-offset-2"
+                : "font-semibold text-primary"
+            }
+          >
+            @{hit.name}
+          </span>,
+        );
+        index += hit.name.length + 1;
+        continue;
+      }
+    }
+
+    const next = body.indexOf("@", index + 1);
+    const end = next === -1 ? body.length : next;
+    parts.push(body.slice(index, end));
+    index = end === index ? index + 1 : end;
+  }
+
+  return parts;
+}
+
 async function responseError(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => null)) as {
     error?: string;
@@ -62,39 +169,67 @@ async function responseError(response: Response, fallback: string) {
 }
 
 export function BuildingChat({
+  buildingId,
   buildingName,
   initialMessages,
+  initialMembers = [],
 }: {
+  buildingId: string;
   buildingName: string;
   initialMessages?: ChatMessageView[];
+  initialMembers?: ChatMemberView[];
 }) {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessageView[]>(
     initialMessages ?? [],
   );
+  const [members, setMembers] = useState<ChatMemberView[]>(initialMembers);
   const [body, setBody] = useState("");
+  const [caret, setCaret] = useState(0);
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(!initialMessages);
-  const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBody, setEditBody] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(
-    initialMessages ? new Date() : null,
-  );
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionDismissed, setMentionDismissed] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const imagePreviewRef = useRef<string | null>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
   const initialized = useRef(Boolean(initialMessages?.length));
 
+  const mention = useMemo(() => mentionAt(body, caret), [body, caret]);
+  const mentionKey = mention ? `${mention.start}:${mention.query}` : "";
+  const [mentionSession, setMentionSession] = useState(mentionKey);
+  if (mentionSession !== mentionKey) {
+    setMentionSession(mentionKey);
+    setMentionIndex(0);
+    setMentionDismissed(false);
+  }
+  const mentionMatches = useMemo(() => {
+    if (!mention) return [];
+    const query = mention.query.trim().toLowerCase();
+    return members
+      .filter((member) => {
+        if (!query) return true;
+        return (
+          member.name.toLowerCase().includes(query) ||
+          (member.unit ?? "").toLowerCase().includes(query)
+        );
+      })
+      .slice(0, 8);
+  }, [members, mention]);
+
   const loadMessages = useCallback(async (quiet = false) => {
-    if (!quiet) setRefreshing(true);
     try {
       const response = await fetch("/api/chat", {
         cache: "no-store",
@@ -103,6 +238,7 @@ export function BuildingChat({
       if (!response.ok) throw new Error("LOAD_FAILED");
       const payload = (await response.json()) as {
         messages: ChatMessageView[];
+        members?: ChatMemberView[];
       };
 
       setMessages((prev) => {
@@ -118,29 +254,27 @@ export function BuildingChat({
         }
         return payload.messages;
       });
-      setLastUpdated(new Date());
+      if (payload.members) setMembers(payload.members);
     } catch {
       if (!quiet) toast.error("گفتگو دریافت نشد. لطفاً اتصال را بررسی کنید.");
     } finally {
-      if (!quiet) {
-        setLoading(false);
-        setRefreshing(false);
-      }
+      if (!quiet) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     const interval = window.setInterval(() => void loadMessages(true), 5_000);
-    return () => {
-      window.clearInterval(interval);
-    };
+    return () => window.clearInterval(interval);
   }, [loadMessages]);
 
   useEffect(() => {
+    const latest = messages.at(-1);
+    if (latest) markChatSeen(buildingId, latest.id);
+  }, [buildingId, messages]);
+
+  useEffect(() => {
     return () => {
-      if (imagePreviewRef.current) {
-        URL.revokeObjectURL(imagePreviewRef.current);
-      }
+      if (imagePreviewRef.current) URL.revokeObjectURL(imagePreviewRef.current);
     };
   }, []);
 
@@ -151,15 +285,24 @@ export function BuildingChat({
     }
   }, [messages]);
 
-  function scrollToBottom() {
-    if (listRef.current) {
-      listRef.current.scrollTo({
-        top: listRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-      followLatest.current = true;
-      setShowScrollBottom(false);
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      if (!composerRef.current?.contains(event.target as Node)) {
+        setEmojiOpen(false);
+      }
     }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
+  function scrollToBottom() {
+    if (!listRef.current) return;
+    listRef.current.scrollTo({
+      top: listRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+    followLatest.current = true;
+    setShowScrollBottom(false);
   }
 
   function handleScroll(element: HTMLDivElement) {
@@ -170,21 +313,51 @@ export function BuildingChat({
   }
 
   function selectImage(selected: File | null) {
-    if (imagePreviewRef.current) {
-      URL.revokeObjectURL(imagePreviewRef.current);
-    }
+    if (imagePreviewRef.current) URL.revokeObjectURL(imagePreviewRef.current);
     const preview = selected ? URL.createObjectURL(selected) : null;
     imagePreviewRef.current = preview;
     setImage(selected);
     setImagePreview(preview);
   }
 
-  function handleBodyChange(value: string) {
-    setBody(value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
-    }
+  function resizeComposer() {
+    const field = textareaRef.current;
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${Math.min(field.scrollHeight, 128)}px`;
+  }
+
+  function syncCaret(field: HTMLTextAreaElement) {
+    setCaret(field.selectionStart ?? 0);
+  }
+
+  function insertAtCursor(token: string) {
+    const field = textareaRef.current;
+    const cursor = field?.selectionStart ?? caret;
+    const next = body.slice(0, cursor) + token + body.slice(cursor);
+    setBody(next);
+    const pos = cursor + token.length;
+    setCaret(pos);
+    requestAnimationFrame(() => {
+      field?.focus();
+      field?.setSelectionRange(pos, pos);
+      resizeComposer();
+    });
+  }
+
+  function insertMention(member: ChatMemberView) {
+    const active = mentionAt(body, caret);
+    if (!active) return;
+    const token = `@${member.name} `;
+    const next = body.slice(0, active.start) + token + body.slice(caret);
+    const pos = active.start + token.length;
+    setBody(next);
+    setCaret(pos);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(pos, pos);
+      resizeComposer();
+    });
   }
 
   async function sendMessage(event?: React.FormEvent<HTMLFormElement>) {
@@ -206,6 +379,8 @@ export function BuildingChat({
       const payload = (await response.json()) as { message?: ChatMessageView };
 
       setBody("");
+      setCaret(0);
+      setEmojiOpen(false);
       selectImage(null);
       if (fileRef.current) fileRef.current.value = "";
       if (textareaRef.current) textareaRef.current.style.height = "auto";
@@ -286,57 +461,68 @@ export function BuildingChat({
     }
   }
 
-  return (
-    <section className="panel relative overflow-hidden border border-border shadow-xs">
-      {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card/90 px-4 py-3.5 backdrop-blur-xs sm:px-6">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <ChatCircleDots size={22} weight="duotone" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-foreground">
-                گفتگوی {buildingName}
-              </h2>
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
-                <span className="size-1.5 rounded-full bg-primary" />
-                آنلاین
-              </span>
-            </div>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              فضای تعامل، اطلاع‌رسانی و هماهنگی عمومی ساکنان و مدیریت
-            </p>
-          </div>
-        </div>
+  function onComposerKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (mention && !mentionDismissed && mentionMatches.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setMentionIndex((current) => (current + 1) % mentionMatches.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setMentionIndex(
+          (current) =>
+            (current - 1 + mentionMatches.length) % mentionMatches.length,
+        );
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        const selected = mentionMatches[mentionIndex] ?? mentionMatches[0];
+        if (selected) insertMention(selected);
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMentionDismissed(true);
+        return;
+      }
+    }
 
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>
-            {lastUpdated
-              ? `به‌روز تا ${timeFormatter.format(lastUpdated)}`
-              : "در حال اتصال"}
-          </span>
-          <button
-            type="button"
-            onClick={() => void loadMessages(false)}
-            disabled={refreshing}
-            className="flex size-7 items-center justify-center rounded-lg border border-border/80 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
-            title="به‌روزرسانی پیام‌ها"
-            aria-label="به‌روزرسانی پیام‌ها"
-          >
-            <ArrowsClockwise
-              size={13}
-              className={refreshing ? "animate-spin text-primary" : ""}
-            />
-          </button>
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if ((body.trim() || image) && !sending) void sendMessage();
+    }
+  }
+
+  return (
+    <section className="fixed inset-0 z-50 flex flex-col bg-background lg:static lg:z-auto lg:h-[calc(100dvh-12.5rem)] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:shadow-xs">
+      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-4 lg:py-3">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex size-11 items-center justify-center rounded-full text-foreground lg:hidden"
+          aria-label="بستن گفتگو"
+        >
+          <ArrowRight size={22} />
+        </button>
+        <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <ChatCircleDots size={22} weight="duotone" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-sm font-bold text-foreground">
+            گفتگوی {buildingName}
+          </h2>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {members.length.toLocaleString("fa-IR")} عضو
+          </p>
         </div>
       </header>
 
-      {/* Messages Scroll Area */}
       <div
         ref={listRef}
-        onScroll={(e) => handleScroll(e.currentTarget)}
-        className="h-[46dvh] min-h-[340px] overflow-y-auto bg-muted/20 px-3 py-5 sm:h-[min(60dvh,620px)] sm:min-h-[420px] sm:px-6"
+        onScroll={(event) => handleScroll(event.currentTarget)}
+        className="relative min-h-0 flex-1 overflow-y-auto bg-muted/30 px-3 py-4 sm:px-5"
         aria-live="polite"
         aria-label="پیام‌های گروه ساختمان"
       >
@@ -347,87 +533,88 @@ export function BuildingChat({
           </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <span className="mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <span className="mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
               <ChatCircleDots size={30} weight="duotone" />
             </span>
             <p className="text-sm font-semibold text-foreground">
               هنوز پیامی ثبت نشده است
             </p>
-            <p className="mt-1.5 max-w-sm text-xs leading-6 text-muted-foreground">
-              نخستین پیام را ارسال کنید. هماهنگی‌های ساختمان، اعلانات شارژ و
-              نظافت در این گفتگو به اشتراک گذاشته می‌شود.
+            <p className="mt-1.5 max-w-xs text-xs leading-6 text-muted-foreground">
+              اولین پیام را برای اعضای ساختمان بنویسید.
             </p>
           </div>
         ) : (
           messages.map((message, index) => {
             const previous = messages[index - 1];
+            const next = messages[index + 1];
             const currentDayLabel = messageDay(message.createdAt);
             const prevDayLabel = previous
               ? messageDay(previous.createdAt)
               : null;
             const showDay = !previous || currentDayLabel !== prevDayLabel;
+            const groupedWithPrevious =
+              !showDay && previous?.authorId === message.authorId;
+            const groupedWithNext =
+              Boolean(next) &&
+              messageDay(next!.createdAt) === currentDayLabel &&
+              next!.authorId === message.authorId;
 
             return (
               <div key={message.id}>
                 {showDay && currentDayLabel && (
-                  <div className="my-5 flex items-center justify-center gap-3">
-                    <span className="h-px flex-1 bg-border" />
-                    <span className="rounded-full bg-muted px-3 py-0.5 text-[10px] font-medium text-muted-foreground shadow-2xs">
+                  <div className="my-4 flex justify-center">
+                    <span className="rounded-full bg-card px-3 py-1 text-[11px] text-muted-foreground shadow-2xs">
                       {currentDayLabel}
                     </span>
-                    <span className="h-px flex-1 bg-border" />
                   </div>
                 )}
 
                 <article
-                  className={`mb-3.5 flex items-end gap-2.5 ${
+                  className={`flex items-end gap-2 ${
                     message.isOwn ? "flex-row-reverse" : "flex-row"
-                  }`}
+                  } ${groupedWithPrevious ? "mt-0.5" : "mt-3"}`}
                 >
-                  {/* Avatar */}
-                  <span
-                    className={`flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold shadow-2xs ring-1 ${
-                      message.isOwn
-                        ? "bg-primary text-primary-foreground ring-primary/30"
-                        : "bg-card text-foreground ring-border"
-                    }`}
-                  >
-                    {message.authorName.slice(0, 1)}
-                  </span>
+                  {!message.isOwn && (
+                    <span
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-full bg-card text-[11px] font-bold text-foreground ring-1 ring-border ${
+                        groupedWithNext ? "invisible" : ""
+                      }`}
+                    >
+                      {message.authorName.slice(0, 1)}
+                    </span>
+                  )}
 
-                  {/* Bubble Container */}
                   <div
-                    className={`group flex max-w-[85%] flex-col sm:max-w-[70%] ${
+                    className={`group flex max-w-[82%] flex-col sm:max-w-[68%] ${
                       message.isOwn ? "items-start" : "items-start"
                     }`}
                   >
-                    {/* Author Meta */}
-                    <div className="mb-1 flex flex-wrap items-center gap-1.5 px-1 text-[10px] text-muted-foreground">
-                      <span className="font-medium text-foreground">
-                        {message.authorName}
-                      </span>
-                      {message.authorUnit && (
-                        <span className="rounded bg-muted px-1.5 py-0.2 text-[9px] text-muted-foreground">
-                          واحد {message.authorUnit}
+                    {!message.isOwn && !groupedWithPrevious && (
+                      <div className="mb-1 flex items-center gap-1.5 px-1 text-[11px]">
+                        <span className="font-semibold text-primary">
+                          {message.authorName}
                         </span>
-                      )}
-                    </div>
+                        {message.authorUnit && (
+                          <span className="text-[10px] text-muted-foreground">
+                            واحد {message.authorUnit}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
-                    {/* Bubble Content */}
                     <div
-                      className={`relative w-fit max-w-full rounded-2xl border p-3 shadow-2xs transition-all ${
+                      className={`relative w-fit max-w-full px-3 py-1.5 shadow-2xs ${
                         message.isOwn
-                          ? "rounded-bl-xs border-primary/20 bg-secondary/85 text-foreground"
-                          : "rounded-br-xs border-border bg-card text-foreground"
+                          ? "rounded-2xl rounded-es-md bg-primary text-primary-foreground"
+                          : "rounded-2xl rounded-ee-md bg-card text-foreground"
                       }`}
                     >
-                      {/* Attached Image */}
                       {message.imageUrl && (
                         <a
                           href={message.imageUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="mb-2 block overflow-hidden rounded-xl bg-muted ring-1 ring-border transition-opacity hover:opacity-95"
+                          className="mb-1.5 mt-0.5 block overflow-hidden rounded-xl"
                           title="نمایش تصویر در ابعاد کامل"
                         >
                           <img
@@ -444,82 +631,88 @@ export function BuildingChat({
                         </a>
                       )}
 
-                      {/* Message Body or Edit Field */}
                       {editingId === message.id ? (
-                        <div className="min-w-[240px] max-w-full space-y-2 pt-0.5 sm:min-w-[300px]">
+                        <div className="min-w-[220px] space-y-2 py-1 sm:min-w-[280px]">
                           <textarea
                             value={editBody}
-                            onChange={(e) => setEditBody(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
+                            onChange={(event) =>
+                              setEditBody(event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault();
                                 void saveEdit(message);
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
+                              } else if (event.key === "Escape") {
+                                event.preventDefault();
                                 setEditingId(null);
                               }
                             }}
                             autoFocus
                             rows={3}
-                            className="form-control form-textarea w-full bg-background text-xs leading-relaxed"
+                            className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-xs leading-6 text-foreground outline-none"
                             maxLength={2_000}
                             aria-label="ویرایش متن پیام"
                           />
-                          <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                            <span>Enter: ذخیره • Esc: انصراف</span>
-                            <div className="flex items-center gap-1.5">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => setEditingId(null)}
-                              >
-                                انصراف
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="h-7 px-2.5 text-xs"
-                                onClick={() => void saveEdit(message)}
-                                disabled={savingId === message.id}
-                              >
-                                {savingId === message.id ? (
-                                  <SpinnerGap
-                                    className="animate-spin"
-                                    size={13}
-                                  />
-                                ) : (
-                                  <Check size={13} weight="bold" />
-                                )}
-                                ذخیره
-                              </Button>
-                            </div>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => setEditingId(null)}
+                            >
+                              انصراف
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-7 px-2.5 text-xs"
+                              onClick={() => void saveEdit(message)}
+                              disabled={savingId === message.id}
+                            >
+                              {savingId === message.id ? (
+                                <SpinnerGap
+                                  className="animate-spin"
+                                  size={13}
+                                />
+                              ) : (
+                                <Check size={13} weight="bold" />
+                              )}
+                              ذخیره
+                            </Button>
                           </div>
                         </div>
                       ) : (
                         message.body && (
-                          <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground select-text">
-                            {message.body}
+                          <p className="whitespace-pre-wrap break-words text-[13.5px] leading-6 select-text">
+                            {highlightMentions(
+                              message.body,
+                              members,
+                              message.isOwn,
+                            )}
                           </p>
                         )
                       )}
 
-                      {/* Footer: Timestamp, Edit badge, Actions */}
-                      <div className="mt-1.5 flex items-center gap-2 text-[9px] text-muted-foreground">
+                      <div
+                        className={`mt-0.5 flex items-center gap-1.5 text-[10px] ${
+                          message.isOwn
+                            ? "text-primary-foreground/75"
+                            : "text-muted-foreground"
+                        }`}
+                      >
                         <time dateTime={message.createdAt}>
                           {timeFormatter.format(new Date(message.createdAt))}
                         </time>
-                        {message.editedAt && <span>(ویرایش‌شده)</span>}
-
+                        {message.editedAt && <span>ویرایش‌شده</span>}
                         {editingId !== message.id &&
                           (message.canEdit || message.canDelete) && (
-                            <span className="ms-auto flex items-center gap-0.5 opacity-80 group-hover:opacity-100">
+                            <span className="ms-auto flex items-center opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100">
                               {message.canEdit && (
                                 <button
                                   type="button"
                                   onClick={() => beginEdit(message)}
-                                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                  className="rounded p-1"
                                   title="ویرایش پیام"
                                   aria-label="ویرایش پیام"
                                 >
@@ -531,7 +724,7 @@ export function BuildingChat({
                                   type="button"
                                   onClick={() => void deleteMessage(message)}
                                   disabled={deletingId === message.id}
-                                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                                  className="rounded p-1 disabled:opacity-50"
                                   title="حذف پیام"
                                   aria-label="حذف پیام"
                                 >
@@ -557,12 +750,11 @@ export function BuildingChat({
         )}
       </div>
 
-      {/* Floating Scroll-to-bottom Button */}
       {showScrollBottom && (
         <button
           type="button"
           onClick={scrollToBottom}
-          className="absolute bottom-24 left-6 z-10 flex size-9 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-md transition-all hover:bg-muted active:scale-95"
+          className="absolute bottom-24 left-4 z-10 flex size-10 items-center justify-center rounded-full border border-border bg-card text-foreground shadow-md"
           title="رفتن به پیام‌های جدید"
           aria-label="رفتن به پیام‌های جدید"
         >
@@ -570,34 +762,27 @@ export function BuildingChat({
         </button>
       )}
 
-      {/* Message Input Form */}
       <form
         onSubmit={sendMessage}
-        className="border-t border-border bg-card p-3 sm:p-4"
+        className="shrink-0 border-t border-border bg-card px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:px-3"
       >
-        {/* Selected Image Preview */}
         {imagePreview && (
-          <div className="mb-3 flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-2">
+          <div className="mb-2 flex items-center gap-3 rounded-2xl bg-muted/60 p-2">
             <img
               src={imagePreview}
               alt="پیش‌نمایش تصویر انتخابی"
-              className="size-14 rounded-lg object-cover ring-1 ring-border"
+              className="size-12 rounded-xl object-cover"
             />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-foreground">
-                {image?.name}
-              </p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                تصویر بهینه شده و با فرمت WebP فشرده ارسال خواهد شد
-              </p>
-            </div>
+            <p className="min-w-0 flex-1 truncate text-xs text-foreground">
+              {image?.name}
+            </p>
             <button
               type="button"
               onClick={() => {
                 selectImage(null);
                 if (fileRef.current) fileRef.current.value = "";
               }}
-              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground"
               aria-label="حذف تصویر انتخابی"
             >
               <X size={16} />
@@ -605,8 +790,57 @@ export function BuildingChat({
           </div>
         )}
 
-        <div className="flex items-end gap-2">
-          {/* File Input */}
+        <div ref={composerRef} className="relative flex items-center gap-1">
+          {emojiOpen && (
+            <div className="absolute bottom-full start-0 z-20 mb-2 w-[min(100%,320px)] rounded-2xl border border-border bg-card p-2 shadow-lg">
+              <div className="grid grid-cols-8 gap-0.5">
+                {EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className="flex size-9 items-center justify-center rounded-lg text-lg hover:bg-muted"
+                    onClick={() => insertAtCursor(emoji)}
+                    aria-label={`افزودن ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {mention && !mentionDismissed && mentionMatches.length > 0 && (
+            <ul className="absolute bottom-full start-12 z-20 mb-2 max-h-64 w-[min(100%-3rem,280px)] overflow-y-auto rounded-2xl border border-border bg-card py-1 shadow-lg">
+              {mentionMatches.map((member, index) => (
+                <li key={member.id}>
+                  <button
+                    type="button"
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-start ${
+                      index === mentionIndex ? "bg-muted" : ""
+                    }`}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      insertMention(member);
+                    }}
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {member.name.slice(0, 1)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-xs font-semibold text-foreground">
+                        {member.name}
+                      </span>
+                      <span className="block truncate text-[10px] text-muted-foreground">
+                        {roleLabel[member.role]}
+                        {member.unit ? ` · واحد ${member.unit}` : ""}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
           <input
             ref={fileRef}
             type="file"
@@ -624,45 +858,50 @@ export function BuildingChat({
             }}
           />
 
+          <button
+            type="button"
+            onClick={() => setEmojiOpen((open) => !open)}
+            className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="ایموجی"
+            aria-expanded={emojiOpen}
+          >
+            <Smiley size={22} />
+          </button>
+
           <label
             htmlFor="chat-image"
-            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted hover:text-primary"
+            className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label="افزودن تصویر"
-            title="افزودن تصویر (حداکثر ۸ مگابایت)"
+            title="افزودن تصویر"
           >
-            <ImageSquare size={20} />
+            <ImageSquare size={22} />
           </label>
 
-          {/* Text Input */}
-          <div className="min-w-0 flex-1">
+          <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-3xl bg-muted px-3">
             <textarea
               ref={textareaRef}
               value={body}
-              onChange={(e) => handleBodyChange(e.target.value)}
-              onKeyDown={(e) => {
-                // Enter without Shift sends immediately
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if ((body.trim() || image) && !sending) {
-                    void sendMessage();
-                  }
-                }
+              onChange={(event) => {
+                setBody(event.target.value);
+                syncCaret(event.target);
+                resizeComposer();
               }}
+              onClick={(event) => syncCaret(event.currentTarget)}
+              onKeyUp={(event) => syncCaret(event.currentTarget)}
+              onKeyDown={onComposerKeyDown}
               maxLength={2_000}
               rows={1}
-              placeholder="پیام خود را بنویسید... (Enter برای ارسال، Shift+Enter خط جدید)"
+              placeholder="پیام"
               aria-label="متن پیام"
-              className="form-control max-h-40 min-h-10 w-full resize-none bg-background py-2 px-3 text-xs leading-relaxed"
+              className="max-h-32 min-h-6 w-full resize-none bg-transparent py-2.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
             />
           </div>
 
-          {/* Send Button */}
-          <Button
+          <button
             type="submit"
-            className="size-10 shrink-0 p-0 shadow-2xs"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
             disabled={sending || (!body.trim() && !image)}
             aria-label="ارسال پیام"
-            title="ارسال پیام (Enter)"
           >
             {sending ? (
               <SpinnerGap className="animate-spin" size={18} />
@@ -673,13 +912,7 @@ export function BuildingChat({
                 className="-scale-x-100"
               />
             )}
-          </Button>
-        </div>
-
-        {/* Shortcuts & Counter Footer */}
-        <div className="mt-2 flex items-center justify-between px-1 text-[10px] text-muted-foreground">
-          <span>ارسال: Enter • خط جدید: Shift + Enter</span>
-          <span>{body.length.toLocaleString("fa-IR")} / ۲٬۰۰۰</span>
+          </button>
         </div>
       </form>
     </section>
