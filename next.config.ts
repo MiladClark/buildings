@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   allowedDevOrigins: ["127.0.0.1"],
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
-  serverExternalPackages: ["@libsql/client", "libsql", "better-sqlite3"],
+  serverExternalPackages: ["postgres"],
   cacheComponents: false,
   turbopack: {
     rules: {

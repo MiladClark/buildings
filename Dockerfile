@@ -6,8 +6,8 @@ RUN npm ci
 FROM dependencies AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY . .
-# Build against a disposable database, never the production volume or secrets.
-RUN mkdir -p data && npm run build
+# Static compilation does not connect to the runtime database.
+RUN DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build npm run build
 
 FROM node:24-bookworm-slim AS runner
 WORKDIR /app
@@ -15,7 +15,6 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     HOSTNAME=0.0.0.0 \
     PORT=3300 \
-    DATABASE_URL=file:/app/data/buildings.db \
     CHAT_UPLOAD_DIR=/app/data/chat-uploads
 RUN mkdir -p /app/data /app/.next && chown -R node:node /app
 COPY --from=builder --chown=node:node /app/.next/standalone ./
@@ -23,7 +22,8 @@ COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public
 # Keep the complete migration package: it is loaded only by the entrypoint.
 COPY --from=dependencies --chown=node:node /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
-COPY --from=builder --chown=node:node /app/drizzle ./drizzle
+COPY --from=dependencies --chown=node:node /app/node_modules/postgres ./node_modules/postgres
+COPY --from=builder --chown=node:node /app/drizzle/postgresql ./drizzle/postgresql
 COPY --from=builder --chown=node:node /app/scripts/production ./scripts/production
 USER node
 EXPOSE 3300

@@ -1,0 +1,3 @@
+FROM postgres:17-alpine
+COPY --chmod=755 scripts/production/backup.sh /usr/local/bin/vahedban-backup
+ENTRYPOINT ["/usr/local/bin/vahedban-backup"]

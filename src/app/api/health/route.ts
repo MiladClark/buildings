@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    await db.run(sql`SELECT 1 FROM building LIMIT 1`);
+    await db.execute(sql`SELECT 1 FROM building LIMIT 1`);
     return Response.json(
       { status: "ok" },
       { headers: { "Cache-Control": "no-store" } },

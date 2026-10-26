@@ -1,65 +1,60 @@
 # استقرار واحدبان روی Coolify
 
-این نسخه با Node.js 24 و Dockerfile مخزن اجرا می‌شود. SQLite و تصاویر گفتگو روی یک volume پایدار در `/app/data` قرار دارند. این معماری برای یک سرور و یک نمونهٔ برنامه است؛ volume دیتابیس را میان چند سرور به اشتراک نگذارید.
+این نسخه از PostgreSQL 17 و Docker Compose استفاده می‌کند. برنامه، دیتابیس و پشتیبان‌گیری سه سرویس مستقل‌اند. دیتابیس پورت عمومی ندارد و فقط در شبکهٔ خصوصی Compose در دسترس است.
 
-## تنظیمات برنامه
+## تنظیمات Coolify
 
-- Repository: `https://github.com/MiladClark/buildings`، شاخهٔ `master`
-- Build pack: `Dockerfile`، مسیر `/Dockerfile`، Base directory برابر `/`
-- پورت داخلی: `3300`، دامنه: `https://vahedban.ir`
-- Persistent storage: volume روی `/app/data`؛ پیش از اولین اجرا وصل شود.
-- Health check داخل تصویر: `GET /api/health`؛ سلامت اتصال دیتابیس و وجود schema را می‌سنجد.
+- مخزن: `https://github.com/MiladClark/buildings`، شاخهٔ `master`
+- Build pack: `Docker Compose`، فایل `/docker-compose.coolify.yml`، Base directory: `/`
+- دامنهٔ سرویس `app`: `https://vahedban.ir:3300`؛ پورت 3300 مقصد داخلی پراکسی است.
+- متغیرهای runtime: `POSTGRES_PASSWORD`، `BETTER_AUTH_SECRET`، `BETTER_AUTH_URL=https://vahedban.ir`.
+- رمز دیتابیس را به‌صورت hex تصادفی بسازید تا در connection URL بدون escape قابل استفاده باشد.
+- build-time بودن متغیرهای واقعی و تزریق build arguments خاموش باشد. توکن Coolify در برنامه لازم نیست.
 
-متغیرهای زیر فقط هنگام اجرا تنظیم شوند؛ build-time و تزریق build arguments خاموش باشد:
+Compose سه volume پایدار دارد: `postgres-data` برای PostgreSQL، `uploads` برای تصاویر، و `postgres-backups` برای بکاپ‌ها. آن‌ها را هنگام redeploy حفظ کنید. فرمان `docker compose down -v` داده‌ها را حذف می‌کند.
 
-```dotenv
-DATABASE_URL=file:/app/data/buildings.db
-CHAT_UPLOAD_DIR=/app/data/chat-uploads
-BETTER_AUTH_URL=https://vahedban.ir
-BETTER_AUTH_SECRET=<random-secret-at-least-32-characters>
+## انتقال اطلاعات قبلی SQLite
+
+اطلاعات واقعی از Git و image عبور نمی‌کنند. روی دستگاه مبدأ، در حالی که کسی در برنامه دادهٔ تازه وارد نمی‌کند:
+
+```powershell
+npm run db:transfer -- file:./data/buildings.db
+node scripts/verify-production.mjs data/transfer/production.bundle
 ```
 
-تولید secret: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. مقدار واقعی را فقط در بخش Environment Variables پنل ذخیره کنید. فایل محیط، دیتابیس محلی و خروجی فیش‌ها داخل Git یا image قرار نمی‌گیرند.
+فرمان اول از SQLite یک snapshot سازگار می‌گیرد و داده‌های ۲۵ جدول و تصاویر فعال گفتگو را در `data/transfer/production.bundle` بسته‌بندی می‌کند. رمزهای هش‌شده، شناسه‌ها، تاریخ‌ها، مبالغ، فیش‌ها و دریافت‌ها حفظ می‌شوند. اطلاعات `preview.db` وارد نمی‌شوند. فایل‌ها و بستهٔ انتقال در `.gitignore` و `.dockerignore` هستند.
 
-## دیتابیس تازه و ارتقا
+برای این انتقال، بستهٔ فشرده به‌صورت مقدار مخفی runtime به نام `INITIAL_IMPORT_BUNDLE` در Coolify ذخیره می‌شود. مقدار بزرگ‌تر از محدودیت env را به این روش منتقل نکنید. برنامه قبل از شروع، migrationهای PostgreSQL را اجرا و سپس بسته را فقط روی دیتابیس خالی وارد می‌کند. در همان تراکنش، تعداد و SHA-256 محتوای تک‌تک جدول‌ها را تطبیق می‌دهد؛ خطا کل تراکنش را rollback می‌کند. برای تصاویر، checksum فایل هم بررسی می‌شود.
 
-فرمان شروع، تمام migrationهای نسخه‌بندی‌شدهٔ `drizzle/` را پیش از بالا آمدن سرور اجرا می‌کند. نصب تازه فقط تنظیمات ساختمان و دسته‌های پایه دارد؛ واحد، حساب، دریافت، هزینه و فیش نمونه ساخته نمی‌شود. اسکریپت `db:seed` توسعه را روی production اجرا نکنید.
+اثر انگشت انتقال در `_vahedban_import` ثبت می‌شود. اجرای دوبارهٔ همان بسته داده‌ها را تکرار یا بازنویسی نمی‌کند؛ بستهٔ متفاوت یا مقصد از قبل پرشده رد می‌شود. بعد از مشاهدهٔ موفقیت انتقال در لاگ، `INITIAL_IMPORT_BUNDLE` را از Coolify پاک و یک بار redeploy کنید تا دیگر در محیط کانتینر نباشد.
 
-اولین ثبت‌نام از `/register` مدیر می‌شود؛ راه‌اندازی حساب مدیر را بلافاصله پس از فعال‌کردن دسترسی دامنه انجام دهید. نام ساختمان، واحدها و اطلاعات بانکی از پنل مدیر وارد می‌شوند. ورود فعلی با شمارهٔ موبایل و رمز است؛ پیامک و تأیید مالکیت شماره متصل نیست.
+حساب مدیر موجود منتقل می‌شود؛ با همان شماره/ایمیل و رمز قبلی وارد شوید. به‌علت تغییر secret ممکن است ورود دوباره لازم باشد. روی دیتابیس منتقل‌شده `db:seed` یا fixtureهای preview را اجرا نکنید.
 
-در استقرارهای بعدی، اطلاعات حفظ می‌شوند و پیش از migration تازه، یک snapshot سازگار در `/app/data/backups/before-migration-*.db` ساخته می‌شود. تغییر محتوای migration اجراشده یا عقب‌بردن نسخه به تاریخچهٔ نامعتبر، شروع برنامه را متوقف می‌کند. SQLite در حالت WAL اجرا می‌شود.
+## مهاجرت و سلامت
 
-دیتابیس‌های محلی قدیمی که با `db:push` ساخته شده‌اند تاریخچهٔ migration ندارند؛ فرمان شروع عمداً آن‌ها را خودکار بازنویسی نمی‌کند. انتقال دیتابیس قدیمی باید با توقف برنامه، backup، اجرای اسکریپت‌های ارتقای README و تطبیق schema و دفتر مالی در محیط جدا انجام شود. فایل `data/buildings.db` توسعه به سرور منتقل نمی‌شود.
+فقط migrationهای `drizzle/postgresql` در production اجرا می‌شوند. فایل‌های SQLite قدیمی در ریشهٔ `drizzle` سابقهٔ نسخهٔ قبل‌اند. تغییر migration اجراشده یا دیتابیس فاقد تاریخچه، شروع برنامه را متوقف می‌کند. migrationها و تراکنش‌های دفتر مالی قفل PostgreSQL دارند تا اجرای هم‌زمان موجب ثبت دوگانه نشود.
 
-## پشتیبان‌گیری و بازیابی
+`GET /api/health` اتصال به PostgreSQL و وجود schema را بررسی می‌کند. برنامه فقط بعد از healthy شدن دیتابیس شروع می‌شود و سرویس backup بعد از healthy شدن برنامه اجرا می‌شود.
 
-در Scheduled Tasks برنامه، فرمان زیر روزانه اجرا شود:
+## پشتیبان و بازیابی
+
+سرویس `backup` در شروع و سپس هر ۲۴ ساعت، با `pg_dump --format=custom` یک snapshot سازگار و یک آرشیو تصاویر می‌سازد. ۱۴ snapshot آخر در volume جدا نگهداری می‌شوند. برای اجرای دستی:
 
 ```sh
-node /app/scripts/production/backup.mjs
+docker compose -f docker-compose.coolify.yml exec backup /usr/local/bin/vahedban-backup --once
 ```
 
-این فرمان از `VACUUM INTO` برای snapshot سازگار استفاده می‌کند و ۱۴ snapshot دوره‌ای آخر را نگه می‌دارد. snapshotهای پیش از migration خودکار حذف نمی‌شوند. تست بازیابی snapshot در `npm run test:deployment` وجود دارد.
+بکاپ‌ها در `/backups/<UTC timestamp>/database.dump` و `uploads.tar.gz` هستند. برای حفاظت در برابر خرابی کامل سرور، بکاپ volume را از Coolify به فضای بیرونی مانند S3 نیز منتقل کنید؛ بکاپ محلیِ همین سرور جای آن را نمی‌گیرد.
 
-برای تصاویر گفتگو و حفاظت در برابر خرابی سرور، از کل volume نیز در Coolify نسخه بگیرید و مقصد بیرونی S3 را در صورت دسترسی تنظیم کنید. snapshot روی همان سرور، پشتیبان خارج از سرور محسوب نمی‌شود. برای آرشیو سازگار هم‌زمان دیتابیس و تصاویر، گزینهٔ توقف برنامه حین backup را فعال کنید.
+برای بازیابی، برنامه و backup را متوقف کنید، از مقصد فعلی backup بگیرید، dump را با `pg_restore --clean --if-exists --no-owner` در دیتابیس مقصد بازیابی کنید و تصاویر همان snapshot را به volume `uploads` برگردانید. سپس نسخهٔ سازگار برنامه را اجرا و ورود، مانده‌ها و فیش‌ها را بررسی کنید.
 
-برای بازیابی، برنامه را متوقف کنید، ابتدا از volume فعلی backup بگیرید، snapshot سالم را به `/app/data/buildings.db` برگردانید و فایل‌های جانبی قدیمی `buildings.db-wal` و `buildings.db-shm` را فقط در حالت توقف کنار بگذارید. تصاویر همان backup را در `chat-uploads` بازیابی و سپس نسخهٔ سازگار برنامه را اجرا کنید. مالکیت فایل‌ها باید برای کاربر `node` با UID/GID برابر `1000` قابل‌نوشتن باشد. volume تازهٔ Docker مالکیت مسیر ساخته‌شده در image را می‌گیرد؛ bind mount دستی نیاز به تنظیم مالکیت روی سرور دارد.
+## دامنه
 
-## دامنه و بررسی انتشار
+رکورد A دامنهٔ `vahedban.ir` باید به IP عمومی سرور اشاره کند. پس از انتشار DNS، صدور گواهی HTTPS و مسیرهای `/api/health` و `/login` بررسی شوند. تا پیش از تنظیم DNS، وضعیت healthy در Coolify به معنی در دسترس بودن دامنه نیست.
 
-رکورد A دامنه باید به IP عمومی سرور Coolify اشاره کند. اگر AAAA تعریف شده، باید همان سرور را از IPv6 در دسترس کند. پس از انتشار DNS، HTTPS خودکار Coolify و این مسیرها را بررسی کنید:
-
-```sh
-curl --fail https://vahedban.ir/api/health
-curl --head https://vahedban.ir/login
-```
-
-تا زمان تنظیم DNS، سلامت کانتینر را در پنل Coolify بررسی کنید. وجود تنظیم دامنه در پنل به‌تنهایی به معنی فعال‌شدن دامنه یا صدور گواهی نیست.
-
-## بررسی پیش از انتشار
+## بررسی محلی
 
 ```sh
-npm ci
 npm run lint
 npx tsc --noEmit
 npm test
@@ -67,4 +62,4 @@ npm run test:deployment
 npm run build
 ```
 
-`test:deployment` نصب خالی، اجرای مجدد بدون تغییر اطلاعات، بازیابی backup، ارتقا همراه snapshot، تشخیص تغییر تاریخچه و جلوگیری از اجرای migration روی دیتابیس بدون تاریخچه را روی دیتابیس موقت بررسی می‌کند.
+تست‌های یکپارچه از PGlite، یعنی موتور PostgreSQL محلی و جدا از داده‌های اصلی، استفاده می‌کنند. تست انتشار انتقال تمام ستون‌ها، rollback، اجرای مجدد، مبالغ بالاتر از integer 32-bit و اعتبار تاریخچه را بررسی می‌کند. می‌توان بستهٔ واقعی را نیز با آرگومان به همین تست داد؛ اطلاعاتی به شبکه ارسال نمی‌شود.
