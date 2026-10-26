@@ -10,14 +10,62 @@ import {
   periodChargePlan,
 } from "@/lib/db/schema";
 import { requireManager } from "@/lib/session";
-import { logManagementEvent } from "@/lib/billing/corrections";
+import { logManagementEvent, reopenPeriod } from "@/lib/billing/corrections";
+import { ensureMonthlyChargeCategory } from "@/lib/billing/monthly-charge";
+import {
+  reconcileDraftPayments,
+  syncInvoicePayments,
+} from "@/lib/billing/settlement-store";
 import { budgetModes, type BudgetPolicy } from "@/lib/billing/charge-plan";
 
 function refresh() {
   revalidatePath("/manager", "layout");
+  revalidatePath("/resident", "layout");
 }
 function validMoney(value: number | null) {
   return value === null || (Number.isSafeInteger(value) && value >= 0);
+}
+
+export async function saveSmartChargeSettings(
+  periodId: string,
+  input: { cleaningVisitRial: number; cleaningEveryDays: number },
+) {
+  const { member, session } = await requireManager();
+  if (
+    !validMoney(input.cleaningVisitRial) ||
+    input.cleaningVisitRial === null ||
+    ![7, 14, 21, 30, 45, 60, 90].includes(input.cleaningEveryDays)
+  )
+    throw new Error("مبلغ یا فاصله نظافت معتبر نیست.");
+  await db.transaction(async (tx) => {
+    const period = await tx.query.billingPeriod.findFirst({
+      where: and(
+        eq(billingPeriod.id, periodId),
+        eq(billingPeriod.buildingId, member.buildingId),
+        isNull(billingPeriod.deletedAt),
+      ),
+    });
+    if (!period) throw new Error("دوره پیدا نشد.");
+    const before = await tx.query.periodChargePlan.findFirst({
+      where: eq(periodChargePlan.periodId, periodId),
+    });
+    await tx
+      .insert(periodChargePlan)
+      .values({ periodId, ...input })
+      .onConflictDoUpdate({ target: periodChargePlan.periodId, set: input });
+    await logManagementEvent(
+      tx,
+      member.buildingId,
+      session.user.id,
+      "charge_plan",
+      periodId,
+      "edit",
+      "برآورد نظافت",
+      before,
+      input,
+    );
+  });
+  refresh();
 }
 
 export async function saveManualMonthlyCharge(
@@ -38,6 +86,13 @@ export async function saveManualMonthlyCharge(
     const before = await tx.query.periodChargePlan.findFirst({
       where: eq(periodChargePlan.periodId, periodId),
     });
+    if (
+      (before?.manualMonthlyRial ?? null) !== amountRial &&
+      period.status !== "draft"
+    )
+      await reopenPeriod(tx, member.buildingId, periodId, session.user.id);
+    if (amountRial !== null && amountRial > 0)
+      await ensureMonthlyChargeCategory(tx, member.buildingId);
     await tx
       .insert(periodChargePlan)
       .values({ periodId, manualMonthlyRial: amountRial })
@@ -45,6 +100,8 @@ export async function saveManualMonthlyCharge(
         target: periodChargePlan.periodId,
         set: { manualMonthlyRial: amountRial },
       });
+    await reconcileDraftPayments(tx, member.buildingId);
+    await syncInvoicePayments(tx, member.buildingId);
     await logManagementEvent(
       tx,
       member.buildingId,
@@ -52,7 +109,7 @@ export async function saveManualMonthlyCharge(
       "charge_plan",
       periodId,
       "edit",
-      "شارژ ثابت دستی دوره",
+      "شارژ ماهانه دوره",
       before,
       { manualMonthlyRial: amountRial },
     );

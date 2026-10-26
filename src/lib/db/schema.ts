@@ -12,6 +12,7 @@ export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
+  phone: text("phone").unique(),
   emailVerified: integer("email_verified", { mode: "boolean" })
     .notNull()
     .default(false),
@@ -157,6 +158,7 @@ export const billingPeriod = sqliteTable("billing_period", {
   buildingId: text("building_id")
     .notNull()
     .references(() => building.id, { onDelete: "cascade" }),
+  chargeModel: text("charge_model", { enum: ["direct", "fund"] }).notNull().default("direct"),
   title: text("title").notNull(),
   periodType: text("period_type", {
     enum: periodTypes,
@@ -204,7 +206,9 @@ export const expenseLine = sqliteTable("expense_line", {
     { onDelete: "set null" },
   ),
   amountRial: integer("amount_rial").notNull(),
+  billingTreatment: text("billing_treatment", { enum: ["auto", "separate"] }).notNull().default("auto"),
   coverageMonths: integer("coverage_months"),
+  sourceStandaloneId: text("source_standalone_id"),
   description: text("description"),
   expenseDate: integer("expense_date", { mode: "timestamp_ms" }).notNull(),
   attachmentPath: text("attachment_path"),
@@ -233,8 +237,34 @@ export const periodChargePlan = sqliteTable("period_charge_plan", {
     .primaryKey()
     .references(() => billingPeriod.id, { onDelete: "cascade" }),
   manualMonthlyRial: integer("manual_monthly_rial"),
+  cleaningVisitRial: integer("cleaning_visit_rial"),
+  cleaningEveryDays: integer("cleaning_every_days").notNull().default(30),
   bufferPercent: integer("buffer_percent").notNull().default(10),
   roundToRial: integer("round_to_rial").notNull().default(500000),
+});
+
+// Recorded costs held outside billing until the manager explicitly includes them.
+export const standaloneExpense = sqliteTable("standalone_expense", {
+  id: text("id").primaryKey(),
+  buildingId: text("building_id")
+    .notNull()
+    .references(() => building.id),
+  categoryId: text("category_id")
+    .notNull()
+    .references(() => expenseCategory.id),
+  description: text("description").notNull(),
+  amountRial: integer("amount_rial").notNull(),
+  expenseDate: integer("expense_date", { mode: "timestamp_ms" }).notNull(),
+  maintenanceTicketId: text("maintenance_ticket_id").references(
+    () => maintenanceTicket.id,
+  ),
+  linkedExpenseId: text("linked_expense_id")
+    .unique()
+    .references(() => expenseLine.id),
+  deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
 });
 
 export const unitInvoice = sqliteTable("unit_invoice", {
@@ -279,6 +309,12 @@ export const payment = sqliteTable("payment", {
     .references(() => unit.id, { onDelete: "cascade" }),
   periodId: text("period_id").references(() => billingPeriod.id),
   categoryId: text("category_id").references(() => expenseCategory.id),
+  standaloneExpenseId: text("standalone_expense_id").references(
+    () => standaloneExpense.id,
+  ),
+  kind: text("kind", { enum: ["receipt", "advance"] })
+    .notNull()
+    .default("receipt"),
   allocationTracked: integer("allocation_tracked", { mode: "boolean" })
     .notNull()
     .default(false),

@@ -1,0 +1,1 @@
+ALTER TABLE `expense_line` ADD `source_standalone_id` text;

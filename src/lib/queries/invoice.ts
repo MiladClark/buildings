@@ -1,7 +1,11 @@
 import { getSession, getMembershipForUser } from "@/lib/session";
 import { getFinanceData } from "./finance";
-import { formatToman } from "@/lib/format/money";
+import { invoiceExportSummary } from "@/lib/export/invoice-summary";
 import { invoiceRecipient } from "@/lib/export/invoice-recipient";
+import { explainInvoice } from "@/lib/export/invoice-explanation";
+import { db } from "@/lib/db";
+import { periodSnapshot } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export async function getInvoiceExportData(invoiceId: string) {
   const session = await getSession();
@@ -21,35 +25,17 @@ export async function getInvoiceExportData(invoiceId: string) {
   const lines = data.invoiceLines
     .filter((l) => l.invoiceId === invoiceId)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
-  const settlements = data.settlement.shares.filter(
-    (s) => s.unitId === ownUnit.id && s.periodId === found.period.id,
-  );
-  const remaining = new Map(settlements.map((s) => [s.categoryId, s.paidRial]));
+  const snapshots = await db
+    .select()
+    .from(periodSnapshot)
+    .where(eq(periodSnapshot.periodId, found.period.id));
   return {
     building: data.settings,
     invoice: found.invoice,
     period: found.period,
     unit: ownUnit,
     recipient: invoiceRecipient(ownUnit),
-    lines: lines.map((line) => {
-      const paid = Math.min(
-        line.amountRial,
-        remaining.get(line.categoryId) ?? 0,
-      );
-      remaining.set(
-        line.categoryId,
-        (remaining.get(line.categoryId) ?? 0) - paid,
-      );
-      const state =
-        line.amountRial === 0
-          ? "سهم ندارد"
-          : paid === line.amountRial
-            ? "تسویه‌شده"
-            : `پرداخت ${formatToman(paid)}؛ مانده ${formatToman(line.amountRial - paid)}`;
-      return {
-        ...line,
-        basis: [line.basis, state].filter(Boolean).join(" · "),
-      };
-    }),
+    explanation: explainInvoice(data, invoiceId, snapshots),
+    ...invoiceExportSummary(lines, found.invoice.totalRial),
   };
 }

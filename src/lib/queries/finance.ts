@@ -96,6 +96,7 @@ export async function getFinanceData(buildingId: string) {
       return { ...r, confirmedAmountRial: confirmed?.amountRial ?? null };
     }),
     settings: ledger.settings,
+    standaloneExpenses: ledger.standaloneExpenses ?? [],
     settlement: buildSettlementState(ledger),
     applications: ledger.applications,
   };
@@ -156,7 +157,11 @@ export function dashboardData(data: FinanceData) {
   };
   for (const row of data.expenses)
     bucket(row.expense.expenseDate).expense += row.expense.amountRial;
-  for (const row of data.payments)
+  for (const cost of data.standaloneExpenses.filter(
+    (c) => !c.deletedAt && !c.linkedExpenseId,
+  ))
+    bucket(cost.expenseDate).expense += cost.amountRial;
+  for (const row of data.payments.filter((r) => r.payment.kind !== "advance"))
     bucket(row.payment.paidAt).income += row.payment.amountRial;
   const timeline = [...months.values()].sort((a, b) =>
     a.id.localeCompare(b.id),
@@ -172,24 +177,46 @@ export function dashboardData(data: FinanceData) {
       dueDate: p.dueDate?.toISOString() ?? null,
       startDate: p.startDate.toISOString(),
     })),
-    expenses: data.expenses.map((r) => ({
-      id: r.expense.id,
-      periodId: r.expense.periodId,
-      name: r.category.name,
-      slug: r.category.slug,
-      amount: r.expense.amountRial,
-      date: r.expense.expenseDate.toISOString(),
-      description: r.expense.description,
-      method: r.category.allocationMethod,
-    })),
-    payments: data.payments.map((r) => ({
-      id: r.payment.id,
-      label: r.unit.label,
-      name: r.unit.tenantName || r.unit.ownerName || "ساکن ساختمان",
-      amount: r.payment.amountRial,
-      date: r.payment.paidAt.toISOString(),
-      method: r.payment.method,
-    })),
+    expenses: [
+      ...data.expenses.map((r) => ({
+        id: r.expense.id,
+        periodId: r.expense.periodId,
+        name: r.category.name,
+        slug: r.category.slug,
+        amount: r.expense.amountRial,
+        date: r.expense.expenseDate.toISOString(),
+        description: r.expense.description,
+        method: r.category.allocationMethod,
+      })),
+      ...data.standaloneExpenses
+        .filter((c) => !c.deletedAt && !c.linkedExpenseId)
+        .map((c) => ({
+          id: c.id,
+          periodId: null,
+          name:
+            data.categories.find((category) => category.id === c.categoryId)
+              ?.name ?? "هزینه مستقل",
+          slug:
+            data.categories.find((category) => category.id === c.categoryId)
+              ?.slug ?? "independent",
+          amount: c.amountRial,
+          date: c.expenseDate.toISOString(),
+          description: c.description,
+          method:
+            data.categories.find((category) => category.id === c.categoryId)
+              ?.allocationMethod ?? ("per_unit" as const),
+        })),
+    ],
+    payments: data.payments
+      .filter((r) => r.payment.kind !== "advance")
+      .map((r) => ({
+        id: r.payment.id,
+        label: r.unit.label,
+        name: r.unit.tenantName || r.unit.ownerName || "ساکن ساختمان",
+        amount: r.payment.amountRial,
+        date: r.payment.paidAt.toISOString(),
+        method: r.payment.method,
+      })),
     pendingCount: data.requests.filter((r) => r.request.status === "pending")
       .length,
   };

@@ -1,5 +1,6 @@
 "use server";
 import { periodTypes, type PeriodType } from "@/lib/billing/periods";
+import { monthlyChargeSlug } from "@/lib/billing/monthly-charge";
 
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -39,6 +40,8 @@ export async function editReceipt(
     unitId: string;
     periodId?: string;
     categoryId?: string;
+    standaloneExpenseId?: string;
+    kind?: "receipt" | "advance";
     amountRial: number;
     method: "bank_transfer" | "cash" | "other";
     paidAt: string;
@@ -196,6 +199,8 @@ export async function editPeriod(
 export async function editExpense(
   id: string,
   data: {
+    billingTreatment?: "auto" | "separate";
+    coverageMonths?: number | null;
     categoryId: string;
     amountRial: number;
     description: string;
@@ -235,7 +240,7 @@ export async function setRecordDeleted(
           eq(expenseCategory.buildingId, bid),
         ),
       });
-      if (!row || row.active !== deleted)
+      if (!row || row.slug === monthlyChargeSlug || row.active !== deleted)
         throw new Error("وضعیت دسته تغییر کرده است.");
       await tx
         .update(expenseCategory)
@@ -510,13 +515,15 @@ export async function getManagementHistory() {
       date: r.deletedAt!.toISOString(),
       detail: "با وضعیت قبل از حذف برمی‌گردد.",
     })),
-    ...categories.map((r) => ({
-      id: r.id,
-      type: "category" as const,
-      label: r.name,
-      date: "",
-      detail: "برای ثبت هزینه و شارژ ثابت دوره‌های باز دوباره فعال می‌شود.",
-    })),
+    ...categories
+      .filter((r) => r.slug !== monthlyChargeSlug)
+      .map((r) => ({
+        id: r.id,
+        type: "category" as const,
+        label: r.name,
+        date: "",
+        detail: "برای ثبت هزینه و شارژ ثابت دوره‌های باز دوباره فعال می‌شود.",
+      })),
     ...expenses.map(({ expense: r, period: p }) => ({
       id: r.id,
       type: "expense" as const,

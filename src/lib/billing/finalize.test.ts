@@ -23,6 +23,11 @@ import { buildingCalendarEvents } from "@/lib/queries/calendar";
 import { computeChargeRecommendation } from "./recommendations";
 import { fromJalali } from "@/lib/format/jalali";
 import { presetPeriodRange } from "./periods";
+import { explainInvoice } from "@/lib/export/invoice-explanation";
+import {
+  ensureMonthlyChargeCategory,
+  monthlyChargeCategoryId,
+} from "./monthly-charge";
 import {
   applyAvailableCredit,
   insertUnitPayment,
@@ -39,6 +44,12 @@ import {
   periodCalculationChanged,
 } from "./corrections";
 import { buildSettlementState } from "./settlement-state";
+import {
+  saveStandaloneCost,
+  includeStandaloneCost,
+  detachStandaloneCost,
+  setStandaloneCostDeleted,
+} from "./standalone-expenses";
 beforeAll(async () => {
   const { client } = (await import("@/lib/db")) as unknown as {
     client: import("@libsql/client").Client;
@@ -109,6 +120,652 @@ async function fixture(empty = false) {
   };
   return { buildingId, unitId, categoryId, period };
 }
+describe("charge fund accounting", () => {
+  it("updates bill coverage without reopening a bill or changing money", async () => {
+    const f = await fixture(),
+      id = await f.period(7, 1000000);
+    await finalizeBillingPeriod(id);
+    const data = await getFinanceData(f.buildingId),
+      expense = data.expenses[0].expense;
+    const input = {
+      categoryId: expense.categoryId,
+      amountRial: expense.amountRial,
+      description: expense.description ?? "",
+      expenseDate: expense.expenseDate,
+      coverageMonths: 2,
+    };
+    await db.transaction((tx) =>
+      correctExpense(tx, f.buildingId, expense.id, "edit", undefined, input),
+    );
+    const after = await getFinanceData(f.buildingId);
+    expect(after.periods[0].status).toBe("finalized");
+    expect(after.invoices[0].invoice).toEqual(data.invoices[0].invoice);
+    expect(after.expenses[0].expense.coverageMonths).toBe(2);
+    await expect(
+      db.transaction((tx) =>
+        correctExpense(tx, f.buildingId, expense.id, "edit", undefined, {
+          ...input,
+          coverageMonths: 37,
+        }),
+      ),
+    ).rejects.toThrow("معتبر");
+  });
+  it("can issue a zero-base period without reassessing its covered common costs", async () => {
+    const f = await fixture(),
+      id = await f.period(7, 0);
+    const categoryId = crypto.randomUUID();
+    await db.insert(schema.expenseCategory).values({
+      id: categoryId,
+      buildingId: f.buildingId,
+      name: "تعمیر",
+      slug: "repairs",
+      allocationMethod: "per_unit",
+    });
+    await db.insert(schema.expenseLine).values({
+      id: crypto.randomUUID(),
+      periodId: id,
+      categoryId,
+      amountRial: 1000000,
+      expenseDate: new Date(),
+    });
+    await db
+      .insert(schema.periodChargePlan)
+      .values({ periodId: id, manualMonthlyRial: 0 });
+    await finalizeBillingPeriod(id);
+    const ledger = await getFinanceData(f.buildingId);
+    expect(ledger.invoices[0].invoice.totalRial).toBe(0);
+    expect(ledger.periods[0].chargeModel).toBe("fund");
+  });
+  it("assesses equal base plus present-occupant water and explicit extras, preserving excess receipts", async () => {
+    const f = await fixture();
+    const id = await f.period(7, 580001);
+    const power = crypto.randomUUID();
+    await db.insert(schema.expenseCategory).values({
+      id: power,
+      buildingId: f.buildingId,
+      name: "برق",
+      slug: "common-electricity",
+      allocationMethod: "per_unit",
+      includeEmptyUnits: true,
+    });
+    const empty = crypto.randomUUID(),
+      absent = crypto.randomUUID();
+    await db.insert(schema.unit).values([
+      {
+        id: empty,
+        buildingId: f.buildingId,
+        label: "خالی",
+        status: "empty",
+        occupantCount: 0,
+      },
+      {
+        id: absent,
+        buildingId: f.buildingId,
+        label: "غایب",
+        status: "occupied",
+        occupantCount: 4,
+        temporarilyAbsent: true,
+      },
+    ]);
+    await db.insert(schema.expenseLine).values([
+      {
+        id: crypto.randomUUID(),
+        periodId: id,
+        categoryId: power,
+        amountRial: 19460000,
+        expenseDate: new Date(),
+      },
+      {
+        id: crypto.randomUUID(),
+        periodId: id,
+        categoryId: power,
+        amountRial: 300000,
+        expenseDate: new Date(),
+        billingTreatment: "separate",
+      },
+    ]);
+    await db.transaction(async (tx) => {
+      await ensureMonthlyChargeCategory(tx, f.buildingId);
+      await tx
+        .insert(schema.periodChargePlan)
+        .values({ periodId: id, manualMonthlyRial: 3500000 });
+    });
+    // A source explicitly attached to a covered common cost settles the base.
+    // With separate costs in the same category, an ordinary category receipt settles those first.
+    await db.transaction((tx) =>
+      insertUnitPayment(
+        tx,
+        {
+          unitId: f.unitId,
+          periodId: id,
+          categoryId: monthlyChargeCategoryId(f.buildingId),
+          amountRial: 5000000,
+          method: "bank_transfer",
+          paidAt: new Date(),
+        },
+        f.buildingId,
+      ),
+    );
+    expect(
+      (await getFinanceData(f.buildingId)).settlement.accounts.find(
+        (a) => a.unitId === f.unitId,
+      )?.creditRial,
+    ).toBe(1500000);
+    await finalizeBillingPeriod(id);
+    const ledger = await getFinanceData(f.buildingId);
+    expect(
+      ledger.invoices.reduce((s, r) => s + r.invoice.subtotalRial, 0),
+    ).toBe(11380001);
+    expect(
+      ledger.invoices.find((r) => r.invoice.unitId === empty)?.invoice
+        .subtotalRial,
+    ).toBe(3600000);
+    expect(
+      ledger.invoices.find((r) => r.invoice.unitId === absent)?.invoice
+        .subtotalRial,
+    ).toBe(3600000);
+    // Issuing the invoice also consumes available credit for the same unit's water and extra.
+    expect(
+      ledger.settlement.accounts.find((a) => a.unitId === f.unitId)?.creditRial,
+    ).toBe(819999);
+    expect(ledger.periods[0].chargeModel).toBe("fund");
+    const snapshots = await db
+      .select()
+      .from(schema.periodSnapshot)
+      .where(eq(schema.periodSnapshot.periodId, id));
+    const details = ledger.invoices.map((r) =>
+      explainInvoice(ledger, r.invoice.id, snapshots),
+    );
+    expect(details.every((d) => d.costRows.length === 3)).toBe(true);
+    expect(
+      details.reduce(
+        (s, d) =>
+          s +
+          d.costRows
+            .filter((c) => c.funded)
+            .reduce((v, c) => v + c.unitRial, 0),
+        0,
+      ),
+    ).toBe(19460000);
+    for (const row of ledger.invoices) {
+      const detail = explainInvoice(ledger, row.invoice.id, snapshots);
+      expect(detail.assessments.reduce((s, a) => s + a.amountRial, 0)).toBe(
+        row.invoice.totalRial,
+      );
+      expect(detail.payments.reduce((s, p) => s + p.amountRial, 0)).toBe(
+        row.invoice.paidRial,
+      );
+    }
+    const absentDetail = explainInvoice(
+      ledger,
+      ledger.invoices.find((r) => r.invoice.unitId === absent)!.invoice.id,
+      snapshots,
+    );
+    expect(
+      absentDetail.costRows.find((c) => c.category === "آب"),
+    ).toMatchObject({ unitRial: 0, funded: false });
+    expect(absentDetail.occupancy).toContain("۰ نفر حاضر");
+    const ownId = ledger.invoices.find((r) => r.invoice.unitId === f.unitId)!
+      .invoice.id;
+    await db
+      .update(schema.unit)
+      .set({ occupantCount: 99, temporarilyAbsent: true })
+      .where(eq(schema.unit.id, f.unitId));
+    const afterChange = explainInvoice(
+      await getFinanceData(f.buildingId),
+      ownId,
+      snapshots,
+    );
+    expect(afterChange.occupancy).toContain("۲ نفر حاضر");
+    expect(
+      afterChange.costRows.find((c) => c.category === "آب")?.reason,
+    ).toContain("۲ نفر حاضر از ۲ نفر");
+  });
+  it("remaps an already allocated common receipt once, leaving excess as credit", async () => {
+    const f = await fixture(),
+      id = await f.period(7, 100);
+    const power = crypto.randomUUID();
+    await db.insert(schema.expenseCategory).values({
+      id: power,
+      buildingId: f.buildingId,
+      name: "برق",
+      slug: "common-electricity",
+      allocationMethod: "per_unit",
+    });
+    await db.insert(schema.expenseLine).values({
+      id: crypto.randomUUID(),
+      periodId: id,
+      categoryId: power,
+      amountRial: 5000000,
+      expenseDate: new Date(),
+    });
+    await db.transaction((tx) =>
+      insertUnitPayment(
+        tx,
+        {
+          unitId: f.unitId,
+          periodId: id,
+          categoryId: power,
+          amountRial: 4700000,
+          method: "bank_transfer",
+          paidAt: new Date(),
+        },
+        f.buildingId,
+      ),
+    );
+    await db.transaction(async (tx) => {
+      await ensureMonthlyChargeCategory(tx, f.buildingId);
+      await tx
+        .insert(schema.periodChargePlan)
+        .values({ periodId: id, manualMonthlyRial: 3500000 });
+      await reconcileDraftPayments(tx, f.buildingId);
+      await reconcileDraftPayments(tx, f.buildingId);
+    });
+    const ledger = await getFinanceData(f.buildingId);
+    expect(ledger.applications).toHaveLength(1);
+    expect(ledger.applications[0]).toMatchObject({
+      categoryId: monthlyChargeCategoryId(f.buildingId),
+      amountRial: 3500000,
+    });
+    expect(ledger.payments[0].payment).toMatchObject({
+      categoryId: power,
+      amountRial: 4700000,
+    });
+    expect(
+      ledger.settlement.accounts.find((a) => a.unitId === f.unitId)?.creditRial,
+    ).toBe(1200000);
+  });
+  it.each(["auto", "separate"] as const)(
+    "moves independent receipts and advances with %s funding without duplication",
+    async (treatment) => {
+      const f = await fixture(),
+        id = await f.period(7, 100);
+      const categoryId = crypto.randomUUID();
+      await db.insert(schema.expenseCategory).values({
+        id: categoryId,
+        buildingId: f.buildingId,
+        name: "نظافت",
+        slug: "cleaning",
+        allocationMethod: "per_unit",
+      });
+      await db.transaction(async (tx) => {
+        await ensureMonthlyChargeCategory(tx, f.buildingId);
+        await tx
+          .insert(schema.periodChargePlan)
+          .values({ periodId: id, manualMonthlyRial: 3500000 });
+      });
+      const cost = await db.transaction((tx) =>
+        saveStandaloneCost(tx, f.buildingId, {
+          categoryId,
+          amountRial: 17000000,
+          description: "نظافتچی",
+          expenseDate: new Date(),
+        }),
+      );
+      for (const [kind, amountRial] of [
+        ["receipt", 4500000],
+        ["advance", 1000000],
+      ] as const)
+        await db.transaction((tx) =>
+          insertUnitPayment(
+            tx,
+            {
+              unitId: f.unitId,
+              standaloneExpenseId: cost,
+              kind,
+              amountRial,
+              method: "bank_transfer",
+              paidAt: new Date(),
+            },
+            f.buildingId,
+          ),
+        );
+      expect(
+        (await getFinanceData(f.buildingId)).settlement.accounts[0]
+          .reservedRial,
+      ).toBe(5500000);
+      await db.transaction((tx) =>
+        includeStandaloneCost(tx, f.buildingId, cost, id, undefined, treatment),
+      );
+      const ledger = await getFinanceData(f.buildingId);
+      expect(ledger.payments).toHaveLength(2);
+      expect(ledger.settlement.accounts[0].creditRial).toBe(
+        treatment === "auto" ? 2000000 : 0,
+      );
+      expect(ledger.applications.reduce((s, a) => s + a.amountRial, 0)).toBe(
+        treatment === "auto" ? 3500000 : 5500000,
+      );
+      expect(
+        ledger.applications.every(
+          (a) =>
+            a.categoryId ===
+            (treatment === "auto"
+              ? monthlyChargeCategoryId(f.buildingId)
+              : categoryId),
+        ),
+      ).toBe(true);
+    },
+  );
+  it("keeps previously issued direct bills immutable when a saved plan exists", async () => {
+    const f = await fixture(),
+      id = await f.period(7, 800000);
+    await finalizeBillingPeriod(id);
+    await db
+      .insert(schema.periodChargePlan)
+      .values({ periodId: id, manualMonthlyRial: 3500000 });
+    const ledger = await getFinanceData(f.buildingId);
+    expect(ledger.periods[0].chargeModel).toBe("direct");
+    expect(ledger.invoices[0].invoice.totalRial).toBe(800000);
+    expect(ledger.settlement.shares.reduce((s, a) => s + a.amountRial, 0)).toBe(
+      800000,
+    );
+  });
+});
+describe("independent costs and protected contributions", () => {
+  const details = (categoryId: string, amountRial = 450_000) => ({
+    categoryId,
+    amountRial,
+    description: "نظافت مستقل",
+    expenseDate: fromJalali(1405, 8, 1),
+  });
+  const receive = (
+    unitId: string,
+    id: string,
+    amountRial: number,
+    kind: "receipt" | "advance" = "receipt",
+  ) => ({
+    unitId,
+    standaloneExpenseId: id,
+    amountRial,
+    kind,
+    method: "bank_transfer" as const,
+    paidAt: fromJalali(1405, 8, 2),
+  });
+  it("holds both receipts and out-of-pocket advances without charging a unit or consuming old debt", async () => {
+    const f = await fixture();
+    const old = await f.period(7, 200_000);
+    await finalizeBillingPeriod(old);
+    const cost = await db.transaction((tx) =>
+      saveStandaloneCost(tx, f.buildingId, details(f.categoryId)),
+    );
+    await db.transaction((tx) =>
+      insertUnitPayment(tx, receive(f.unitId, cost, 50_000), f.buildingId),
+    );
+    await db.transaction((tx) =>
+      insertUnitPayment(
+        tx,
+        receive(f.unitId, cost, 400_000, "advance"),
+        f.buildingId,
+      ),
+    );
+    const loaded = await loadSettlementData(db, f.buildingId);
+    const state = buildSettlementState(loaded);
+    expect(loaded.expenses).toHaveLength(1);
+    expect(state.accounts[0]).toMatchObject({
+      debtRial: 200_000,
+      creditRial: 0,
+      reservedRial: 450_000,
+      receivedRial: 450_000,
+    });
+    expect(loaded.applications).toHaveLength(0);
+    expect(
+      await db.transaction((tx) =>
+        applyAvailableCredit(tx, f.buildingId, f.unitId, state.shares),
+      ),
+    ).toBe(0);
+    const dashboard = dashboardData(await getFinanceData(f.buildingId));
+    const timeline = dashboard.timeline;
+    expect(dashboard.payments.reduce((s, p) => s + p.amount, 0)).toBe(50_000);
+    expect(dashboard.expenses.reduce((s, e) => s + e.amount, 0)).toBe(650_000);
+    expect(timeline.reduce((s, r) => s + r.income, 0)).toBe(50_000);
+    expect(timeline.reduce((s, r) => s + r.expense, 0)).toBe(650_000);
+    expect(
+      buildingCalendarEvents(await getFinanceData(f.buildingId)).some(
+        (e) => e.id === `standalone:${cost}`,
+      ),
+    ).toBe(true);
+  });
+  it("moves the cost once, applies only its own receipts and leaves an overpayment as free credit", async () => {
+    const f = await fixture();
+    const period = await f.period(8, 10_000);
+    const cost = await db.transaction((tx) =>
+      saveStandaloneCost(tx, f.buildingId, details(f.categoryId)),
+    );
+    await db.transaction((tx) =>
+      insertUnitPayment(tx, receive(f.unitId, cost, 470_000), f.buildingId),
+    );
+    await db.transaction((tx) =>
+      includeStandaloneCost(tx, f.buildingId, cost, period),
+    );
+    const loaded = await loadSettlementData(db, f.buildingId);
+    const state = buildSettlementState(loaded);
+    expect(loaded.expenses.reduce((s, e) => s + e.amountRial, 0)).toBe(460_000);
+    expect(state.accounts[0]).toMatchObject({
+      creditRial: 10_000,
+      reservedRial: 460_000,
+      receivedRial: 470_000,
+    });
+    expect(state.shares[0]).toMatchObject({
+      amountRial: 460_000,
+      paidRial: 460_000,
+      balanceRial: 0,
+    });
+    await expect(
+      db.transaction((tx) =>
+        includeStandaloneCost(tx, f.buildingId, cost, period),
+      ),
+    ).rejects.toThrow("قبلاً");
+    await finalizeBillingPeriod(period);
+    expect(
+      (await loadSettlementData(db, f.buildingId)).invoices[0],
+    ).toMatchObject({ totalRial: 460_000, paidRial: 460_000, balanceRial: 0 });
+    expect(
+      dashboardData(await getFinanceData(f.buildingId)).timeline.reduce(
+        (s, r) => s + r.expense,
+        0,
+      ),
+    ).toBe(460_000);
+  });
+  it("can reopen a billed cost, preserve both types of payment, edit and bill it again without duplicates", async () => {
+    const f = await fixture();
+    const period = await f.period(8, 10_000);
+    const cost = await db.transaction((tx) =>
+      saveStandaloneCost(tx, f.buildingId, details(f.categoryId)),
+    );
+    const receipt = await db.transaction((tx) =>
+      insertUnitPayment(
+        tx,
+        receive(f.unitId, cost, 450_000, "advance"),
+        f.buildingId,
+      ),
+    );
+    await db.transaction((tx) =>
+      includeStandaloneCost(tx, f.buildingId, cost, period),
+    );
+    await finalizeBillingPeriod(period);
+    const line = (await loadSettlementData(db, f.buildingId)).expenses.find(
+      (e) => e.sourceStandaloneId === cost,
+    )!;
+    await expect(
+      db.transaction((tx) =>
+        correctExpense(tx, f.buildingId, line.id, "delete"),
+      ),
+    ).rejects.toThrow("دفتر مستقل");
+    await db.transaction((tx) => detachStandaloneCost(tx, f.buildingId, cost));
+    let loaded = await loadSettlementData(db, f.buildingId);
+    expect(loaded.invoices).toHaveLength(0);
+    expect(loaded.periods[0].status).toBe("draft");
+    expect(loaded.payments[0]).toMatchObject({
+      id: receipt,
+      kind: "advance",
+      periodId: null,
+      categoryId: null,
+    });
+    expect(buildSettlementState(loaded).accounts[0]).toMatchObject({
+      creditRial: 0,
+      reservedRial: 450_000,
+    });
+    await expect(
+      db.transaction((tx) =>
+        correctExpense(tx, f.buildingId, line.id, "restore"),
+      ),
+    ).rejects.toThrow("دفتر مستقل");
+    await db.transaction((tx) =>
+      saveStandaloneCost(
+        tx,
+        f.buildingId,
+        details(f.categoryId, 500_000),
+        undefined,
+        cost,
+      ),
+    );
+    await db.transaction((tx) =>
+      includeStandaloneCost(tx, f.buildingId, cost, period),
+    );
+    loaded = await loadSettlementData(db, f.buildingId);
+    expect(loaded.expenses).toHaveLength(2);
+    expect(loaded.payments).toHaveLength(1);
+    expect(buildSettlementState(loaded).shares[0]).toMatchObject({
+      amountRial: 510_000,
+      paidRial: 450_000,
+    });
+  });
+  it("keeps standalone earmarks and non-cash kind through edit, void and restore; guards limits and deletion", async () => {
+    const f = await fixture();
+    const cost = await db.transaction((tx) =>
+      saveStandaloneCost(tx, f.buildingId, details(f.categoryId)),
+    );
+    const input = {
+      ...receive(f.unitId, cost, 450_000, "advance"),
+      receiptKey: crypto.randomUUID(),
+    };
+    const id = await db.transaction((tx) =>
+      insertUnitPayment(tx, input, f.buildingId),
+    );
+    expect(
+      await db.transaction((tx) => insertUnitPayment(tx, input, f.buildingId)),
+    ).toBe(id);
+    await expect(
+      db.transaction((tx) =>
+        insertUnitPayment(
+          tx,
+          receive(f.unitId, cost, 1, "advance"),
+          f.buildingId,
+        ),
+      ),
+    ).rejects.toThrow("بیشتر");
+    await expect(
+      db.transaction((tx) =>
+        saveStandaloneCost(
+          tx,
+          f.buildingId,
+          details(f.categoryId, 1),
+          undefined,
+          cost,
+        ),
+      ),
+    ).rejects.toThrow("کمتر");
+    await expect(
+      db.transaction((tx) =>
+        setStandaloneCostDeleted(tx, f.buildingId, cost, true),
+      ),
+    ).rejects.toThrow("پرداخت فعال");
+    await db.transaction((tx) =>
+      correctReceipt(tx, f.buildingId, id, "edit", undefined, {
+        ...input,
+        amountRial: 400_000,
+        standaloneExpenseId: undefined,
+        kind: undefined,
+      }),
+    );
+    expect(
+      (await loadSettlementData(db, f.buildingId)).payments[0],
+    ).toMatchObject({
+      standaloneExpenseId: cost,
+      kind: "advance",
+      amountRial: 400_000,
+    });
+    await db.transaction((tx) =>
+      correctReceipt(tx, f.buildingId, id, "delete"),
+    );
+    await db.transaction((tx) =>
+      setStandaloneCostDeleted(tx, f.buildingId, cost, true),
+    );
+    await expect(
+      db.transaction((tx) => correctReceipt(tx, f.buildingId, id, "restore")),
+    ).rejects.toThrow("حذف");
+    await db.transaction((tx) =>
+      setStandaloneCostDeleted(tx, f.buildingId, cost, false),
+    );
+    await db.transaction((tx) =>
+      correctReceipt(tx, f.buildingId, id, "restore"),
+    );
+    expect(
+      buildSettlementState(await loadSettlementData(db, f.buildingId))
+        .accounts[0],
+    ).toMatchObject({ reservedRial: 400_000, creditRial: 0 });
+  });
+  it("rejects foreign costs, categories, payers and destination periods transactionally", async () => {
+    const f = await fixture(),
+      other = await fixture();
+    const target = await other.period(8, 1);
+    const cost = await db.transaction((tx) =>
+      saveStandaloneCost(tx, f.buildingId, details(f.categoryId)),
+    );
+    await expect(
+      db.transaction((tx) =>
+        saveStandaloneCost(tx, f.buildingId, details(other.categoryId)),
+      ),
+    ).rejects.toThrow("دسته");
+    await expect(
+      db.transaction((tx) =>
+        includeStandaloneCost(tx, other.buildingId, cost, target),
+      ),
+    ).rejects.toThrow("پیدا نشد");
+    await expect(
+      db.transaction((tx) =>
+        includeStandaloneCost(tx, f.buildingId, cost, target),
+      ),
+    ).rejects.toThrow("همین ساختمان");
+    await expect(
+      db.transaction((tx) =>
+        insertUnitPayment(tx, receive(other.unitId, cost, 1), f.buildingId),
+      ),
+    ).rejects.toThrow("واحد");
+    await expect(
+      db.transaction((tx) =>
+        insertUnitPayment(tx, receive(f.unitId, cost, 1), other.buildingId),
+      ),
+    ).rejects.toThrow("پیدا نشد");
+    expect((await loadSettlementData(db, f.buildingId)).expenses).toHaveLength(
+      0,
+    );
+  });
+  it("returns linked independent costs to their holding book when their period is removed", async () => {
+    const f = await fixture();
+    const period = await f.period(8, 10_000);
+    const cost = await db.transaction((tx) =>
+      saveStandaloneCost(tx, f.buildingId, details(f.categoryId)),
+    );
+    await db.transaction((tx) =>
+      insertUnitPayment(tx, receive(f.unitId, cost, 470_000), f.buildingId),
+    );
+    await db.transaction((tx) =>
+      includeStandaloneCost(tx, f.buildingId, cost, period),
+    );
+    await db.transaction((tx) => removePeriod(tx, f.buildingId, period));
+    const loaded = await loadSettlementData(db, f.buildingId);
+    expect(loaded.standaloneExpenses?.[0].linkedExpenseId).toBeNull();
+    expect(loaded.payments[0]).toMatchObject({
+      periodId: null,
+      amountRial: 470_000,
+    });
+    expect(buildSettlementState(loaded).accounts[0]).toMatchObject({
+      creditRial: 0,
+      reservedRial: 470_000,
+    });
+  });
+});
 describe("transactional billing", () => {
   it("persists a two-month period and bills fixed monthly fees exactly twice", async () => {
     const f = await fixture();

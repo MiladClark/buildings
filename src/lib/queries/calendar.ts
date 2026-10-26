@@ -36,9 +36,19 @@ export function buildingCalendarEvents(data: FinanceData) {
       kind: "expense" as const,
       needsPayment: false,
     })),
+    ...(data.standaloneExpenses ?? [])
+      .filter((c) => !c.deletedAt && !c.linkedExpenseId)
+      .map((c) => ({
+        id: `standalone:${c.id}`,
+        title: `${c.description} · مستقل`,
+        date: c.expenseDate.toISOString(),
+        href: `/manager/expenses/independent/${c.id}`,
+        kind: "expense" as const,
+        needsPayment: false,
+      })),
     ...data.payments.map(({ payment: p, unit: u }) => ({
       id: `payment:${p.id}`,
-      title: `واریز واحد ${u.label}`,
+      title: `${p.kind === "advance" ? "پرداخت مستقیم" : "واریز"} واحد ${u.label}`,
       date: p.paidAt.toISOString(),
       href: `/manager/payments?receipt=${p.id}`,
       kind: "payment" as const,

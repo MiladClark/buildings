@@ -11,6 +11,9 @@ import { readFile, readdir, mkdtemp, unlink, rmdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "drizzle-orm";
+import { finalizeBillingPeriod } from "@/lib/billing/finalize";
+import { insertUnitPayment } from "@/lib/billing/settlement-store";
+import { monthlyChargeCategoryId } from "@/lib/billing/monthly-charge";
 const auth = vi.hoisted(() => ({ manager: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireManager: auth.manager }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -24,7 +27,11 @@ vi.mock("@/lib/db", async () => {
 });
 import { db } from "@/lib/db";
 import * as s from "@/lib/db/schema";
-import { saveChargeBudget, saveManualMonthlyCharge } from "./charge-plan";
+import {
+  saveChargeBudget,
+  saveManualMonthlyCharge,
+  saveSmartChargeSettings,
+} from "./charge-plan";
 import { getFinanceData } from "@/lib/queries/finance";
 import { getPeriodChargePlan } from "@/lib/queries/charge-plan";
 
@@ -150,7 +157,51 @@ const payload = {
   coverage: [{ expenseId, months: 2 }],
 };
 describe("charge plan persistence and authorization", () => {
-  it("saves budget assumptions and a manual amount without creating any real financial entries", async () => {
+  it("saves simple cleaning assumptions without changing actual expenses or the chosen charge", async () => {
+    await saveSmartChargeSettings(periodId, {
+      cleaningVisitRial: 17000000,
+      cleaningEveryDays: 14,
+    });
+    const plan = await db.query.periodChargePlan.findFirst({
+      where: eq(s.periodChargePlan.periodId, periodId),
+    });
+    expect(plan).toMatchObject({
+      cleaningVisitRial: 17000000,
+      cleaningEveryDays: 14,
+      manualMonthlyRial: null,
+    });
+    expect(
+      (
+        await db.query.expenseLine.findFirst({
+          where: eq(s.expenseLine.id, expenseId),
+        })
+      )?.amountRial,
+    ).toBe(1600000);
+    await expect(
+      saveSmartChargeSettings("foreign-period", {
+        cleaningVisitRial: 1,
+        cleaningEveryDays: 30,
+      }),
+    ).rejects.toThrow("دوره");
+    await expect(
+      saveSmartChargeSettings(periodId, {
+        cleaningVisitRial: -1,
+        cleaningEveryDays: 30,
+      }),
+    ).rejects.toThrow("معتبر");
+    await expect(
+      saveSmartChargeSettings(periodId, {
+        cleaningVisitRial: 1,
+        cleaningEveryDays: 0,
+      }),
+    ).rejects.toThrow("معتبر");
+    // Leave the existing electricity-only scenario with an explicitly zero cleaning budget.
+    await saveSmartChargeSettings(periodId, {
+      cleaningVisitRial: 0,
+      cleaningEveryDays: 30,
+    });
+  });
+  it("adds the monthly charge to draft shares without fabricating expenses, invoices or payments", async () => {
     await saveManualMonthlyCharge(periodId, 3000000);
     await saveChargeBudget(periodId, payload);
     const ledger = await getFinanceData(buildingId);
@@ -161,6 +212,11 @@ describe("charge plan persistence and authorization", () => {
     expect(ledger.invoices).toHaveLength(0);
     expect(ledger.payments).toHaveLength(0);
     expect(ledger.expenses[0].expense.amountRial).toBe(1600000);
+    expect(
+      ledger.settlement.shares.find(
+        (share) => share.categoryId === monthlyChargeCategoryId(buildingId),
+      )?.amountRial,
+    ).toBe(3000000);
     await saveManualMonthlyCharge(periodId, null);
     expect(
       (
@@ -232,5 +288,92 @@ describe("charge plan persistence and authorization", () => {
     await expect(saveChargeBudget(periodId, payload)).rejects.toThrow(
       "FORBIDDEN",
     );
+  });
+  it("bills every unit for each month, preserves payments on correction and releases a removed charge", async () => {
+    const id = "two-month-charge";
+    await db.insert(s.unit).values([
+      {
+        id: "charge-empty",
+        buildingId,
+        label: "۲",
+        status: "empty",
+        occupantCount: 0,
+      },
+      {
+        id: "charge-absent",
+        buildingId,
+        label: "۳",
+        temporarilyAbsent: true,
+        occupantCount: 4,
+      },
+    ]);
+    await db.insert(s.billingPeriod).values({
+      id,
+      buildingId,
+      title: "دوماهه",
+      periodType: "bimonthly",
+      startDate: new Date("2026-10-23"),
+      endDate: new Date("2026-12-21"),
+    });
+    await saveManualMonthlyCharge(id, 1000000);
+    let ledger = await getFinanceData(buildingId);
+    const categoryId = monthlyChargeCategoryId(buildingId);
+    expect(
+      ledger.settlement.shares
+        .filter((share) => share.periodId === id)
+        .map((share) => share.amountRial),
+    ).toEqual([2000000, 2000000, 2000000]);
+    await db.transaction((tx) =>
+      insertUnitPayment(
+        tx,
+        {
+          unitId: "plan-unit",
+          periodId: id,
+          categoryId,
+          amountRial: 2500000,
+          method: "bank_transfer",
+          paidAt: new Date(),
+        },
+        buildingId,
+      ),
+    );
+    await finalizeBillingPeriod(id);
+    ledger = await getFinanceData(buildingId);
+    expect(
+      ledger.invoices
+        .filter((row) => row.invoice.periodId === id)
+        .map((row) => row.invoice.totalRial),
+    ).toEqual([2000000, 2000000, 2000000]);
+    expect(
+      ledger.invoices.find(
+        (row) =>
+          row.invoice.periodId === id && row.invoice.unitId === "plan-unit",
+      )?.invoice.paidRial,
+    ).toBe(2000000);
+    await saveManualMonthlyCharge(id, 1500000);
+    ledger = await getFinanceData(buildingId);
+    expect(ledger.periods.find((period) => period.id === id)?.status).toBe(
+      "draft",
+    );
+    expect(
+      ledger.invoices.filter((row) => row.invoice.periodId === id),
+    ).toHaveLength(0);
+    expect(ledger.payments).toHaveLength(1);
+    expect(
+      ledger.settlement.shares
+        .filter((share) => share.periodId === id)
+        .every((share) => share.amountRial === 3000000),
+    ).toBe(true);
+    await saveManualMonthlyCharge(id, null);
+    ledger = await getFinanceData(buildingId);
+    expect(
+      ledger.settlement.shares.filter((share) => share.periodId === id),
+    ).toHaveLength(0);
+    expect(ledger.payments[0].payment.amountRial).toBe(2500000);
+    expect(
+      ledger.settlement.accounts.find(
+        (account) => account.unitId === "plan-unit",
+      )?.creditRial,
+    ).toBe(2500000);
   });
 });

@@ -8,6 +8,11 @@ import { logManagementEvent } from "@/lib/billing/corrections";
 import { notifyUnitAccounts } from "@/lib/billing/notifications";
 import { validateMaintenanceLink } from "@/lib/billing/maintenance-link";
 import { allocatePeriodCharges } from "@/lib/billing/engine";
+import { receivableExpenses, usesChargeFund } from "@/lib/billing/charge-model";
+import {
+  periodChargeCategories,
+  monthlyChargeSlug,
+} from "@/lib/billing/monthly-charge";
 import {
   applyAvailableCredit,
   insertUnitPayment,
@@ -260,6 +265,8 @@ export async function updateCategoryAllocation(
     ),
   });
   if (!prev) throw new Error("دسته پیدا نشد.");
+  if (prev.slug === monthlyChargeSlug)
+    throw new Error("مبلغ شارژ را از صفحه دوره مالی تغییر دهید.");
   if (data.name !== undefined) data.name = text(data.name, "نام دسته");
   if (
     (data.allocationMethod ?? prev.allocationMethod) === "fixed_per_unit" &&
@@ -356,6 +363,8 @@ export async function createBillingPeriod(data: {
   return id;
 }
 export async function addExpenseLine(data: {
+  coverageMonths?: number | null;
+  billingTreatment?: "auto" | "separate";
   maintenanceTicketId?: string;
   periodId: string;
   categoryId: string;
@@ -364,6 +373,18 @@ export async function addExpenseLine(data: {
   expenseDate: string;
 }) {
   const { b, p } = await ownedPeriod(data.periodId);
+  if (
+    data.coverageMonths != null &&
+    (!Number.isInteger(data.coverageMonths) ||
+      data.coverageMonths < 1 ||
+      data.coverageMonths > 36)
+  )
+    throw new Error("بازه قبض معتبر نیست.");
+  if (
+    data.billingTreatment &&
+    !["auto", "separate"].includes(data.billingTreatment)
+  )
+    throw new Error("روش پرداخت هزینه معتبر نیست.");
   if (p.status !== "draft")
     throw new Error("هزینه‌های دوره نهایی‌شده قابل تغییر نیستند.");
   const cat = await db.query.expenseCategory.findFirst({
@@ -406,12 +427,22 @@ export async function deleteExpense(id: string) {
 export async function previewPeriod(periodId: string) {
   const { b, p } = await ownedPeriod(periodId);
   const data = await loadSettlementData(db, b.id);
-  const expenses = data.expenses.filter((e) => e.periodId === periodId);
+  const expenses = receivableExpenses(
+    data.categories,
+    data.expenses.filter((e) => e.periodId === periodId),
+    usesChargeFund(
+      p,
+      data.chargePlans?.find((plan) => plan.periodId === periodId)
+        ?.manualMonthlyRial,
+    ),
+  );
   return allocatePeriodCharges(
     data.units.filter((u) => !u.deletedAt).map((u) => ({ ...u, unitId: u.id })),
-    data.categories.filter(
-      (c) => c.active || expenses.some((e) => e.categoryId === c.id),
-    ),
+    periodChargeCategories(
+      data.categories,
+      data.chargePlans?.find((plan) => plan.periodId === periodId)
+        ?.manualMonthlyRial,
+    ).filter((c) => c.active || expenses.some((e) => e.categoryId === c.id)),
     expenses,
     {
       perUnitIncludeEmpty: b.perUnitIncludeEmpty,
@@ -429,6 +460,8 @@ export async function recordPayment(data: {
   periodId?: string;
   categoryId?: string;
   receiptKey?: string;
+  standaloneExpenseId?: string;
+  kind?: "receipt" | "advance";
   amountRial: number;
   method: "bank_transfer" | "cash" | "other";
   paidAt: string;
@@ -608,15 +641,13 @@ export async function runChargeRecommendation(monthsWindow: number) {
   refresh();
   return result;
 }
-export async function linkFirstManager(userId: string) {
-  const session = await requireSession();
-  if (session.user.id !== userId) throw new Error("دسترسی مجاز نیست.");
+export async function ensureFirstManager(userId: string) {
   await db.transaction(async (tx) => {
-    const users = await tx.select().from(user).limit(2);
+    const users = await tx.select({ id: user.id }).from(user).limit(2);
     const manager = await tx.query.membership.findFirst({
       where: eq(membership.role, "manager"),
     });
-    if (users.length !== 1 || manager) return;
+    if (users.length !== 1 || users[0]?.id !== userId || manager) return;
     const b = await tx.query.building.findFirst();
     if (!b) throw new Error("ابتدا پایگاه داده ساختمان را راه‌اندازی کنید.");
     await tx.insert(membership).values({
@@ -626,6 +657,11 @@ export async function linkFirstManager(userId: string) {
       role: "manager",
     });
   });
+}
+export async function linkFirstManager(userId: string) {
+  const session = await requireSession();
+  if (session.user.id !== userId) throw new Error("دسترسی مجاز نیست.");
+  await ensureFirstManager(userId);
 }
 export async function assignResidentMembership(userId: string, unitId: string) {
   const b = await getManagerBuilding();

@@ -1,5 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { allocatePeriodCharges } from "@/lib/billing/engine";
+import { receivableExpenses, usesChargeFund } from "./charge-model";
 import {
   applyAvailableCredit,
   loadSettlementData,
@@ -18,7 +19,12 @@ import {
   periodSnapshot,
   unit,
   unitInvoice,
+  periodChargePlan,
 } from "@/lib/db/schema";
+import {
+  ensureMonthlyChargeCategory,
+  periodChargeCategories,
+} from "./monthly-charge";
 
 export async function finalizeBillingPeriod(periodId: string) {
   return db.transaction(async (tx) => {
@@ -39,20 +45,31 @@ export async function finalizeBillingPeriod(periodId: string) {
       orderBy: (u, { asc }) => [asc(u.sortOrder), asc(u.label)],
     });
     if (!units.length) throw new Error("ابتدا واحدهای ساختمان را ثبت کنید.");
-    const allCategories = await tx.query.expenseCategory.findMany({
-      where: eq(expenseCategory.buildingId, period.buildingId),
+    const plan = await tx.query.periodChargePlan.findFirst({
+      where: eq(periodChargePlan.periodId, periodId),
     });
-    const expenses = await tx.query.expenseLine.findMany({
+    if ((plan?.manualMonthlyRial ?? 0) > 0)
+      await ensureMonthlyChargeCategory(tx, period.buildingId);
+    const allCategories = periodChargeCategories(
+      await tx.query.expenseCategory.findMany({
+        where: eq(expenseCategory.buildingId, period.buildingId),
+      }),
+      plan?.manualMonthlyRial,
+    );
+    const recordedExpenses = await tx.query.expenseLine.findMany({
       where: and(
         eq(expenseLine.periodId, periodId),
         isNull(expenseLine.deletedAt),
       ),
     });
+    const fund = usesChargeFund(period, plan?.manualMonthlyRial);
+    const expenses = receivableExpenses(allCategories, recordedExpenses, fund);
     const categories = allCategories.filter(
       (c) => c.active || expenses.some((e) => e.categoryId === c.id),
     );
     if (
       !expenses.length &&
+      !(fund && recordedExpenses.length) &&
       !categories.some(
         (c) =>
           c.allocationMethod === "fixed_per_unit" &&
@@ -98,7 +115,11 @@ export async function finalizeBillingPeriod(periodId: string) {
       );
     const claimed = await tx
       .update(billingPeriod)
-      .set({ status: "finalized", finalizedAt: new Date() })
+      .set({
+        status: "finalized",
+        finalizedAt: new Date(),
+        chargeModel: fund ? "fund" : "direct",
+      })
       .where(
         and(eq(billingPeriod.id, periodId), eq(billingPeriod.status, "draft")),
       )

@@ -9,6 +9,7 @@ import {
   paymentRequest,
   periodSnapshot,
   unitInvoice,
+  standaloneExpense,
 } from "@/lib/db/schema";
 import {
   insertUnitPayment,
@@ -223,6 +224,12 @@ export async function correctReceipt(
     where: and(eq(payment.id, id), eq(payment.buildingId, buildingId)),
   });
   if (!original) throw new Error("واریز پیدا نشد.");
+  if (input && original.standaloneExpenseId)
+    input = {
+      ...input,
+      standaloneExpenseId: original.standaloneExpenseId,
+      kind: input.kind ?? original.kind,
+    };
   if (operation === "restore" ? !original.deletedAt : !!original.deletedAt)
     throw new Error("وضعیت این واریز تغییر کرده است؛ صفحه را تازه کنید.");
   const metadataOnly =
@@ -230,6 +237,7 @@ export async function correctReceipt(
     input &&
     input.unitId === original.unitId &&
     input.amountRial === original.amountRial &&
+    (input.kind ?? "receipt") === original.kind &&
     (input.categoryId ?? null) === original.categoryId &&
     (!original.categoryId || (input.periodId ?? null) === original.periodId);
   if (metadataOnly && input) {
@@ -301,6 +309,8 @@ export async function correctReceipt(
       method: original.method,
       paidAt: original.paidAt,
       note: original.note ?? undefined,
+      standaloneExpenseId: original.standaloneExpenseId ?? undefined,
+      kind: original.kind,
     };
     // A cost/period may have been removed since this receipt was voided. Restore the
     // real cash as free credit, rather than silently paying unrelated old debts.
@@ -438,6 +448,38 @@ export async function removePeriod(
   const period = await tx.query.billingPeriod.findFirst({
     where: eq(billingPeriod.id, id),
   });
+  // A removed billing period must return its independent costs to the holding book.
+  const costs = await tx
+    .select()
+    .from(standaloneExpense)
+    .where(eq(standaloneExpense.buildingId, buildingId));
+  for (const cost of costs) {
+    if (!cost.linkedExpenseId) continue;
+    const line = await tx.query.expenseLine.findFirst({
+      where: eq(expenseLine.id, cost.linkedExpenseId),
+    });
+    if (line?.periodId !== id) continue;
+    const receipts = await tx
+      .select()
+      .from(payment)
+      .where(eq(payment.standaloneExpenseId, cost.id));
+    for (const receipt of receipts)
+      await tx
+        .delete(paymentApplication)
+        .where(eq(paymentApplication.paymentId, receipt.id));
+    await tx
+      .update(payment)
+      .set({ periodId: null, categoryId: null })
+      .where(eq(payment.standaloneExpenseId, cost.id));
+    await tx
+      .update(expenseLine)
+      .set({ deletedAt: new Date() })
+      .where(eq(expenseLine.id, line.id));
+    await tx
+      .update(standaloneExpense)
+      .set({ linkedExpenseId: null })
+      .where(eq(standaloneExpense.id, cost.id));
+  }
   await tx
     .delete(paymentApplication)
     .where(eq(paymentApplication.periodId, id));
@@ -465,17 +507,27 @@ export async function correctExpense(
   operation: "edit" | "delete" | "restore",
   actorId?: string,
   input?: {
+    billingTreatment?: "auto" | "separate";
+    coverageMonths?: number | null;
     categoryId: string;
     amountRial: number;
     description: string;
     expenseDate: Date;
     maintenanceTicketId?: string | null;
   },
+  allowStandalone = false,
 ) {
   const expense = await tx.query.expenseLine.findFirst({
     where: eq(expenseLine.id, id),
   });
   if (!expense) throw new Error("هزینه پیدا نشد.");
+  const source = await tx.query.standaloneExpense.findFirst({
+    where: eq(standaloneExpense.linkedExpenseId, id),
+  });
+  if (!allowStandalone && (source || expense.sourceStandaloneId))
+    throw new Error(
+      "این هزینه از دفتر مستقل آمده است؛ مدیریت و بازیابی را از پرونده هزینه مستقل انجام دهید.",
+    );
   const period = await tx.query.billingPeriod.findFirst({
     where: and(
       eq(billingPeriod.id, expense.periodId),
@@ -498,13 +550,19 @@ export async function correctExpense(
         and(eq(c.id, input.categoryId), eq(c.buildingId, buildingId)),
     });
     if (
+      (input.coverageMonths != null &&
+        (!Number.isInteger(input.coverageMonths) ||
+          input.coverageMonths < 1 ||
+          input.coverageMonths > 36)) ||
       !category ||
       (!category.active && category.id !== expense.categoryId) ||
       category.allocationMethod === "excluded" ||
       !Number.isSafeInteger(input.amountRial) ||
       input.amountRial <= 0 ||
       !Number.isFinite(input.expenseDate.getTime()) ||
-      input.description.length > 2000
+      input.description.length > 2000 ||
+      (input.billingTreatment !== undefined &&
+        !["auto", "separate"].includes(input.billingTreatment))
     )
       throw new Error("اطلاعات هزینه معتبر نیست.");
   }
@@ -512,7 +570,9 @@ export async function correctExpense(
     operation !== "edit" ||
     !input ||
     input.amountRial !== expense.amountRial ||
-    input.categoryId !== expense.categoryId
+    input.categoryId !== expense.categoryId ||
+    (input.billingTreatment !== undefined &&
+      input.billingTreatment !== expense.billingTreatment)
   )
     await reopenPeriod(tx, buildingId, period.id, actorId);
   await tx

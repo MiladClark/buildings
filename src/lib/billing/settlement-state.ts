@@ -1,6 +1,8 @@
 import type * as schema from "@/lib/db/schema";
 import { allocatePeriodCharges } from "./engine";
 import { jalaliMonthSpan } from "@/lib/format/jalali";
+import { periodChargeCategories } from "./monthly-charge";
+import { receivableExpenses, usesChargeFund } from "./charge-model";
 
 export type SettlementData = {
   units: (typeof schema.unit.$inferSelect)[];
@@ -12,7 +14,23 @@ export type SettlementData = {
   lines: (typeof schema.invoiceLineItem.$inferSelect)[];
   applications: (typeof schema.paymentApplication.$inferSelect)[];
   settings: typeof schema.building.$inferSelect | undefined;
+  standaloneExpenses?: (typeof schema.standaloneExpense.$inferSelect)[];
+  chargePlans?: (typeof schema.periodChargePlan.$inferSelect)[];
 };
+export function isHeldPayment(
+  payment: Pick<typeof schema.payment.$inferSelect, "standaloneExpenseId">,
+  data: Pick<SettlementData, "standaloneExpenses">,
+) {
+  return (
+    !!payment.standaloneExpenseId &&
+    !data.standaloneExpenses?.some(
+      (cost) =>
+        cost.id === payment.standaloneExpenseId &&
+        !!cost.linkedExpenseId &&
+        !cost.deletedAt,
+    )
+  );
+}
 export type CostShare = {
   unitId: string;
   periodId: string;
@@ -52,8 +70,22 @@ export function buildSettlementState(data: SettlementData) {
       a.startDate.getTime() - b.startDate.getTime() || a.id.localeCompare(b.id),
   )) {
     if (period.status === "draft") {
-      const expenses = data.expenses.filter((e) => e.periodId === period.id);
-      const categories = data.categories.filter(
+      const periodExpenses = data.expenses.filter(
+        (e) => e.periodId === period.id,
+      );
+      const monthly = data.chargePlans?.find(
+        (plan) => plan.periodId === period.id,
+      )?.manualMonthlyRial;
+      const expenses = receivableExpenses(
+        data.categories,
+        periodExpenses,
+        usesChargeFund(period, monthly),
+      );
+      const categories = periodChargeCategories(
+        data.categories,
+        data.chargePlans?.find((plan) => plan.periodId === period.id)
+          ?.manualMonthlyRial,
+      ).filter(
         (c) =>
           c.allocationMethod !== "excluded" &&
           (expenses.some((e) => e.categoryId === c.id) ||
@@ -145,21 +177,27 @@ export function buildSettlementState(data: SettlementData) {
       .filter((i) => i.unitId === u.id)
       .reduce((s, i) => s + i.legacyPaidRial, 0);
     const receivedRial = payments.reduce((s, p) => s + p.amountRial, 0);
+    const heldRial = payments
+      .filter((p) => isHeldPayment(p, data))
+      .reduce((s, p) => s + p.amountRial, 0);
     const creditRial = Math.max(
       0,
       receivedRial -
+        heldRial -
         legacyPaid -
         applications.reduce((s, a) => s + a.amountRial, 0),
     );
     const debtRial = shares
       .filter((c) => c.unitId === u.id && !c.draft)
       .reduce((s, c) => s + c.balanceRial, 0);
-    const reservedRial = applications
-      .filter(
-        (a) =>
-          data.periods.find((p) => p.id === a.periodId)?.status === "draft",
-      )
-      .reduce((s, a) => s + a.amountRial, 0);
+    const reservedRial =
+      heldRial +
+      applications
+        .filter(
+          (a) =>
+            data.periods.find((p) => p.id === a.periodId)?.status === "draft",
+        )
+        .reduce((s, a) => s + a.amountRial, 0);
     return {
       unitId: u.id,
       receivedRial,

@@ -1,6 +1,6 @@
 import { getSession, getMembershipForUser } from "@/lib/session";
 import { getFinanceData } from "./finance";
-import { buildPeriodExpensesReport } from "@/lib/export/period-expenses";
+import { financePeriodExpensesReport } from "@/lib/export/finance-period-expenses";
 import { db } from "@/lib/db";
 import { periodChargePlan } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -26,14 +26,6 @@ export async function getPeriodExpensesExportData(periodId: string) {
   });
   return {
     ok: true,
-    data: buildPeriodExpensesReport({
-      buildingName: data.settings.name,
-      manualMonthlyRial: plan?.manualMonthlyRial ?? null,
-      period,
-      expenses: data.expenses.map(({ expense, category }) => ({
-        ...expense,
-        category: category.name,
-      })),
-    }),
+    data: financePeriodExpensesReport(data, period, plan?.manualMonthlyRial),
   } as const;
 }

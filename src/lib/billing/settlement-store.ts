@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { notifyUnitAccounts } from "./notifications";
+import { paymentDestination } from "./charge-model";
 import {
   billingPeriod,
   building,
@@ -11,9 +12,12 @@ import {
   paymentApplication,
   unit,
   unitInvoice,
+  standaloneExpense,
+  periodChargePlan,
 } from "@/lib/db/schema";
 import {
   buildSettlementState,
+  isHeldPayment,
   scopeKey,
   type CostShare,
   type SettlementData,
@@ -38,6 +42,8 @@ export async function loadSettlementData(
     lines,
     applications,
     settings,
+    standaloneExpenses,
+    chargePlans,
   ] = await Promise.all([
     reader
       .select()
@@ -106,6 +112,21 @@ export async function loadSettlementData(
       .orderBy(asc(paymentApplication.createdAt), asc(paymentApplication.id))
       .then((r) => r.map((v) => v.row)),
     reader.query.building.findFirst({ where: eq(building.id, buildingId) }),
+    reader
+      .select()
+      .from(standaloneExpense)
+      .where(eq(standaloneExpense.buildingId, buildingId)),
+    reader
+      .select({ row: periodChargePlan })
+      .from(periodChargePlan)
+      .innerJoin(billingPeriod, eq(periodChargePlan.periodId, billingPeriod.id))
+      .where(
+        and(
+          eq(billingPeriod.buildingId, buildingId),
+          isNull(billingPeriod.deletedAt),
+        ),
+      )
+      .then((rows) => rows.map((r) => r.row)),
   ]);
   return {
     units,
@@ -117,6 +138,8 @@ export async function loadSettlementData(
     lines,
     applications,
     settings,
+    standaloneExpenses,
+    chargePlans,
   };
 }
 
@@ -158,7 +181,13 @@ export async function reconcileDraftPayments(
   for (const a of data.applications) {
     if (data.periods.find((p) => p.id === a.periodId)?.status !== "draft")
       continue;
-    const key = scopeKey(a.unitId, a.periodId, a.categoryId);
+    const source = data.payments.find((p) => p.id === a.paymentId);
+    const destination = paymentDestination(data, {
+      ...source,
+      periodId: a.periodId,
+      categoryId: a.categoryId,
+    });
+    const key = scopeKey(a.unitId, a.periodId, destination ?? null);
     const capacity = capacities.get(key) ?? 0;
     const keep = Math.min(capacity, a.amountRial);
     capacities.set(key, capacity - keep);
@@ -166,10 +195,10 @@ export async function reconcileDraftPayments(
       await tx
         .delete(paymentApplication)
         .where(eq(paymentApplication.id, a.id));
-    else if (keep !== a.amountRial)
+    else if (keep !== a.amountRial || destination !== a.categoryId)
       await tx
         .update(paymentApplication)
-        .set({ amountRial: keep })
+        .set({ amountRial: keep, categoryId: destination ?? null })
         .where(eq(paymentApplication.id, a.id));
   }
 }
@@ -232,7 +261,7 @@ export async function applyAvailableCredit(
   const sources = [
     { id: null as string | null, remaining: legacy },
     ...payments
-      .filter((p) => p.allocationTracked)
+      .filter((p) => p.allocationTracked && !isHeldPayment(p, data))
       .map((p) => ({
         id: p.id,
         remaining:
@@ -271,6 +300,8 @@ export type ReceiptInput = {
   method: "bank_transfer" | "cash" | "other";
   paidAt: Date;
   note?: string;
+  standaloneExpenseId?: string;
+  kind?: "receipt" | "advance";
 };
 export async function insertUnitPayment(
   tx: LedgerTransaction,
@@ -289,6 +320,44 @@ export async function insertUnitPayment(
   if ((data.receiptKey?.length ?? 0) > 200 || (data.note?.length ?? 0) > 2000)
     throw new Error("توضیح یا شناسه دریافت بیش از حد طولانی است.");
   const loaded = await loadSettlementData(tx, buildingId);
+  const standalone = data.standaloneExpenseId
+    ? loaded.standaloneExpenses?.find(
+        (e) => e.id === data.standaloneExpenseId && !e.deletedAt,
+      )
+    : undefined;
+  if (data.standaloneExpenseId && !standalone)
+    throw new Error("هزینه مستقل پیدا نشد یا حذف شده است.");
+  if (data.kind && !["receipt", "advance"].includes(data.kind))
+    throw new Error("نوع پرداخت معتبر نیست.");
+  if (data.kind === "advance" && !standalone)
+    throw new Error("پرداخت مستقیم را بابت یک هزینه مستقل ثبت کنید.");
+  if (standalone) {
+    const linked = loaded.expenses.find(
+      (e) => e.id === standalone.linkedExpenseId,
+    );
+    if (standalone.linkedExpenseId && !linked)
+      throw new Error("ابتدا هزینه را به حالت مستقل برگردانید.");
+    data = {
+      ...data,
+      periodId: linked?.periodId,
+      categoryId: linked?.categoryId,
+    };
+    if (data.kind === "advance") {
+      const total = loaded.payments
+        .filter(
+          (p) =>
+            p.id !== existingId &&
+            (!data.receiptKey || p.receiptKey !== data.receiptKey) &&
+            p.standaloneExpenseId === standalone.id &&
+            p.kind === "advance",
+        )
+        .reduce((s, p) => s + p.amountRial, 0);
+      if (total + data.amountRial > standalone.amountRial)
+        throw new Error(
+          "جمع پرداخت مستقیم نمی‌تواند از مبلغ هزینه بیشتر باشد.",
+        );
+    }
+  }
   if (
     !loaded.units.some(
       (u) => u.id === data.unitId && (!u.deletedAt || existingId),
@@ -310,6 +379,8 @@ export async function insertUnitPayment(
         existing.amountRial !== data.amountRial ||
         existing.periodId !== (data.periodId ?? null) ||
         existing.categoryId !== (data.categoryId ?? null) ||
+        existing.standaloneExpenseId !== (data.standaloneExpenseId ?? null) ||
+        existing.kind !== (data.kind ?? "receipt") ||
         existing.method !== data.method ||
         existing.paidAt.getTime() !== data.paidAt.getTime() ||
         (existing.note ?? "") !== (data.note ?? "")
@@ -342,6 +413,8 @@ export async function insertUnitPayment(
     deletedAt: null,
     periodId: data.periodId ?? null,
     categoryId: data.categoryId ?? null,
+    standaloneExpenseId: data.standaloneExpenseId ?? null,
+    kind: data.kind ?? "receipt",
   };
   if (existingId)
     await tx
@@ -350,11 +423,13 @@ export async function insertUnitPayment(
       .where(and(eq(payment.id, id), eq(payment.buildingId, buildingId)));
   else await tx.insert(payment).values(values);
   let remaining = data.amountRial;
+  const destination = paymentDestination(loaded, data);
   const targets = state.shares.filter(
     (s) =>
+      (!standalone || !!standalone.linkedExpenseId) &&
       s.unitId === data.unitId &&
       (data.categoryId
-        ? s.periodId === data.periodId && s.categoryId === data.categoryId
+        ? s.periodId === data.periodId && s.categoryId === destination
         : !s.draft),
   );
   if (!data.categoryId && data.periodId)
@@ -374,8 +449,12 @@ export async function insertUnitPayment(
       tx,
       buildingId,
       [data.unitId],
-      "واریز در حساب واحد ثبت شد",
-      "مدیر یک دریافت در حساب واحد ثبت کرده است؛ سهم هزینه‌ها، بدهی و بستانکاری در حساب شما به‌روز شده‌اند.",
+      data.kind === "advance"
+        ? "پرداخت مستقیم شما ثبت شد"
+        : "واریز در حساب واحد ثبت شد",
+      standalone && !standalone.linkedExpenseId
+        ? "مدیر مبلغ مربوط به یک هزینه مستقل را ثبت کرده است؛ مبلغ برای همان هزینه محفوظ است و هنوز در شارژ دوره قرار ندارد."
+        : "مدیر یک دریافت یا اعتبار در حساب واحد ثبت کرده است؛ سهم هزینه‌ها، بدهی و بستانکاری در حساب شما به‌روز شده‌اند.",
     );
   return id;
 }
