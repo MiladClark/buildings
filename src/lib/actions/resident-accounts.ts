@@ -162,8 +162,9 @@ export async function registerWithPhone(input: {
           message: "این شماره به حساب ساختمان وصل نیست. با مدیر هماهنگ کنید.",
         };
       const selectedUnit = String(input.unitId ?? "").trim();
-      claimedUnitId(true, selectedUnit, member.unitId);
-      await unitInBuilding(selectedUnit, member.buildingId);
+      const resolvedUnit = claimedUnitId(true, selectedUnit, member.unitId);
+      if (!resolvedUnit) throw new Error("واحد پیدا نشد.");
+      await unitInBuilding(resolvedUnit, member.buildingId);
       const context = await auth.$context;
       const passwordHash = await context.password.hash(password);
       const now = new Date();
@@ -181,10 +182,15 @@ export async function registerWithPhone(input: {
           )
         )
           throw new Error("این شماره قبلاً ثبت شده است. وارد شوید.");
-        if (latestMember?.unitId !== selectedUnit)
+        if (latestMember?.unitId && latestMember.unitId !== resolvedUnit)
           throw new Error(
             "شماره تلفن و واحد باید با اطلاعات ثبت‌شده توسط مدیر مطابقت داشته باشند.",
           );
+        if (latestMember && !latestMember.unitId)
+          await tx
+            .update(membership)
+            .set({ unitId: resolvedUnit })
+            .where(eq(membership.id, latestMember.id));
         await tx
           .update(user)
           .set({

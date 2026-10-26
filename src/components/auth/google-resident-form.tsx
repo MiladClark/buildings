@@ -10,8 +10,12 @@ import { authClient } from "@/lib/auth-client";
 
 export function GoogleResidentForm({
   units,
+  defaultFirstName = "",
+  defaultLastName = "",
 }: {
   units: { id: string; label: string }[];
+  defaultFirstName?: string;
+  defaultLastName?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -23,16 +27,22 @@ export function GoogleResidentForm({
     setError("");
     setUsePassword(false);
     const form = new FormData(event.currentTarget);
+    let entered = false;
     try {
       const response = await fetch("/api/auth/resident/complete-google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          firstName: form.get("firstName"),
+          lastName: form.get("lastName"),
           phone: form.get("phone"),
           unitId: form.get("unitId"),
         }),
       });
-      const result = await response.json();
+      const result = (await response.json()) as {
+        message?: string;
+        code?: string;
+      };
       if (!response.ok) {
         setError(
           response.status === 429
@@ -42,12 +52,15 @@ export function GoogleResidentForm({
         setUsePassword(result.code === "USE_PASSWORD");
         return;
       }
-      router.replace("/");
-      router.refresh();
+      entered = true;
+      // Full navigation applies the rotated session cookies before the app loads.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/");
+      return;
     } catch {
       setError("ارتباط با سامانه برقرار نشد. دوباره تلاش کنید.");
     } finally {
-      setBusy(false);
+      if (!entered) setBusy(false);
     }
   }
   async function changeAccount(password = false) {
@@ -65,6 +78,28 @@ export function GoogleResidentForm({
   return (
     <div className="space-y-5">
       <form onSubmit={submit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="google-first-name">نام</Label>
+            <Input
+              id="google-first-name"
+              name="firstName"
+              autoComplete="given-name"
+              defaultValue={defaultFirstName}
+              maxLength={60}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="google-last-name">نام خانوادگی</Label>
+            <Input
+              id="google-last-name"
+              name="lastName"
+              autoComplete="family-name"
+              defaultValue={defaultLastName}
+              maxLength={60}
+            />
+          </div>
+        </div>
         <div className="space-y-2">
           <Label htmlFor="google-phone">شماره تلفن</Label>
           <Input
@@ -106,7 +141,7 @@ export function GoogleResidentForm({
           className="w-full"
           disabled={busy || units.length === 0}
         >
-          {busy ? "لطفاً صبر کنید…" : "اتصال به حساب واحد"}
+          {busy ? "لطفاً صبر کنید…" : "ورود به حساب"}
         </Button>
       </form>
       {usePassword && (

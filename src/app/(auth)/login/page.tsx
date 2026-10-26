@@ -11,6 +11,16 @@ import { getMembershipForUser, getSession } from "@/lib/session";
 import { db } from "@/lib/db";
 import { account } from "@/lib/db/schema";
 
+function splitPersonName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2)
+    return { defaultFirstName: parts[0] ?? "", defaultLastName: "" };
+  return {
+    defaultFirstName: parts[0],
+    defaultLastName: parts.slice(1).join(" "),
+  };
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -33,10 +43,10 @@ export default async function LoginPage({
       return (
         <AuthFrame>
           <div className="mb-7">
-            <h1 className="text-[27px] font-bold">واحدتان را مشخص کنید.</h1>
+            <h1 className="text-[27px] font-bold">حسابتان را کامل کنید.</h1>
             <p className="mt-3 text-[13px] leading-7 text-muted-foreground">
-              شماره تلفن و واحدی را وارد کنید که مدیر برای شما ثبت کرده است؛
-              سوابق همان حساب در دسترس شما قرار می‌گیرد.
+              نام، شماره تلفن و واحد را وارد کنید. شماره و واحد با همان حسابی که
+              مدیر ساخته یکی می‌شود و وارد آن حساب می‌شوید.
             </p>
             <p
               dir="ltr"
@@ -45,7 +55,10 @@ export default async function LoginPage({
               {session.user.email}
             </p>
           </div>
-          <GoogleResidentForm units={await registrationUnits()} />
+          <GoogleResidentForm
+            units={await registrationUnits()}
+            {...splitPersonName(session.user.name)}
+          />
         </AuthFrame>
       );
     }

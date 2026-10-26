@@ -53,6 +53,7 @@ describe("claiming a manager-created account", () => {
     expect(() => claimedUnitId(true, "unit-b", "unit-a")).toThrow();
     expect(() => claimedUnitId(true, "", "unit-a")).toThrow();
     expect(() => claimedUnitId(true, "  ", null)).toThrow();
+    expect(claimedUnitId(true, "unit-b", null)).toBe("unit-b");
     expect(claimedUnitId(false, "unit-b", null)).toBeNull();
   });
 });

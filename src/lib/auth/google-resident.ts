@@ -3,7 +3,13 @@ import { and, eq, gt, or } from "drizzle-orm";
 
 import { db } from "@/lib/db";
 import { account, membership, session, unit, user } from "@/lib/db/schema";
-import { normalizeIranMobile, phoneToAuthEmail } from "./phone";
+import {
+  claimedDisplayName,
+  claimedUnitId,
+  joinedPersonName,
+  normalizeIranMobile,
+  phoneToAuthEmail,
+} from "./phone";
 
 export class ResidentConnectionError extends Error {
   constructor(
@@ -27,8 +33,16 @@ export async function connectGoogleResident(input: {
   sessionToken: string;
   phone: string;
   unitId: string;
+  firstName?: string;
+  lastName?: string;
 }) {
   const phone = normalizeIranMobile(input.phone);
+  const typedName = joinedPersonName(
+    input.firstName ?? "",
+    input.lastName ?? "",
+  );
+  if (typedName.length > 120)
+    throw new Error("نام و نام خانوادگی بیش از حد طولانی است.");
   if (!input.unitId.trim()) throw noMatch();
   return db.transaction(async (tx) => {
     const current = await tx.query.user.findFirst({
@@ -81,19 +95,28 @@ export async function connectGoogleResident(input: {
     const member = await tx.query.membership.findFirst({
       where: eq(membership.userId, target.id),
     });
+    if (!member || member.role !== "resident") throw noMatch();
+    let resolvedUnit = "";
+    try {
+      resolvedUnit = claimedUnitId(true, input.unitId, member.unitId) ?? "";
+    } catch {
+      throw noMatch();
+    }
     const selected = await tx.query.unit.findFirst({
-      where: eq(unit.id, input.unitId),
+      where: eq(unit.id, resolvedUnit),
     });
     if (
-      !member ||
-      member.role !== "resident" ||
-      !member.unitId ||
-      member.unitId !== input.unitId ||
       !selected ||
       selected.deletedAt ||
       selected.buildingId !== member.buildingId
     )
       throw noMatch();
+    if (member.unitId !== resolvedUnit) {
+      await tx
+        .update(membership)
+        .set({ unitId: resolvedUnit })
+        .where(eq(membership.id, member.id));
+    }
     const activeAccounts = await tx.query.account.findMany({
       where: eq(account.userId, target.id),
     });
@@ -126,6 +149,7 @@ export async function connectGoogleResident(input: {
     const [nextUser] = await tx
       .update(user)
       .set({
+        name: claimedDisplayName(typedName, target.name),
         email: current.email,
         emailVerified: true,
         phone,

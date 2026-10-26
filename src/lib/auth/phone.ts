@@ -47,7 +47,8 @@ export function claimedDisplayName(typedName: string, existingName: string) {
 }
 
 /**
- * A prepared account can only be claimed with the manager's exact assigned unit.
+ * A prepared account must use the manager's unit when one was assigned.
+ * If the manager left the unit empty, the resident's choice is stored.
  */
 export function claimedUnitId(
   hasShell: boolean,
@@ -56,9 +57,9 @@ export function claimedUnitId(
 ) {
   if (!hasShell) return null;
   const selected = selectedUnitId.trim();
-  if (!selected || selected !== shellUnitId)
+  if (!selected || (shellUnitId && selected !== shellUnitId))
     throw new Error(
       "شماره تلفن و واحد باید با اطلاعات ثبت‌شده توسط مدیر مطابقت داشته باشند.",
     );
-  return shellUnitId;
+  return shellUnitId ?? selected;
 }

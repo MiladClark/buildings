@@ -23,6 +23,8 @@ export const residentConnection = () =>
           body: z.object({
             phone: z.string().min(1).max(40),
             unitId: z.string().min(1).max(100),
+            firstName: z.string().max(60).optional(),
+            lastName: z.string().max(60).optional(),
           }),
           use: [sessionMiddleware],
         },
@@ -41,10 +43,7 @@ export const residentConnection = () =>
                 code: error.code,
                 message: error.message,
               });
-            if (
-              error instanceof Error &&
-              error.message.startsWith("شماره تلفن")
-            )
+            if (error instanceof Error && /[\u0600-\u06FF]/.test(error.message))
               throw new APIError("BAD_REQUEST", { message: error.message });
             throw error;
           }

@@ -192,6 +192,24 @@ describe("Google identity connects to the exact existing resident", () => {
       code: "GOOGLE_REQUIRED",
     });
   });
+  it("stores the resident's name and unit when the manager left the unit empty", async () => {
+    await db.update(s.membership).set({ unitId: null });
+    const result = await connectGoogleResident({
+      ...input,
+      unitId: "two",
+      firstName: "رضا",
+      lastName: "پاکدامن",
+    });
+    expect(result.user).toMatchObject({
+      id: "shell",
+      name: "رضا پاکدامن",
+      phone,
+    });
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      userId: "shell",
+      unitId: "two",
+    });
+  });
   it.each([{ phone: "09111111111" }, { unitId: "two" }, { unitId: "" }])(
     "rejects a mismatched phone/unit: %j",
     async (override) => {
@@ -461,17 +479,15 @@ describe("OAuth callback and repeat sign-in through the actual auth handler", ()
           const hash = await (
             await oauth.$context
           ).password.hash("existing-password");
-          await db
-            .insert(s.account)
-            .values({
-              id: "password-account",
-              accountId: "shell",
-              userId: "shell",
-              providerId: "credential",
-              password: hash,
-              createdAt: now,
-              updatedAt: now,
-            });
+          await db.insert(s.account).values({
+            id: "password-account",
+            accountId: "shell",
+            userId: "shell",
+            providerId: "credential",
+            password: hash,
+            createdAt: now,
+            updatedAt: now,
+          });
           const login = await oauth.handler(
             new Request("http://localhost:3300/api/auth/sign-in/email", {
               method: "POST",
@@ -557,6 +573,24 @@ describe("password activation remains compatible", () => {
     expect(
       await db.query.account.findMany({ where: eq(s.account.userId, "shell") }),
     ).toHaveLength(0);
+  });
+  it("assigns a unit the manager left empty during password signup", async () => {
+    await db.update(s.membership).set({ unitId: null });
+    expect(
+      await registerWithPhone({
+        phone,
+        password: "new-password",
+        firstName: "نگار",
+        lastName: "کریمی",
+        unitId: "two",
+      }),
+    ).toEqual({ ok: true });
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      unitId: "two",
+    });
+    expect(
+      await db.query.user.findFirst({ where: eq(s.user.id, "shell") }),
+    ).toMatchObject({ name: "نگار کریمی" });
   });
   it("activates the matching shell with password", async () => {
     expect(
