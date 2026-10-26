@@ -10,6 +10,7 @@
 - متغیرهای runtime: `POSTGRES_PASSWORD`، `BETTER_AUTH_SECRET`، `BETTER_AUTH_URL=https://vahedban.ir`.
 - رمز دیتابیس را به‌صورت hex تصادفی بسازید تا در connection URL بدون escape قابل استفاده باشد.
 - build-time بودن متغیرهای واقعی و تزریق build arguments خاموش باشد. توکن Coolify در برنامه لازم نیست.
+- اگر سرور به npm دسترسی پایدار ندارد، متغیر عمومی build-time به نام `NPM_REGISTRY` را به mirror قابل‌دسترسی تغییر دهید. پیش‌فرض مخزن رسمی npm است؛ `npm ci` در هر حالت integrity همان lockfile را بررسی می‌کند. این متغیر credential نیست.
 
 Compose سه volume پایدار دارد: `postgres-data` برای PostgreSQL، `uploads` برای تصاویر، و `postgres-backups` برای بکاپ‌ها. آن‌ها را هنگام redeploy حفظ کنید. فرمان `docker compose down -v` داده‌ها را حذف می‌کند.
 

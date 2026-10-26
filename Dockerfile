@@ -1,7 +1,9 @@
 FROM node:24-bookworm-slim AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN --mount=type=cache,target=/root/.npm npm ci --registry="$NPM_REGISTRY" \
+    --no-audit --no-fund --fetch-timeout=60000 --fetch-retries=1 --loglevel=http
 
 FROM dependencies AS builder
 ENV NEXT_TELEMETRY_DISABLED=1
