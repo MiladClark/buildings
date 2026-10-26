@@ -12,3 +12,4 @@ coverage
 *.db*
 *.tsbuildinfo
 *.log
+client_secret*.json

@@ -49,7 +49,15 @@ docker compose -f docker-compose.coolify.yml exec backup /usr/local/bin/vahedban
 
 برای بازیابی، برنامه و backup را متوقف کنید، از مقصد فعلی backup بگیرید، dump را با `pg_restore --clean --if-exists --no-owner` در دیتابیس مقصد بازیابی کنید و تصاویر همان snapshot را به volume `uploads` برگردانید. سپس نسخهٔ سازگار برنامه را اجرا و ورود، مانده‌ها و فیش‌ها را بررسی کنید.
 
-## دامنه
+## ورود با گوگل
+
+در Google Auth Platform یک OAuth client از نوع Web application بسازید. JavaScript origin برابر `https://vahedban.ir` و Redirect URI دقیقاً `https://vahedban.ir/api/auth/callback/google` است. برای استفاده عمومی، Audience باید External و برنامه منتشر شده باشد؛ در حالت Testing فقط حساب‌های Test users می‌توانند وارد شوند.
+
+مقادیر `GOOGLE_CLIENT_ID` و `GOOGLE_CLIENT_SECRET` را فقط به‌صورت runtime و مخفی در Coolify تنظیم و redeploy کنید. فایل JSON گوگل و secret نباید وارد Git یا build arguments شوند. بدون این دو متغیر، دکمه گوگل نمایش داده نمی‌شود و ورود با رمز برقرار است.
+
+اولین ورود گوگل به همان صفحه ورود برمی‌گردد و شماره تلفن و واحد را می‌پرسد. هر دو باید با حساب استفاده‌نشده‌ای که مدیر ساخته مطابقت داشته باشند. شناسه حساب مدیر و تمام سوابق مالی آن حفظ می‌شوند. حسابی که قبلاً با رمز یا گوگل فعال شده، با دانستن شماره و واحد قابل تصاحب نیست؛ مالک ابتدا از `/login?connect=google` با رمز وارد می‌شود و گوگل را وصل می‌کند. ورود مجدد گوگل از شناسه ثابت گوگل استفاده می‌کند. ورود با شماره پس از اتصال نیز به ایمیل فعلی حساب نگاشت می‌شود.
+
+## دامنه و HTTPS
 
 رکورد A دامنهٔ `vahedban.ir` باید به IP عمومی سرور اشاره کند. پس از انتشار DNS، صدور گواهی HTTPS و مسیرهای `/api/health` و `/login` بررسی شوند. تا پیش از تنظیم DNS، وضعیت healthy در Coolify به معنی در دسترس بودن دامنه نیست.
 
