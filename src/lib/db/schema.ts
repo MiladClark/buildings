@@ -129,6 +129,9 @@ export const building = pgTable("building", {
   perUnitIncludeEmpty: boolean("per_unit_include_empty")
     .notNull()
     .default(false),
+  googleSignInEnabled: boolean("google_sign_in_enabled")
+    .notNull()
+    .default(true),
   createdAt: timestamp("created_at", {
     withTimezone: true,
     mode: "date",

@@ -1,10 +1,14 @@
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { googleCredentials } from "@/lib/auth/google-config";
+import {
+  googleCredentials,
+  googleSignInEnabled,
+} from "@/lib/auth/google-config";
 import { residentConnection } from "@/lib/auth/resident-plugin";
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3300";
@@ -77,6 +81,18 @@ export const auth = betterAuth({
   trustedOrigins: trustedOrigins(),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL,
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      const googlePath =
+        ctx.path === "/sign-in/social" ||
+        ctx.path === "/link-social" ||
+        ctx.path.startsWith("/callback/google");
+      if (!googlePath || (await googleSignInEnabled())) return;
+      throw new APIError("FORBIDDEN", {
+        message: "ورود با گوگل توسط مدیر خاموش شده است.",
+      });
+    }),
+  },
   plugins: [residentConnection(), nextCookies()],
 });
 

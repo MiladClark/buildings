@@ -28,7 +28,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const session = await getSession();
-  const googleEnabled = googleSignInEnabled();
+  const googleEnabled = await googleSignInEnabled();
   if (session) {
     const member = await getMembershipForUser(session.user.id);
     if (member && params.connect !== "google") redirect("/");

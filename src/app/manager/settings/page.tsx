@@ -18,6 +18,7 @@ export default async function SettingsPage() {
       bankSheba: String(f.get("bankSheba") || ""),
       paymentDueDay: Number(f.get("paymentDueDay")),
       perUnitIncludeEmpty: f.get("perUnitIncludeEmpty") === "on",
+      googleSignInEnabled: f.get("googleSignInEnabled") === "on",
     });
   }
   return (
@@ -97,6 +98,21 @@ export default async function SettingsPage() {
               تاریخ دوره‌های قبلی تغییر نمی‌کند.
             </p>
           </div>
+          <label className="my-6 flex items-start gap-3 border-t border-border pt-6 text-xs leading-7">
+            <input
+              className="mt-1.5 shrink-0"
+              type="checkbox"
+              name="googleSignInEnabled"
+              defaultChecked={b.googleSignInEnabled}
+            />
+            <span>
+              ورود با گوگل روشن باشد.
+              <span className="mt-2 block text-[10px] text-muted-foreground">
+                با خاموش کردن، دکمه گوگل از ورود و ثبت‌نام برداشته می‌شود. ورود
+                با شماره تلفن و رمز برقرار می‌ماند.
+              </span>
+            </span>
+          </label>
           <label className="my-6 flex items-start gap-3 border-t border-border pt-6 text-xs leading-7">
             <input
               className="mt-1.5 shrink-0"

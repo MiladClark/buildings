@@ -80,6 +80,7 @@ export async function updateBuildingSettings(data: {
   bankSheba?: string;
   paymentDueDay?: number;
   perUnitIncludeEmpty?: boolean;
+  googleSignInEnabled?: boolean;
 }) {
   const b = await getManagerBuilding();
   const day = data.paymentDueDay ?? b.paymentDueDay;
