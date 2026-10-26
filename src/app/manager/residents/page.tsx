@@ -10,7 +10,10 @@ import { assignResidentMembership, listUnits } from "@/lib/actions/building";
 import {
   createResidentShell,
   deleteResidentShell,
+  resetResidentPassword,
 } from "@/lib/actions/resident-accounts";
+import { registrationUnitChoices } from "@/lib/auth/registration-units";
+import { registrationUnitNumber } from "@/lib/auth/phone";
 import { db } from "@/lib/db";
 import { account, membership, user } from "@/lib/db/schema";
 import type { ReactNode } from "react";
@@ -21,6 +24,7 @@ import { unlinkResident } from "@/lib/actions/management";
 export default async function ResidentsPage() {
   const { member } = await requireManager();
   const units = await listUnits();
+  const registrationUnits = registrationUnitChoices(units);
   const users = await db.select().from(user);
   const memberships = await db.select().from(membership);
   const credentials = await db
@@ -69,8 +73,8 @@ export default async function ResidentsPage() {
         <div>
           <h1>حساب ساکنان</h1>
           <p>
-            با شماره تلفن حساب را از قبل بسازید. وقتی همسایه با همان شماره
-            ثبت‌نام کند، به همین حساب و واحد وصل می‌شود.
+            با شماره تلفن و واحد ۱ تا ۸ حساب را از قبل بسازید. ثبت‌نام فقط وقتی
+            انجام می‌شود که همان شماره و همان واحد وارد شود.
           </p>
         </div>
       </div>
@@ -107,11 +111,10 @@ export default async function ResidentsPage() {
             </div>
             <div className="form-field">
               <label htmlFor="shell-unit">واحد</label>
-              <Select id="shell-unit" name="unitId">
-                <option value="">بدون واحد</option>
-                {units.map((item) => (
+              <Select id="shell-unit" name="unitId" required>
+                {registrationUnits.map((item) => (
                   <option key={item.id} value={item.id}>
-                    واحد {item.label}
+                    واحد {registrationUnitNumber(item.label)?.toLocaleString("fa-IR")}
                   </option>
                 ))}
               </Select>
@@ -166,7 +169,7 @@ export default async function ResidentsPage() {
           <p className="mb-5 text-[11px] leading-6 text-muted-foreground">
             برای کسی که بدون حساب ازپیش‌ساخته ثبت‌نام کرده است.
           </p>
-          {candidates.length && units.length ? (
+          {candidates.length && registrationUnits.length ? (
             <ActionForm action={assign} className="space-y-5">
               <div className="form-field">
                 <label htmlFor="assign-user">حساب ثبت‌نام‌شده</label>
@@ -181,9 +184,9 @@ export default async function ResidentsPage() {
               <div className="form-field">
                 <label htmlFor="assign-unit">واحد</label>
                 <Select id="assign-unit" name="unitId" required>
-                  {units.map((item) => (
+                  {registrationUnits.map((item) => (
                     <option key={item.id} value={item.id}>
-                      واحد {item.label}
+                      واحد {registrationUnitNumber(item.label)?.toLocaleString("fa-IR")}
                     </option>
                   ))}
                 </Select>
@@ -213,18 +216,30 @@ export default async function ResidentsPage() {
                   }
                   status="وارد شده"
                   action={
-                    row.unitId ? (
+                    <div className="flex items-center gap-1">
                       <ActionButton
                         variant="ghost"
                         action={async () => {
                           "use server";
-                          await unlinkResident(row.id);
+                          await resetResidentPassword(row.userId);
                         }}
-                        confirm="اتصال حساب به واحد قطع شود؟ حساب کاربری باقی می‌ماند و بعداً می‌توانید دوباره متصلش کنید."
+                        confirm="رمز و ورود گوگل این شماره پاک شود؟ سوابق مالی می‌ماند و ساکن می‌تواند دوباره با همین شماره و واحد ثبت‌نام کند."
                       >
-                        قطع اتصال
+                        ریست رمز
                       </ActionButton>
-                    ) : null
+                      {row.unitId ? (
+                        <ActionButton
+                          variant="ghost"
+                          action={async () => {
+                            "use server";
+                            await unlinkResident(row.id);
+                          }}
+                          confirm="اتصال حساب به واحد قطع شود؟ حساب کاربری باقی می‌ماند و بعداً می‌توانید دوباره متصلش کنید."
+                        >
+                          قطع اتصال
+                        </ActionButton>
+                      ) : null}
+                    </div>
                   }
                 />
               );

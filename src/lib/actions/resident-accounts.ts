@@ -7,14 +7,14 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import {
   claimedDisplayName,
-  claimedUnitId,
   joinedPersonName,
   normalizeIranMobile,
   phoneToAuthEmail,
+  registrationUnitNumber,
 } from "@/lib/auth/phone";
 import { ensureFirstManager } from "@/lib/actions/building";
 import { db } from "@/lib/db";
-import { account, membership, unit, user } from "@/lib/db/schema";
+import { account, membership, session, unit, user } from "@/lib/db/schema";
 import { requireManager } from "@/lib/session";
 
 const passwordHint = "رمز عبور باید حداقل ۸ کاراکتر باشد.";
@@ -53,7 +53,10 @@ export async function createResidentShell(form: FormData) {
     phone,
   );
   const unitId = String(form.get("unitId") ?? "").trim();
-  if (unitId) await unitInBuilding(unitId, member.buildingId);
+  if (!unitId) throw new Error("واحد را از ۱ تا ۸ انتخاب کنید.");
+  const chosen = await unitInBuilding(unitId, member.buildingId);
+  if (registrationUnitNumber(chosen.label) === null)
+    throw new Error("واحد را از ۱ تا ۸ انتخاب کنید.");
   const email = phoneToAuthEmail(phone);
   const existing = await db.query.user.findFirst({
     where: or(eq(user.phone, phone), eq(user.email, email)),
@@ -74,7 +77,7 @@ export async function createResidentShell(form: FormData) {
         id: crypto.randomUUID(),
         userId,
         buildingId: member.buildingId,
-        unitId: unitId || null,
+        unitId,
         role: "resident",
       });
     });
@@ -107,6 +110,24 @@ export async function deleteResidentShell(userId: string) {
     )
       throw new Error("این شماره قبلاً ثبت‌نام کرده و حذف نمی‌شود.");
     await tx.delete(user).where(eq(user.id, userId));
+  });
+  refresh();
+}
+
+/** Clears sign-in methods so the same phone can register again onto this account. */
+export async function resetResidentPassword(userId: string) {
+  const { member } = await requireManager();
+  await db.transaction(async (tx) => {
+    const row = await tx.query.membership.findFirst({
+      where: and(
+        eq(membership.userId, userId),
+        eq(membership.buildingId, member.buildingId),
+        eq(membership.role, "resident"),
+      ),
+    });
+    if (!row) throw new Error("حساب پیدا نشد.");
+    await tx.delete(account).where(eq(account.userId, userId));
+    await tx.delete(session).where(eq(session.userId, userId));
   });
   refresh();
 }
@@ -148,7 +169,8 @@ export async function registerWithPhone(input: {
       )
         return {
           ok: false,
-          message: "این شماره قبلاً ثبت شده است. وارد شوید.",
+          message:
+            "این شماره قبلاً ثبت‌نام کرده است. اگر رمز را فراموش کرده‌اید، از مدیر بخواهید آن را ریست کند.",
         };
       const member = await db.query.membership.findFirst({
         where: and(
@@ -162,9 +184,18 @@ export async function registerWithPhone(input: {
           message: "این شماره به حساب ساختمان وصل نیست. با مدیر هماهنگ کنید.",
         };
       const selectedUnit = String(input.unitId ?? "").trim();
-      const resolvedUnit = claimedUnitId(true, selectedUnit, member.unitId);
-      if (!resolvedUnit) throw new Error("واحد پیدا نشد.");
-      await unitInBuilding(resolvedUnit, member.buildingId);
+      if (!member.unitId || selectedUnit !== member.unitId)
+        return {
+          ok: false,
+          message:
+            "شماره تلفن و واحد با حسابی که مدیر ساخته یکی نیست.",
+        };
+      const chosen = await unitInBuilding(selectedUnit, member.buildingId);
+      if (registrationUnitNumber(chosen.label) === null)
+        return {
+          ok: false,
+          message: "شماره تلفن و واحد با حسابی که مدیر ساخته یکی نیست.",
+        };
       const context = await auth.$context;
       const passwordHash = await context.password.hash(password);
       const now = new Date();
@@ -181,16 +212,13 @@ export async function registerWithPhone(input: {
               identity.providerId !== "credential" || identity.password,
           )
         )
-          throw new Error("این شماره قبلاً ثبت شده است. وارد شوید.");
-        if (latestMember?.unitId && latestMember.unitId !== resolvedUnit)
           throw new Error(
-            "شماره تلفن و واحد باید با اطلاعات ثبت‌شده توسط مدیر مطابقت داشته باشند.",
+            "این شماره قبلاً ثبت‌نام کرده است. اگر رمز را فراموش کرده‌اید، از مدیر بخواهید آن را ریست کند.",
           );
-        if (latestMember && !latestMember.unitId)
-          await tx
-            .update(membership)
-            .set({ unitId: resolvedUnit })
-            .where(eq(membership.id, latestMember.id));
+        if (!latestMember?.unitId || latestMember.unitId !== selectedUnit)
+          throw new Error(
+            "شماره تلفن و واحد با حسابی که مدیر ساخته یکی نیست.",
+          );
         await tx
           .update(user)
           .set({
@@ -224,6 +252,12 @@ export async function registerWithPhone(input: {
       return { ok: true };
     }
 
+    if (!isFirst)
+      return {
+        ok: false,
+        message:
+          "این شماره در فهرست مدیر نیست. ابتدا باید مدیر ساختمان حساب را بسازد.",
+      };
     const name = typedName || phone;
     await auth.api.signUpEmail({
       body: { email, password, name },

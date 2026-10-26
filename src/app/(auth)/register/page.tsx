@@ -17,20 +17,21 @@ export default async function RegisterPage() {
     <AuthFrame>
       <div className="mb-8">
         <h1 className="text-[27px] font-bold">
-          {first ? "به هم‌خانه خوش آمدید." : "همسایه جدید، خوش آمدید."}
+          {first ? "به واحدبان خوش آمدید." : "همسایه جدید، خوش آمدید."}
         </h1>
-        <p className="mt-3 text-[13px] leading-7 text-muted-foreground">
-          {first
-            ? "با شماره تلفن حساب مدیر را بسازید و مدیریت ساختمان را شروع کنید."
-            : "شماره تلفن را وارد کنید. اگر مدیر همین شماره را ساخته باشد، به همان حساب وصل می‌شوید."}
-        </p>
+        {!first && (
+          <p className="mt-3 text-[13px] leading-7 text-muted-foreground">
+            نام، شماره تلفن و واحد ۱ تا ۸ را وارد کنید. فقط شماره‌ای که مدیر
+            ساخته می‌تواند ثبت‌نام کند و به همان حساب وصل می‌شود.
+          </p>
+        )}
       </div>
       <RegisterForm isFirstUser={first} units={units} />
-      {googleSignInEnabled() && <GoogleOption />}
+      {(await googleSignInEnabled()) && <GoogleOption />}
       <p className="mt-8 border-t border-border pt-6 text-center text-[13px] text-muted-foreground">
         حساب دارید؟{" "}
         <Link href="/login" className="mr-1 font-medium text-primary">
-          ورود به هم‌خانه
+          ورود به واحدبان
         </Link>
       </p>
     </AuthFrame>

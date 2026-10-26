@@ -41,6 +41,7 @@ import { residentConnection } from "./resident-plugin";
 import {
   deleteResidentShell,
   registerWithPhone,
+  resetResidentPassword,
 } from "@/lib/actions/resident-accounts";
 
 const phone = "09123456789";
@@ -596,7 +597,7 @@ describe("password activation remains compatible", () => {
       await db.query.account.findMany({ where: eq(s.account.userId, "shell") }),
     ).toHaveLength(0);
   });
-  it("assigns a unit the manager left empty during password signup", async () => {
+  it("does not create an account when the manager left the unit empty", async () => {
     await db.update(s.membership).set({ unitId: null });
     expect(
       await registerWithPhone({
@@ -606,13 +607,16 @@ describe("password activation remains compatible", () => {
         lastName: "کریمی",
         unitId: "two",
       }),
-    ).toEqual({ ok: true });
+    ).toMatchObject({
+      ok: false,
+      message: "شماره تلفن و واحد با حسابی که مدیر ساخته یکی نیست.",
+    });
     expect(await db.query.membership.findFirst()).toMatchObject({
-      unitId: "two",
+      unitId: null,
     });
     expect(
-      await db.query.user.findFirst({ where: eq(s.user.id, "shell") }),
-    ).toMatchObject({ name: "نگار کریمی" });
+      await db.query.account.findMany({ where: eq(s.account.userId, "shell") }),
+    ).toHaveLength(0);
   });
   it("activates the matching shell with password", async () => {
     expect(
@@ -627,6 +631,51 @@ describe("password activation remains compatible", () => {
         where: eq(s.account.userId, "shell"),
       }),
     ).toMatchObject({ providerId: "credential", password: "test-only-hash" });
+  });
+  it("rejects a phone the manager has not prepared", async () => {
+    expect(
+      await registerWithPhone({
+        phone: "09111111111",
+        password: "new-password",
+        unitId: "one",
+      }),
+    ).toMatchObject({
+      ok: false,
+      message:
+        "این شماره در فهرست مدیر نیست. ابتدا باید مدیر ساختمان حساب را بسازد.",
+    });
+    expect(await db.query.user.findMany()).toHaveLength(2);
+  });
+  it("reconnects the same account after the manager resets the password", async () => {
+    expect(
+      await registerWithPhone({
+        phone,
+        password: "new-password",
+        unitId: "one",
+        firstName: "نام",
+        lastName: "قبلی",
+      }),
+    ).toEqual({ ok: true });
+    await resetResidentPassword("shell");
+    expect(
+      await db.query.account.findMany({ where: eq(s.account.userId, "shell") }),
+    ).toHaveLength(0);
+    expect(
+      await registerWithPhone({
+        phone,
+        password: "another-password",
+        unitId: "one",
+        firstName: "میلاد",
+        lastName: "رضاپور",
+      }),
+    ).toEqual({ ok: true });
+    expect(
+      await db.query.user.findFirst({ where: eq(s.user.id, "shell") }),
+    ).toMatchObject({ id: "shell", name: "میلاد رضاپور", phone });
+    expect(await db.query.paymentRequest.findFirst()).toMatchObject({
+      userId: "shell",
+      amountRial: 7500000,
+    });
   });
   it("cannot overwrite or delete a Google resident", async () => {
     await connectGoogleResident(input);

@@ -26,6 +26,19 @@ export function normalizeIranMobile(value: string) {
   return local;
 }
 
+/** A registration choice is only a building unit numbered 1 through 8. */
+export function registrationUnitNumber(label: string) {
+  const compact = label
+    .trim()
+    .replace(/[۰-۹]/g, (digit) => String(persianDigits.indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String(arabicDigits.indexOf(digit)));
+  const digits = compact.replace(/\D/g, "");
+  if (!/^\d+$/.test(digits)) return null;
+  const value = Number(digits);
+  if (value < 1 || value > 8) return null;
+  return value;
+}
+
 /** Email accounts stay as typed. A phone becomes the internal mailbox. */
 export function loginToEmail(value: string) {
   const trimmed = value.trim();

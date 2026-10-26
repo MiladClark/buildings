@@ -6,7 +6,19 @@ import {
   loginToEmail,
   normalizeIranMobile,
   phoneToAuthEmail,
+  registrationUnitNumber,
 } from "./phone";
+
+describe("registration units", () => {
+  it("keeps only units numbered 1 through 8", () => {
+    expect(registrationUnitNumber("1")).toBe(1);
+    expect(registrationUnitNumber("۸")).toBe(8);
+    expect(registrationUnitNumber("واحد ۶")).toBe(6);
+    expect(registrationUnitNumber("  03 ")).toBe(3);
+    for (const label of ["", "۹", "10", "انباری", "۱۲"])
+      expect(registrationUnitNumber(label)).toBeNull();
+  });
+});
 
 describe("Iranian mobile numbers", () => {
   it.each([

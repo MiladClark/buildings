@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { registrationUnitNumber } from "@/lib/auth/phone";
 import { registerWithPhone } from "@/lib/actions/resident-accounts";
 
 export function RegisterForm({
@@ -57,18 +58,36 @@ export function RegisterForm({
           <Input id="lastName" name="lastName" autoComplete="family-name" />
         </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="phone">شماره تلفن</Label>
-        <Input
-          id="phone"
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          dir="ltr"
-          required
-          autoComplete="tel"
-          placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-        />
+      <div className={isFirstUser ? "space-y-2" : "grid grid-cols-2 gap-3"}>
+        <div className="space-y-2">
+          <Label htmlFor="phone">شماره تلفن</Label>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            dir="ltr"
+            required
+            autoComplete="tel"
+            placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+          />
+        </div>
+        {!isFirstUser && (
+          <div className="space-y-2">
+            <Label htmlFor="unitId">واحد</Label>
+            <Select id="unitId" name="unitId" required>
+              <option value="">انتخاب</option>
+              {units.map((item) => {
+                const number = registrationUnitNumber(item.label);
+                return (
+                  <option key={item.id} value={item.id}>
+                    {number?.toLocaleString("fa-IR")}
+                  </option>
+                );
+              })}
+            </Select>
+          </div>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">رمز عبور (حداقل ۸ کاراکتر)</Label>
@@ -81,22 +100,6 @@ export function RegisterForm({
           autoComplete="new-password"
         />
       </div>
-      {!isFirstUser && units.length > 0 && (
-        <div className="space-y-2">
-          <Label htmlFor="unitId">واحد</Label>
-          <Select id="unitId" name="unitId" required>
-            <option value="">واحد را انتخاب کنید</option>
-            {units.map((item) => (
-              <option key={item.id} value={item.id}>
-                واحد {item.label}
-              </option>
-            ))}
-          </Select>
-          <p className="text-[13px] leading-6 text-muted-foreground">
-            شماره و واحد باید با اطلاعات ثبت‌شده توسط مدیر مطابقت داشته باشند.
-          </p>
-        </div>
-      )}
       <Button type="submit" disabled={loading} className="w-full">
         {loading
           ? "در حال ساخت حساب..."
