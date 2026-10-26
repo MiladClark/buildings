@@ -6,6 +6,10 @@ import { db } from "@/lib/db";
 import { billingPeriod, unit, unitInvoice } from "@/lib/db/schema";
 import { getSession, getMembershipForUser } from "@/lib/session";
 import { toToman } from "@/lib/format/money";
+import {
+  attachmentDisposition,
+  datedExportFilename,
+} from "@/lib/export/filenames";
 
 export async function GET(
   _request: Request,
@@ -65,7 +69,9 @@ export async function GET(
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="period-${id}.xlsx"`,
+      "Content-Disposition": attachmentDisposition(
+        datedExportFilename("فیش‌های-دوره", "xlsx"),
+      ),
       "Cache-Control": "private, no-store",
     },
   });

@@ -2,6 +2,8 @@ import path from "node:path";
 import sharp, { type OverlayOptions } from "sharp";
 import type { InvoiceRecipient } from "./invoice-recipient";
 import { formatAllocationBasis } from "@/lib/format/allocation-basis";
+import type { InvoiceExplanation } from "./invoice-explanation";
+import { renderDetailedInvoiceImage } from "./detailed-invoice-image";
 
 export type InvoiceImageData = {
   buildingName: string;
@@ -12,12 +14,19 @@ export type InvoiceImageData = {
   bankAccount?: string | null;
   bankSheba?: string | null;
   total: string;
+  expensesTotal?: string;
+  charge?: string;
+  fund?: boolean;
+  explanation?: InvoiceExplanation;
   paid: string;
+  paidRial?: number;
   balance: string;
   lines: { title: string; basis: string | null; amount: string }[];
 };
 /** Pango + HarfBuzz shape Persian and apply the Unicode bidi algorithm. */
 export async function renderInvoiceImage(data: InvoiceImageData) {
+  if (data.explanation)
+    return renderDetailedInvoiceImage(data, data.explanation);
   const width = 1000,
     padding = 62,
     content = width - padding * 2;
@@ -183,7 +192,8 @@ export async function renderInvoiceImage(data: InvoiceImageData) {
   }
   y += 26;
   const summaryTop = y;
-  const summaryHeight = 200;
+  const hasPayment = data.paidRial === undefined || data.paidRial > 0;
+  const summaryHeight = 145 + (data.charge ? 70 : 0) + (hasPayment ? 115 : 0);
   layers.push({
     input: await sharp({
       create: {
@@ -215,9 +225,40 @@ export async function renderInvoiceImage(data: InvoiceImageData) {
       { input: valueImage.data, left: padding + 25, top },
     );
   };
-  await summary("جمع شارژ همین دوره", data.total, y + 27);
-  await summary("پرداخت و اعتبار اعمال‌شده", data.paid, y + 84);
-  await summary("مانده این فیش", data.balance, y + 143, "#26745d");
+  await summary(
+    data.fund ? "آب و هزینه‌های جداگانه" : "جمع هزینه‌ها",
+    data.expensesTotal ?? data.total,
+    y + 27,
+  );
+  let summaryY = y + 84;
+  if (data.charge) {
+    layers.push({
+      input: await sharp({
+        create: {
+          width: content - 30,
+          height: 58,
+          channels: 4,
+          background: "#ffffff",
+        },
+      })
+        .png()
+        .toBuffer(),
+      left: padding + 15,
+      top: summaryY - 12,
+    });
+    await summary("شارژ دوره", data.charge, summaryY);
+    summaryY += 70;
+  }
+  await summary(
+    hasPayment ? "جمع کل" : "جمع کل قابل پرداخت",
+    data.total,
+    summaryY,
+    "#26745d",
+  );
+  if (hasPayment) {
+    await summary("پرداخت‌شده", data.paid, summaryY + 57);
+    await summary("قابل پرداخت", data.balance, summaryY + 114, "#26745d");
+  }
   y += summaryHeight + 35;
   if (data.bankAccount)
     y +=
@@ -225,13 +266,6 @@ export async function renderInvoiceImage(data: InvoiceImageData) {
       18;
   if (data.bankSheba)
     y += (await right(`شبا: ${data.bankSheba}`, y, 19, "#67756d")) + 18;
-  y +=
-    (await right(
-      "این فیش فقط هزینه همین دوره را پوشش می‌دهد.",
-      y + 8,
-      18,
-      "#67756d",
-    )) + 20;
   return sharp({
     create: { width, height: y + 50, channels: 4, background: "#ffffff" },
   })

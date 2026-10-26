@@ -3,6 +3,10 @@ import { getSession, getMembershipForUser } from "@/lib/session";
 import { dashboardData, getFinanceData } from "@/lib/queries/finance";
 import { formatJalaliDate } from "@/lib/format/jalali";
 import { toToman } from "@/lib/format/money";
+import {
+  attachmentDisposition,
+  datedExportFilename,
+} from "@/lib/export/filenames";
 export async function GET() {
   const s = await getSession();
   if (!s) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -75,6 +79,7 @@ export async function GET() {
     { header: "مبلغ (تومان)", key: "amount", width: 22 },
     { header: "شرح", key: "note", width: 45 },
     { header: "بابت", key: "purpose", width: 45 },
+    { header: "نوع ثبت", key: "kind", width: 25 },
   ];
   data.payments.forEach(({ payment: p, unit: u }) =>
     payments.addRow({
@@ -82,11 +87,25 @@ export async function GET() {
       date: formatJalaliDate(p.paidAt),
       amount: toToman(p.amountRial),
       note: p.note || "",
-      purpose: p.categoryId
-        ? `${data.categories.find((c) => c.id === p.categoryId)?.name ?? "هزینه"} · ${data.periods.find((r) => r.id === p.periodId)?.title ?? "دوره حذف‌شده"}`
-        : "واریز عمومی",
+      kind: p.kind === "advance" ? "پرداخت مستقیم؛ طلب واحد" : "واریز به مدیر",
+      purpose: p.standaloneExpenseId
+        ? (data.standaloneExpenses.find((c) => c.id === p.standaloneExpenseId)
+            ?.description ?? "هزینه مستقل")
+        : p.categoryId
+          ? `${data.categories.find((c) => c.id === p.categoryId)?.name ?? "هزینه"} · ${data.periods.find((r) => r.id === p.periodId)?.title ?? "دوره حذف‌شده"}`
+          : "واریز عمومی",
     }),
   );
+  for (const cost of data.standaloneExpenses.filter(
+    (c) => !c.deletedAt && !c.linkedExpenseId,
+  ))
+    expenses.addRow({
+      category: data.categories.find((c) => c.id === cost.categoryId)?.name,
+      description: cost.description,
+      date: formatJalaliDate(cost.expenseDate),
+      amount: toToman(cost.amountRial),
+      period: "مستقل؛ خارج از شارژ",
+    });
   for (const sheet of book.worksheets) {
     sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
     sheet.getRow(1).fill = {
@@ -109,7 +128,9 @@ export async function GET() {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": "attachment; filename=building-finance.xlsx",
+      "Content-Disposition": attachmentDisposition(
+        datedExportFilename("گزارش-مالی", "xlsx"),
+      ),
       "Cache-Control": "private, no-store",
     },
   });

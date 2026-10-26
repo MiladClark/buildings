@@ -6,6 +6,7 @@ import {
   toPersianDigits as fa,
 } from "@/lib/format/money";
 import type { PeriodExpensesReport } from "./period-expenses";
+import { periodExpenseSummaries } from "./period-expenses-summary";
 
 export async function renderPeriodExpensesImage(report: PeriodExpensesReport) {
   const width = 1200,
@@ -96,18 +97,6 @@ export async function renderPeriodExpensesImage(report: PeriodExpensesReport) {
       right: width - padding - 24,
       color: report.draft ? "#956925" : "#26745d",
     })) + 22;
-  y +=
-    (await text(
-      `شارژ ثابت ماهانه هر واحد: ${report.manualMonthlyRial != null ? formatToman(report.manualMonthlyRial) : "تعیین نشده"}`,
-      y,
-      {
-        size: 24,
-        bold: true,
-        color: "#26745d",
-        right: width - padding - 24,
-        width: content - 48,
-      },
-    )) + 22;
   const metaText = layers.splice(metaStart);
   await box(metaTop, y - metaTop, "#f0f4f2", 12);
   layers.push(...metaText);
@@ -137,15 +126,20 @@ export async function renderPeriodExpensesImage(report: PeriodExpensesReport) {
       width: descriptionWidth,
       size: 22,
     });
-    const categoryHeight =
-      item.category !== item.description
-        ? (await text(item.category, top + descriptionHeight + 10, {
-            right: descriptionRight,
-            width: descriptionWidth,
-            size: 17,
-            color: "#67756d",
-          })) + 10
-        : 0;
+    const caption = [
+      item.category !== item.description ? item.category : "",
+      item.fundingLabel,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const categoryHeight = caption
+      ? (await text(caption, top + descriptionHeight + 10, {
+          right: descriptionRight,
+          width: descriptionWidth,
+          size: 17,
+          color: "#67756d",
+        })) + 10
+      : 0;
     const amountHeight = await text(formatTomanNumber(item.amountRial), top, {
       left: padding + 12,
       width: 230,
@@ -179,52 +173,45 @@ export async function renderPeriodExpensesImage(report: PeriodExpensesReport) {
         color: "#67756d",
       })) + 60;
   y += 24;
-  const summaryTop = y,
-    summaryStart = layers.length;
-  const labelHeight = await text("جمع هزینه‌های ثبت‌شده", y + 28, {
-    right: width - padding - 24,
-    width: 500,
-    size: 25,
-    bold: true,
-    color: "#26745d",
-  });
-  const amountHeight = await text(formatToman(report.totalRial), y + 28, {
-    left: padding + 24,
-    width: 460,
-    size: 27,
-    bold: true,
-    color: "#26745d",
-  });
-  const summaryText = layers.splice(summaryStart);
-  const summaryHeight = Math.max(90, labelHeight + 56, amountHeight + 56);
-  await box(summaryTop, summaryHeight, "#edf4f0", 12);
-  layers.push(...summaryText);
-  y += summaryHeight + 26;
-  if (report.manualMonthlyRial != null)
-    y +=
-      (await text(
-        "شارژ ثابت، مبلغ تعیین‌شده مدیر است و به جمع هزینه‌های ثبت‌شده اضافه نشده است.",
-        y,
-        { size: 18, color: "#67756d" },
-      )) + 16;
-  y +=
-    (await text(`تعداد هزینه‌ها: ${fa(String(report.items.length))}`, y, {
-      size: 19,
-      color: "#67756d",
-    })) + 16;
-  if (report.draft)
-    y +=
-      (await text(
-        "این گزارش پیش‌نویس است و هزینه‌های آن می‌تواند تغییر کند.",
-        y,
-        { size: 19, color: "#956925" },
-      )) + 16;
-  y +=
-    (await text(
-      "این گزارش هزینه‌های ثبت‌شده ساختمان را نشان می‌دهد؛ سهم هر واحد در فیش جداگانه محاسبه می‌شود.",
-      y,
-      { size: 18, color: "#67756d" },
-    )) + 48;
+  const summary = async (
+    label: string,
+    amount: number,
+    strong = false,
+    note?: string,
+  ) => {
+    const start = layers.length;
+    const color = strong ? "#ffffff" : "#202c29";
+    const labelHeight = await text(label, y + 25, {
+      right: width - padding - 24,
+      width: 500,
+      size: 25,
+      bold: true,
+      color,
+    });
+    const amountHeight = await text(formatToman(amount), y + 25, {
+      left: padding + 24,
+      width: 460,
+      size: 27,
+      bold: true,
+      color,
+    });
+    let height = Math.max(86, labelHeight + 50, amountHeight + 50);
+    if (note)
+      height +=
+        (await text(note, y + height - 8, {
+          right: width - padding - 24,
+          width: content - 48,
+          size: 19,
+          color: "#67756d",
+        })) + 18;
+    const texts = layers.splice(start);
+    await box(y, height, strong ? "#26745d" : "#f0f4f2", 12);
+    layers.push(...texts);
+    y += height + 12;
+  };
+  for (const row of periodExpenseSummaries(report))
+    await summary(row.label, row.amount, row.strong, row.note);
+  y += 36;
   return sharp({
     create: { width, height: y, channels: 4, background: "#ffffff" },
   })

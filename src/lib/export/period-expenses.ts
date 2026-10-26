@@ -1,4 +1,4 @@
-import { formatJalaliDate } from "@/lib/format/jalali";
+import { formatJalaliDate, jalaliMonthSpan } from "@/lib/format/jalali";
 
 export type PeriodExpensesReport = {
   buildingName: string;
@@ -9,17 +9,29 @@ export type PeriodExpensesReport = {
   draft: boolean;
   totalRial: number;
   manualMonthlyRial?: number | null;
+  unitCount: number;
+  periodMonths: number;
+  chargeTotalRial: number | null;
+  grandTotalRial: number;
+  fund: boolean;
+  separateTotalRial: number;
+  coveredTotalRial: number;
   items: {
     description: string;
     category: string;
     date: string;
     amountRial: number;
+    fundingLabel?: string;
   }[];
 };
 
 export function buildPeriodExpensesReport(source: {
   buildingName: string;
   manualMonthlyRial?: number | null;
+  unitCount?: number;
+  chargeTotalRial?: number;
+  fund?: boolean;
+  payableTotalRial?: number;
   period: {
     id: string;
     title: string;
@@ -34,6 +46,7 @@ export function buildPeriodExpensesReport(source: {
     expenseDate: Date;
     amountRial: number;
     deletedAt?: Date | null;
+    coveredByCharge?: boolean;
   }[];
 }): PeriodExpensesReport {
   const items = source.expenses
@@ -46,7 +59,33 @@ export function buildPeriodExpensesReport(source: {
       category: expense.category,
       date: formatJalaliDate(expense.expenseDate),
       amountRial: expense.amountRial,
+      fundingLabel: source.fund
+        ? expense.coveredByCharge
+          ? "از محل شارژ"
+          : "دریافت جداگانه"
+        : undefined,
     }));
+  const totalRial = items.reduce(
+    (total, expense) => total + expense.amountRial,
+    0,
+  );
+  const unitCount = source.unitCount ?? 0;
+  const periodMonths = jalaliMonthSpan(
+    source.period.startDate,
+    source.period.endDate,
+  );
+  const chargeTotalRial =
+    source.chargeTotalRial ??
+    (source.manualMonthlyRial == null
+      ? null
+      : source.manualMonthlyRial * unitCount * periodMonths);
+  const coveredTotalRial = source.expenses
+    .filter(
+      (e) =>
+        e.periodId === source.period.id && !e.deletedAt && e.coveredByCharge,
+    )
+    .reduce((s, e) => s + e.amountRial, 0);
+  const separateTotalRial = totalRial - coveredTotalRial;
   return {
     buildingName: source.buildingName,
     periodTitle: source.period.title,
@@ -58,7 +97,16 @@ export function buildPeriodExpensesReport(source: {
       archived: "بایگانی‌شده",
     }[source.period.status],
     draft: source.period.status === "draft",
-    totalRial: items.reduce((total, expense) => total + expense.amountRial, 0),
+    totalRial,
+    unitCount,
+    periodMonths,
+    chargeTotalRial,
+    fund: source.fund ?? false,
+    coveredTotalRial,
+    separateTotalRial,
+    grandTotalRial:
+      source.payableTotalRial ??
+      (source.fund ? separateTotalRial : totalRial) + (chargeTotalRial ?? 0),
     manualMonthlyRial: source.manualMonthlyRial ?? null,
     items,
   };

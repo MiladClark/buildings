@@ -3,6 +3,8 @@ import { formatToman } from "@/lib/format/money";
 import { formatAllocationBasis } from "@/lib/format/allocation-basis";
 import type { InvoiceRecipient } from "@/lib/export/invoice-recipient";
 import "./fonts";
+import { DetailedInvoicePdfDocument } from "./detailed-invoice-document";
+import type { InvoiceExplanation } from "@/lib/export/invoice-explanation";
 const styles = StyleSheet.create({
   page: {
     fontFamily: "Vazirmatn",
@@ -75,6 +77,10 @@ export function InvoicePdfDocument({
   balanceRial,
   dueDate,
   paidRial = 0,
+  expensesTotalRial = totalRial,
+  chargeTotalRial = 0,
+  fund = false,
+  explanation,
 }: {
   buildingName: string;
   periodTitle: string;
@@ -87,7 +93,29 @@ export function InvoicePdfDocument({
   balanceRial: number;
   dueDate?: string;
   paidRial?: number;
+  expensesTotalRial?: number;
+  chargeTotalRial?: number;
+  fund?: boolean;
+  explanation?: InvoiceExplanation;
 }) {
+  if (explanation)
+    return (
+      <DetailedInvoicePdfDocument
+        {...{
+          buildingName,
+          periodTitle,
+          unitLabel,
+          recipient,
+          bankAccount,
+          bankSheba,
+          dueDate,
+          totalRial,
+          paidRial,
+          balanceRial,
+          explanation,
+        }}
+      />
+    );
   return (
     <Document title={`فیش ${periodTitle} واحد ${unitLabel}`} author="هم‌خانه">
       <Page size="A4" style={styles.page}>
@@ -151,19 +179,24 @@ export function InvoicePdfDocument({
               marginBottom: 12,
             }}
           >
-            <Text>{formatToman(totalRial)}</Text>
-            <Text>جمع شارژ همین دوره</Text>
+            <Text>{formatToman(expensesTotalRial)}</Text>
+            <Text>{fund ? "آب و هزینه‌های جداگانه" : "جمع هزینه‌ها"}</Text>
           </View>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginBottom: 12,
-            }}
-          >
-            <Text>{formatToman(paidRial)}</Text>
-            <Text>تسویه و اعتبار اعمال‌شده</Text>
-          </View>
+          {chargeTotalRial > 0 && (
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                backgroundColor: "#ffffff",
+                padding: 10,
+                borderRadius: 6,
+                marginBottom: 12,
+              }}
+            >
+              <Text>{formatToman(chargeTotalRial)}</Text>
+              <Text>شارژ دوره</Text>
+            </View>
+          )}
           <View
             style={{
               flexDirection: "row",
@@ -175,18 +208,39 @@ export function InvoicePdfDocument({
               color: "#26745d",
             }}
           >
-            <Text>{formatToman(balanceRial)}</Text>
-            <Text>مانده این فیش</Text>
+            <Text>{formatToman(totalRial)}</Text>
+            <Text>{paidRial > 0 ? "جمع کل" : "جمع کل قابل پرداخت"}</Text>
           </View>
+          {paidRial > 0 && (
+            <>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 12,
+                }}
+              >
+                <Text>{formatToman(paidRial)}</Text>
+                <Text>پرداخت‌شده</Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: 12,
+                  fontWeight: 700,
+                  color: "#26745d",
+                }}
+              >
+                <Text>{formatToman(balanceRial)}</Text>
+                <Text>قابل پرداخت</Text>
+              </View>
+            </>
+          )}
         </View>
         <View style={styles.footer} wrap={false}>
           {bankAccount && <Text>حساب دریافت شارژ: {bankAccount}</Text>}
           {bankSheba && <Text>شماره شبا: {bankSheba}</Text>}
-          <Text>پس از واریز، شماره پیگیری را در پنل ساکن ثبت کنید.</Text>
-          <Text>
-            این فیش فقط هزینه همین دوره را پوشش می‌دهد. مانده کل حساب در پنل
-            واحد نمایش داده می‌شود.
-          </Text>
         </View>
         <Text
           style={styles.pageNumber}

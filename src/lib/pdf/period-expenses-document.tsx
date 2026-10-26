@@ -6,6 +6,7 @@ import {
   toPersianDigits as fa,
 } from "@/lib/format/money";
 import type { PeriodExpensesReport } from "@/lib/export/period-expenses";
+import { periodExpenseSummaries } from "@/lib/export/period-expenses-summary";
 
 const styles = StyleSheet.create({
   page: {
@@ -113,14 +114,6 @@ export function PeriodExpensesPdfDocument({
             <Text style={styles.metaLine}>
               وضعیت دوره: {report.statusLabel}
             </Text>
-            <View style={styles.manualCharge}>
-              <Text style={styles.note}>
-                {report.manualMonthlyRial != null
-                  ? formatToman(report.manualMonthlyRial)
-                  : "تعیین نشده"}
-              </Text>
-              <Text>شارژ ثابت ماهانه هر واحد</Text>
-            </View>
           </View>
           <View style={styles.headerRow}>
             <Text style={styles.amount}>مبلغ (تومان)</Text>
@@ -142,8 +135,15 @@ export function PeriodExpensesPdfDocument({
               <Text style={styles.date}>{item.date}</Text>
               <View style={styles.description}>
                 <Text style={{ lineHeight: "15pt" }}>{item.description}</Text>
-                {item.category !== item.description && (
-                  <Text style={styles.detail}>{item.category}</Text>
+                {(item.category !== item.description || item.fundingLabel) && (
+                  <Text style={styles.detail}>
+                    {[
+                      item.category !== item.description ? item.category : "",
+                      item.fundingLabel,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
                 )}
               </View>
               <Text style={styles.index}>{fa(String(index + 1))}</Text>
@@ -155,30 +155,42 @@ export function PeriodExpensesPdfDocument({
           </Text>
         )}
         <View wrap={false}>
-          <View style={styles.summary}>
-            <Text>{formatToman(report.totalRial)}</Text>
-            <Text>جمع هزینه‌های ثبت‌شده</Text>
-          </View>
-          <View style={styles.footer}>
-            {report.manualMonthlyRial != null && (
-              <Text>
-                شارژ ثابت، مبلغ تعیین‌شده مدیر است و به جمع هزینه‌های ثبت‌شده
-                اضافه نشده است.
-              </Text>
-            )}
-            <Text style={styles.note}>
-              تعداد هزینه‌ها: {fa(String(report.items.length))}
-            </Text>
-            {report.draft && (
-              <Text style={styles.note}>
-                این گزارش پیش‌نویس است و هزینه‌های آن می‌تواند تغییر کند.
-              </Text>
-            )}
-            <Text style={styles.note}>
-              این گزارش هزینه‌های ثبت‌شده ساختمان را نشان می‌دهد؛ سهم هر واحد در
-              فیش جداگانه محاسبه می‌شود.
-            </Text>
-          </View>
+          {periodExpenseSummaries(report).map((row, index) => (
+            <View
+              key={index}
+              style={{
+                ...styles.summary,
+                marginTop: index ? 8 : 18,
+                backgroundColor: row.strong ? "#26745d" : "#edf4f0",
+                color: row.strong ? "#ffffff" : "#202c29",
+                flexDirection: "column",
+                padding: 12,
+                fontSize: 11,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                }}
+              >
+                <Text>{formatToman(row.amount)}</Text>
+                <Text>{row.label}</Text>
+              </View>
+              {row.note && (
+                <Text
+                  style={{
+                    fontSize: 8,
+                    lineHeight: "14pt",
+                    color: "#67756d",
+                    marginTop: 8,
+                  }}
+                >
+                  {row.note}
+                </Text>
+              )}
+            </View>
+          ))}
         </View>
         <Text
           fixed

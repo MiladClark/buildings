@@ -1,5 +1,9 @@
 import { getPeriodExpensesExportData } from "@/lib/queries/period-expenses";
 import { renderPeriodExpensesImage } from "@/lib/export/period-expenses-image";
+import {
+  attachmentDisposition,
+  datedExportFilename,
+} from "@/lib/export/filenames";
 
 export const runtime = "nodejs";
 export async function GET(
@@ -14,7 +18,9 @@ export async function GET(
   return new Response(new Uint8Array(png), {
     headers: {
       "Content-Type": "image/png",
-      "Content-Disposition": `attachment; filename="period-expenses-${id}.png"`,
+      "Content-Disposition": attachmentDisposition(
+        datedExportFilename("ریز-هزینه‌ها", "png"),
+      ),
       "Cache-Control": "private, no-store",
     },
   });
