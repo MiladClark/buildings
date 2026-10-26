@@ -199,6 +199,7 @@ export function BuildingChat({
   const [mentionIndex, setMentionIndex] = useState(0);
   const [mentionDismissed, setMentionDismissed] = useState(false);
 
+  const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -284,6 +285,70 @@ export function BuildingChat({
       initialized.current = true;
     }
   }, [messages]);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+    const query = window.matchMedia("(max-width: 1023px)");
+    const html = document.documentElement;
+    const body = document.body;
+    const previous = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+    };
+
+    const clearFrame = () => {
+      section.style.top = "";
+      section.style.right = "";
+      section.style.bottom = "";
+      section.style.left = "";
+      section.style.height = "";
+      const form = section.querySelector("form");
+      if (form instanceof HTMLElement) form.style.paddingBottom = "";
+    };
+
+    const apply = () => {
+      if (!query.matches) {
+        clearFrame();
+        html.style.overflow = previous.htmlOverflow;
+        body.style.overflow = previous.bodyOverflow;
+        return;
+      }
+
+      const viewport = window.visualViewport;
+      const top = viewport?.offsetTop ?? 0;
+      const height = viewport?.height ?? window.innerHeight;
+      const keyboard = Math.max(0, window.innerHeight - height - top);
+      if (window.scrollY !== 0) window.scrollTo(0, 0);
+      html.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+      section.style.top = `${top}px`;
+      section.style.right = "0px";
+      section.style.bottom = "auto";
+      section.style.left = "0px";
+      section.style.height = `${height}px`;
+      const form = section.querySelector("form");
+      if (form instanceof HTMLElement) {
+        form.style.paddingBottom = keyboard > 120 ? "0.5rem" : "";
+      }
+      if (followLatest.current && listRef.current) {
+        listRef.current.scrollTop = listRef.current.scrollHeight;
+      }
+    };
+
+    apply();
+    query.addEventListener("change", apply);
+    window.visualViewport?.addEventListener("resize", apply);
+    window.visualViewport?.addEventListener("scroll", apply);
+    return () => {
+      query.removeEventListener("change", apply);
+      window.visualViewport?.removeEventListener("resize", apply);
+      window.visualViewport?.removeEventListener("scroll", apply);
+      clearFrame();
+      html.style.overflow = previous.htmlOverflow;
+      body.style.overflow = previous.bodyOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     function onPointerDown(event: PointerEvent) {
@@ -496,8 +561,11 @@ export function BuildingChat({
   }
 
   return (
-    <section className="fixed inset-0 z-50 flex flex-col bg-background lg:static lg:z-auto lg:h-[calc(100dvh-12.5rem)] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:shadow-xs">
-      <header className="flex shrink-0 items-center gap-2 border-b border-border bg-card px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-4 lg:py-3">
+    <section
+      ref={sectionRef}
+      className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background lg:static lg:z-auto lg:h-[calc(100dvh-12.5rem)] lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:shadow-xs"
+    >
+      <header className="z-10 flex shrink-0 items-center gap-2 border-b border-border bg-card px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] lg:px-4 lg:py-3">
         <button
           type="button"
           onClick={() => router.back()}
@@ -522,7 +590,7 @@ export function BuildingChat({
       <div
         ref={listRef}
         onScroll={(event) => handleScroll(event.currentTarget)}
-        className="relative min-h-0 flex-1 overflow-y-auto bg-muted/30 px-3 py-4 sm:px-5"
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/30 px-3 py-4 sm:px-5"
         aria-live="polite"
         aria-label="پیام‌های گروه ساختمان"
       >
@@ -764,7 +832,7 @@ export function BuildingChat({
 
       <form
         onSubmit={sendMessage}
-        className="shrink-0 border-t border-border bg-card px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:px-3"
+        className="z-10 shrink-0 border-t border-border bg-card px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:px-3"
       >
         {imagePreview && (
           <div className="mb-2 flex items-center gap-3 rounded-2xl bg-muted/60 p-2">
@@ -893,7 +961,7 @@ export function BuildingChat({
               rows={1}
               placeholder="پیام"
               aria-label="متن پیام"
-              className="max-h-32 min-h-6 w-full resize-none bg-transparent py-2.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground"
+              className="max-h-32 min-h-6 w-full resize-none bg-transparent py-2.5 text-base leading-6 text-foreground outline-none placeholder:text-muted-foreground lg:text-sm"
             />
           </div>
 

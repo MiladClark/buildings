@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 
 import { vazirmatn } from "@/lib/fonts";
@@ -8,6 +8,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "هم‌خانه | مدیریت ساختمان",
   description: "حساب‌وکتاب روشن ساختمان؛ شارژ، هزینه‌ها و پرداخت ساکنان",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
