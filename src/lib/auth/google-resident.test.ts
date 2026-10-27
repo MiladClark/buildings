@@ -20,7 +20,13 @@ vi.mock("@/lib/db", async () => {
   return { db: drizzle(client, { schema }), client };
 });
 vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
+  refresh: vi.fn(),
+  unstable_cache: (fn: () => unknown) => fn,
+}));
 vi.mock("@/lib/actions/building", () => ({ ensureFirstManager: vi.fn() }));
 vi.mock("@/lib/session", () => ({
   requireManager: async () => ({ member: { buildingId: "building" } }),

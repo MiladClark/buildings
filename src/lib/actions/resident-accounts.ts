@@ -2,7 +2,7 @@
 
 import { and, eq, or, sql } from "drizzle-orm";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 
 import { auth } from "@/lib/auth";
 import {
@@ -19,9 +19,8 @@ import { requireManager } from "@/lib/session";
 
 const passwordHint = "رمز عبور باید حداقل ۸ کاراکتر باشد.";
 
-function refresh() {
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+async function refresh() {
+  await invalidateCurrentBuildingCache();
 }
 
 function personName(firstName: string, lastName: string, fallback: string) {
@@ -86,7 +85,7 @@ export async function createResidentShell(form: FormData) {
       throw new Error("این شماره تلفن قبلاً ثبت شده است.");
     throw error;
   }
-  refresh();
+  await refresh();
 }
 
 export async function deleteResidentShell(userId: string) {
@@ -111,7 +110,7 @@ export async function deleteResidentShell(userId: string) {
       throw new Error("این شماره قبلاً ثبت‌نام کرده و حذف نمی‌شود.");
     await tx.delete(user).where(eq(user.id, userId));
   });
-  refresh();
+  await refresh();
 }
 
 /** Clears sign-in methods so the same phone can register again onto this account. */
@@ -129,7 +128,7 @@ export async function resetResidentPassword(userId: string) {
     await tx.delete(account).where(eq(account.userId, userId));
     await tx.delete(session).where(eq(session.userId, userId));
   });
-  refresh();
+  await refresh();
 }
 
 export async function registerWithPhone(input: {
@@ -248,7 +247,7 @@ export async function registerWithPhone(input: {
           message: "رمز ذخیره شد. از صفحه ورود با همین شماره وارد شوید.",
         };
       }
-      refresh();
+      await refresh();
       return { ok: true };
     }
 
@@ -270,7 +269,7 @@ export async function registerWithPhone(input: {
     if (!created.phone)
       await db.update(user).set({ phone }).where(eq(user.id, created.id));
     if (isFirst) await ensureFirstManager(created.id);
-    refresh();
+    await refresh();
     return { ok: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

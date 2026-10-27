@@ -13,7 +13,13 @@ import { insertUnitPayment } from "@/lib/billing/settlement-store";
 import { monthlyChargeCategoryId } from "@/lib/billing/monthly-charge";
 const auth = vi.hoisted(() => ({ manager: vi.fn() }));
 vi.mock("@/lib/session", () => ({ requireManager: auth.manager }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  updateTag: vi.fn(),
+  refresh: vi.fn(),
+  unstable_cache: (fn: () => unknown) => fn,
+}));
 vi.mock("@/lib/db", async () => {
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");

@@ -1,6 +1,6 @@
 "use server";
 import { and, eq, isNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { db } from "@/lib/db";
 import {
   billingPeriod,
@@ -18,9 +18,8 @@ import {
 } from "@/lib/billing/settlement-store";
 import { budgetModes, type BudgetPolicy } from "@/lib/billing/charge-plan";
 
-function refresh() {
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+async function refresh() {
+  await invalidateCurrentBuildingCache();
 }
 function validMoney(value: number | null) {
   return value === null || (Number.isSafeInteger(value) && value >= 0);
@@ -65,7 +64,7 @@ export async function saveSmartChargeSettings(
       input,
     );
   });
-  refresh();
+  await refresh();
 }
 
 export async function saveManualMonthlyCharge(
@@ -114,7 +113,7 @@ export async function saveManualMonthlyCharge(
       { manualMonthlyRial: amountRial },
     );
   });
-  refresh();
+  await refresh();
 }
 
 export async function saveChargeBudget(
@@ -257,5 +256,5 @@ export async function saveChargeBudget(
       input,
     );
   });
-  refresh();
+  await refresh();
 }

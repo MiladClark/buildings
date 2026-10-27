@@ -1,6 +1,6 @@
 "use server";
 import { and, desc, eq, isNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { db } from "@/lib/db";
 import { maintenanceTicket } from "@/lib/db/schema";
 import { logManagementEvent } from "@/lib/billing/corrections";
@@ -55,8 +55,7 @@ export async function createMaintenance(f: FormData) {
     priority: f.get("priority") === "urgent" ? "urgent" : "normal",
     scheduledAt: schedule,
   });
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+  await invalidateCurrentBuildingCache();
 }
 export async function updateMaintenance(
   id: string,
@@ -90,8 +89,7 @@ export async function updateMaintenance(
       { status },
     );
   });
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+  await invalidateCurrentBuildingCache();
 }
 
 export async function editMaintenance(id: string, f: FormData) {
@@ -144,6 +142,5 @@ export async function editMaintenance(id: string, f: FormData) {
       values,
     );
   });
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+  await invalidateCurrentBuildingCache();
 }

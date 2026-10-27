@@ -3,7 +3,7 @@ import { periodTypes, type PeriodType } from "@/lib/billing/periods";
 import { monthlyChargeSlug } from "@/lib/billing/monthly-charge";
 
 import { and, desc, eq, isNotNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { db } from "@/lib/db";
 import {
   billingPeriod,
@@ -29,9 +29,8 @@ import {
 } from "@/lib/billing/corrections";
 import { reconcileDraftPayments } from "@/lib/billing/settlement-store";
 
-function refresh() {
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+async function refresh() {
+  await invalidateCurrentBuildingCache();
 }
 
 export async function editReceipt(
@@ -55,7 +54,7 @@ export async function editReceipt(
       paidAt: new Date(data.paidAt),
     }),
   );
-  refresh();
+  await refresh();
 }
 
 export async function releaseCostSettlement(data: {
@@ -86,7 +85,7 @@ export async function releaseCostSettlement(data: {
       },
     );
   });
-  refresh();
+  await refresh();
 }
 
 export async function managePeriod(
@@ -128,7 +127,7 @@ export async function managePeriod(
       );
     }
   });
-  refresh();
+  await refresh();
 }
 
 export async function editPeriod(
@@ -193,7 +192,7 @@ export async function editPeriod(
       values,
     );
   });
-  refresh();
+  await refresh();
 }
 
 export async function editExpense(
@@ -215,7 +214,7 @@ export async function editExpense(
       expenseDate: new Date(data.expenseDate),
     }),
   );
-  refresh();
+  await refresh();
 }
 
 export async function setRecordDeleted(
@@ -317,7 +316,7 @@ export async function setRecordDeleted(
       );
     } else throw new Error("عملیات معتبر نیست.");
   });
-  refresh();
+  await refresh();
 }
 
 export async function unlinkResident(id: string) {
@@ -346,7 +345,7 @@ export async function unlinkResident(id: string) {
       row,
     );
   });
-  refresh();
+  await refresh();
 }
 
 export async function resetPaymentReport(id: string) {
@@ -396,7 +395,7 @@ export async function resetPaymentReport(id: string) {
       row,
     );
   });
-  refresh();
+  await refresh();
 }
 
 export async function getManagementHistory() {

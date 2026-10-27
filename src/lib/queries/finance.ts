@@ -16,8 +16,29 @@ import { buildSettlementState } from "@/lib/billing/settlement-state";
 import { buildingCalendarEvents } from "./calendar";
 import { effectiveOccupants } from "@/lib/billing/occupancy";
 import { formatAllocationBasis } from "@/lib/format/allocation-basis";
+import { unstable_cache } from "next/cache";
 
-export async function getFinanceData(buildingId: string) {
+import { buildingCacheTag } from "@/lib/cache/building";
+
+const isoDateTime =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function reviveDates<T>(value: T): T {
+  if (value instanceof Date) return value;
+  if (typeof value === "string" && isoDateTime.test(value)) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date as T;
+  }
+  if (Array.isArray(value)) return value.map((item) => reviveDates(item)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, reviveDates(item)]),
+    ) as T;
+  }
+  return value;
+}
+
+async function loadFinanceData(buildingId: string) {
   const [ledger, requests, tickets, residentUnits] = await db.transaction(
     (tx) =>
       Promise.all([
@@ -101,7 +122,27 @@ export async function getFinanceData(buildingId: string) {
     applications: ledger.applications,
   };
 }
-export type FinanceData = Awaited<ReturnType<typeof getFinanceData>>;
+
+export async function getFinanceData(buildingId: string) {
+  try {
+    const cached = unstable_cache(
+      async () => loadFinanceData(buildingId),
+      ["finance-data", buildingId],
+      { revalidate: 60, tags: [buildingCacheTag(buildingId)] },
+    );
+    return reviveDates(await cached());
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("Invariant: incrementalCache missing")
+    ) {
+      return loadFinanceData(buildingId);
+    }
+    throw error;
+  }
+}
+
+export type FinanceData = Awaited<ReturnType<typeof loadFinanceData>>;
 
 export function dashboardData(data: FinanceData) {
   const now = new Date();

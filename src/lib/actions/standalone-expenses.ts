@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { db } from "@/lib/db";
 import { requireManager } from "@/lib/session";
 import {
@@ -9,9 +9,8 @@ import {
   setStandaloneCostDeleted,
 } from "@/lib/billing/standalone-expenses";
 
-function refresh() {
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+async function refresh() {
+  await invalidateCurrentBuildingCache();
 }
 export async function saveStandaloneExpense(
   input: {
@@ -33,7 +32,7 @@ export async function saveStandaloneExpense(
       id,
     ),
   );
-  refresh();
+  await refresh();
   return key;
 }
 export async function moveStandaloneExpense(
@@ -52,14 +51,14 @@ export async function moveStandaloneExpense(
       billingTreatment,
     ),
   );
-  refresh();
+  await refresh();
 }
 export async function unbillStandaloneExpense(id: string) {
   const { member, session } = await requireManager();
   await db.transaction((tx) =>
     detachStandaloneCost(tx, member.buildingId, id, session.user.id),
   );
-  refresh();
+  await refresh();
 }
 export async function deleteStandaloneExpense(id: string, deleted: boolean) {
   const { member, session } = await requireManager();
@@ -72,5 +71,5 @@ export async function deleteStandaloneExpense(id: string, deleted: boolean) {
       session.user.id,
     ),
   );
-  refresh();
+  await refresh();
 }

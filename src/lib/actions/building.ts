@@ -2,7 +2,7 @@
 import { periodTypes, type PeriodType } from "@/lib/billing/periods";
 
 import { and, asc, eq, isNull } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { setRecordDeleted } from "./management";
 import { logManagementEvent } from "@/lib/billing/corrections";
 import { notifyUnitAccounts } from "@/lib/billing/notifications";
@@ -38,9 +38,8 @@ import {
 import { requireManager, requireResident, requireSession } from "@/lib/session";
 import { jalaliMonthSpan, nextJalaliDueDate } from "@/lib/format/jalali";
 
-function refresh() {
-  revalidatePath("/manager", "layout");
-  revalidatePath("/resident", "layout");
+async function refresh() {
+  await invalidateCurrentBuildingCache();
 }
 function text(value: string, label: string) {
   if (!value?.trim() || value.length > 500)
@@ -109,7 +108,7 @@ export async function updateBuildingSettings(data: {
       data,
     );
   });
-  refresh();
+  await refresh();
 }
 export async function listUnits() {
   const b = await getManagerBuilding();
@@ -196,7 +195,7 @@ export async function upsertUnit(data: {
       );
     }
   });
-  refresh();
+  await refresh();
 }
 export async function deleteUnit(unitId: string) {
   await setRecordDeleted("unit", unitId, true);
@@ -245,7 +244,7 @@ export async function createCategory(data: {
     fixedMonthlyAmount: data.fixedMonthlyAmount,
     sortOrder: Date.now(),
   });
-  refresh();
+  await refresh();
 }
 export async function updateCategoryAllocation(
   categoryId: string,
@@ -332,7 +331,7 @@ export async function updateCategoryAllocation(
       data,
     );
   });
-  refresh();
+  await refresh();
 }
 export async function createBillingPeriod(data: {
   title: string;
@@ -360,7 +359,7 @@ export async function createBillingPeriod(data: {
       : nextJalaliDueDate(end, b.paymentDueDay),
     status: "draft",
   });
-  refresh();
+  await refresh();
   return id;
 }
 export async function addExpenseLine(data: {
@@ -420,7 +419,7 @@ export async function addExpenseLine(data: {
     });
     await reconcileDraftPayments(tx, b.id);
   });
-  refresh();
+  await refresh();
 }
 export async function deleteExpense(id: string) {
   await setRecordDeleted("expense", id, true);
@@ -454,7 +453,7 @@ export async function previewPeriod(periodId: string) {
 export async function finalizePeriod(periodId: string) {
   await ownedPeriod(periodId);
   await finalizeBillingPeriod(periodId);
-  refresh();
+  await refresh();
 }
 export async function recordPayment(data: {
   unitId: string;
@@ -483,7 +482,7 @@ export async function recordPayment(data: {
       session.user.id,
     ),
   );
-  refresh();
+  await refresh();
 }
 export async function reviewPaymentRequest(id: string, approve: boolean) {
   const { session, member } = await requireManager();
@@ -529,7 +528,7 @@ export async function reviewPaymentRequest(id: string, approve: boolean) {
         : "برای بررسی اطلاعات واریز با مدیر ساختمان تماس بگیرید.",
     });
   });
-  refresh();
+  await refresh();
 }
 export async function requestPayment(data: {
   amountRial: number;
@@ -574,7 +573,7 @@ export async function requestPayment(data: {
     note: data.note,
     status: "pending",
   });
-  refresh();
+  await refresh();
 }
 export async function settleCostFromCredit(data: {
   unitId: string;
@@ -632,14 +631,14 @@ export async function settleCostFromCredit(data: {
       "مدیر بخشی از بستانکاری واحد را به یک هزینه تخصیص داد؛ دریافت جدیدی ثبت نشده است.",
     );
   });
-  refresh();
+  await refresh();
 }
 export async function runChargeRecommendation(monthsWindow: number) {
   const b = await getManagerBuilding();
   if (!Number.isInteger(monthsWindow) || monthsWindow < 1 || monthsWindow > 24)
     throw new Error("بازه باید بین ۱ تا ۲۴ ماه باشد.");
   const result = await computeChargeRecommendation(b.id, monthsWindow);
-  refresh();
+  await refresh();
   return result;
 }
 export async function ensureFirstManager(userId: string) {
@@ -691,7 +690,7 @@ export async function assignResidentMembership(userId: string, unitId: string) {
       unitId,
       role: "resident",
     });
-  refresh();
+  await refresh();
 }
 export async function sendUnitReminder(unitId: string) {
   const b = await getManagerBuilding();
@@ -714,5 +713,5 @@ export async function sendUnitReminder(unitId: string) {
       title: "یادآوری پرداخت شارژ",
       body: `لطفاً مانده حساب واحد خود را در بخش فیش‌ها بررسی و پس از واریز، پرداخت را ثبت کنید. ${b.name}`,
     });
-  refresh();
+  await refresh();
 }
