@@ -14,15 +14,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import {
-  ArrowDown,
-  ArrowUp,
-  MagnifyingGlass,
-  CaretLeft,
-  CaretRight,
-  DownloadSimple,
-  CheckCircle,
-} from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Search, ChevronLeft, ChevronRight, Download, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   formatToman,
@@ -114,7 +106,7 @@ export function DataGrid<T extends object>({
                 className={`status ${["تسویه‌شده", "تأییدشده", "مسکونی", "نهایی‌شده"].includes(s) ? "status-success" : ["بدهکار", "در انتظار بررسی", "پیش‌نویس", "سررسید گذشته", "پرداخت ناقص", "پرداخت‌نشده"].includes(s) ? "status-warning" : "status-neutral"}`}
               >
                 {s === "تسویه‌شده" && (
-                  <CheckCircle size={13} weight="fill" aria-hidden="true" />
+                  <CircleCheck size={13} strokeWidth={2.25} aria-hidden="true" />
                 )}
                 {s}
               </span>
@@ -170,7 +162,7 @@ export function DataGrid<T extends object>({
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-4">
         <div className="relative min-w-0 flex-1 sm:max-w-[260px]">
-          <MagnifyingGlass
+          <Search
             size={16}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
@@ -208,7 +200,7 @@ export function DataGrid<T extends object>({
             )
           }
         >
-          <DownloadSimple size={15} />
+          <Download size={15} />
           خروجی CSV
         </Button>
       </div>
@@ -310,7 +302,7 @@ export function DataGrid<T extends object>({
               className="rounded-md border border-border p-1.5 disabled:opacity-30"
               onClick={() => table.previousPage()}
             >
-              <CaretRight size={13} />
+              <ChevronRight size={13} />
             </button>
             <span>
               صفحه {fa(String(pageIndex + 1))} از{" "}
@@ -322,7 +314,7 @@ export function DataGrid<T extends object>({
               className="rounded-md border border-border p-1.5 disabled:opacity-30"
               onClick={() => table.nextPage()}
             >
-              <CaretLeft size={13} />
+              <ChevronLeft size={13} />
             </button>
           </div>
         )}

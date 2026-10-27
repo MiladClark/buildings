@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PeriodActions } from "@/components/finance/period-actions";
-import { Receipt } from "@phosphor-icons/react/dist/ssr";
+import { Receipt } from "lucide-react";
 import { FormModal, EmptyState } from "@/components/finance/forms";
 import { PeriodCreateForm } from "@/components/finance/period-create-form";
 
@@ -72,7 +72,7 @@ export default async function PeriodsPage({
                   aria-label={`مشاهده ${p.title}`}
                   className="flex size-11 items-center justify-center rounded-xl bg-secondary text-primary"
                 >
-                  <Receipt size={23} weight="duotone" />
+                  <Receipt size={23} strokeWidth={1.75} />
                 </Link>
                 <Link
                   href={`/manager/periods/${p.id}`}

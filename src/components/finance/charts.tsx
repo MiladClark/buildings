@@ -14,7 +14,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { ChartLineUp } from "@phosphor-icons/react";
+import { ChartLine } from "lucide-react";
 import { formatToman, toPersianDigits as fa } from "@/lib/format/money";
 import { EmptyState } from "@/components/finance/forms";
 
@@ -144,7 +144,7 @@ export function MoneyTrend({
         />
       )}
       <div className="mx-6 flex items-center gap-1.5 border-t border-border py-3.5 text-[10px] text-muted-foreground">
-        <ChartLineUp size={14} />
+        <ChartLine size={14} />
         دریافت‌ها و هزینه‌ها بر اساس تاریخ ثبت در ماه شمسی
       </div>
     </section>

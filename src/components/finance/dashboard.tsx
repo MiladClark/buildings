@@ -4,23 +4,13 @@ import { Select } from "@/components/ui/select";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  ArrowUpLeft,
-  Plus,
-  DownloadSimple,
-  Wallet,
-  Receipt,
-  Buildings,
-  ArrowDownLeft,
-  CheckCircle,
-  CaretLeft,
-  Bank,
-  Info,
-} from "@phosphor-icons/react";
+import { ArrowUpLeft, Plus, Download, Wallet, Receipt, Building2, ArrowDownLeft, CircleCheck, ChevronLeft, Landmark, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MoneyTrend, ExpenseDonut } from "@/components/finance/charts";
-import { BuildingCalendar } from "@/components/finance/calendar";
-import { DataGrid } from "@/components/finance/data-grid";
+import {
+  DeferredCalendar,
+  DeferredDashboardCharts,
+  DeferredDataGrid,
+} from "@/components/finance/lazy-section";
 import { EmptyState } from "@/components/finance/forms";
 import { sendUnitReminder } from "@/lib/actions/building";
 import {
@@ -119,7 +109,7 @@ export function Dashboard({
     {
       label: "واحدهای ساختمان",
       value: data.summaries.filter((u) => !u.deleted).length,
-      icon: Buildings,
+      icon: Building2,
       note: `${fa(String(occupants))} نفر حاضر · ${fa(String(data.summaries.filter((u) => !u.deleted && u.temporarilyAbsent).length))} واحد غایب موقت · ${fa(String(data.summaries.filter((u) => !u.deleted && u.occupancy === "empty" && !u.temporarilyAbsent).length))} واحد خالی`,
       money: false,
     },
@@ -137,7 +127,7 @@ export function Dashboard({
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
             <Link href="/api/export/finance">
-              <DownloadSimple size={16} />
+              <Download size={16} />
               دریافت گزارش
             </Link>
           </Button>
@@ -178,7 +168,7 @@ export function Dashboard({
           className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary"
         >
           مدیریت دوره‌ها
-          <CaretLeft size={12} />
+          <ChevronLeft size={12} />
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
@@ -191,7 +181,7 @@ export function Dashboard({
               <s.icon
                 size={18}
                 className={i === 0 ? "text-primary" : "text-muted-foreground"}
-                weight="duotone"
+                strokeWidth={1.75}
               />
             </div>
             <p
@@ -215,7 +205,7 @@ export function Dashboard({
           href="/manager/payments"
           className="flex items-center gap-3 rounded-xl border border-border bg-secondary px-4 py-3 text-xs"
         >
-          <Bank size={20} className="text-primary" />
+          <Landmark size={20} className="text-primary" />
           <span>
             {fa(String(data.pendingCount))} درخواست واریز ساکنان منتظر بررسی
             شماست.
@@ -238,15 +228,12 @@ export function Dashboard({
           <Button asChild size="sm">
             <Link href="/manager/periods?new=1">
               ایجاد اولین دوره
-              <CaretLeft size={13} />
+              <ChevronLeft size={13} />
             </Link>
           </Button>
         </div>
       )}
-      <div className="grid items-stretch gap-5 xl:grid-cols-[1.85fr_1fr]">
-        <MoneyTrend data={data.timeline} />
-        <ExpenseDonut data={categories} />
-      </div>
+      <DeferredDashboardCharts timeline={data.timeline} categories={categories} />
       <div>
         <section className="panel min-w-0">
           <div className="panel-head">
@@ -287,7 +274,7 @@ export function Dashboard({
               </button>
             ))}
           </div>
-          <DataGrid
+          <DeferredDataGrid
             data={rows}
             columns={[
               { key: "unit", label: "واحد" },
@@ -339,7 +326,7 @@ export function Dashboard({
               className="flex items-center gap-1 text-[10px] text-primary"
             >
               مشاهده همه
-              <CaretLeft size={12} />
+              <ChevronLeft size={12} />
             </Link>
           </div>
           {data.payments.length ? (
@@ -371,7 +358,7 @@ export function Dashboard({
                   <span className="ms-auto text-xs font-medium">
                     {formatToman(p.amount)}
                   </span>
-                  <CheckCircle
+                  <CircleCheck
                     size={16}
                     className="hidden text-primary sm:block"
                   />
@@ -398,10 +385,10 @@ export function Dashboard({
               className="flex items-center gap-1 text-[10px] text-primary"
             >
               مشاهده کامل
-              <CaretLeft size={12} />
+              <ChevronLeft size={12} />
             </Link>
           </div>
-          <BuildingCalendar events={events} compact />
+          <DeferredCalendar events={events} compact />
         </section>
       </div>
     </div>

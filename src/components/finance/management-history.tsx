@@ -1,7 +1,7 @@
 "use client";
 import { RowActions } from "@/components/ui/row-actions";
 import Link from "next/link";
-import { ArrowCounterClockwise } from "@phosphor-icons/react";
+import { Undo2 } from "lucide-react";
 import { DataGrid } from "./data-grid";
 import { FormModal } from "./forms";
 import { Button } from "@/components/ui/button";
@@ -161,7 +161,7 @@ export function ManagementHistory({
               حذف‌ها دائمی نیستند؛ هر مورد را جداگانه برگردانید
             </p>
           </div>
-          <ArrowCounterClockwise size={22} className="text-primary" />
+          <Undo2 size={22} className="text-primary" />
         </div>
         <DataGrid
           data={trash.map((r) => ({

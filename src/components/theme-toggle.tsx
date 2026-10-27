@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useSyncExternalStore } from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Moon, Sun, Desktop, Check } from "@phosphor-icons/react";
+import { Moon, Sun, Monitor, Check } from "lucide-react";
 const key = "hamkhane-theme";
 function subscribe(callback: () => void) {
   window.addEventListener("storage", callback);
@@ -44,12 +44,12 @@ export function ThemeToggle() {
         <DropdownMenu.Content
           align="end"
           sideOffset={8}
-          className="z-50 min-w-40 rounded-xl border border-border bg-card p-1.5 shadow-lg"
+          className="motion-pop z-50 min-w-40 rounded-xl border border-border bg-card p-1.5 shadow-lg"
         >
           {[
             { value: "light", label: "روشن", icon: Sun },
             { value: "dark", label: "تیره", icon: Moon },
-            { value: "system", label: "مطابق سیستم", icon: Desktop },
+            { value: "system", label: "مطابق سیستم", icon: Monitor },
           ].map((t) => (
             <DropdownMenu.Item
               key={t.value}

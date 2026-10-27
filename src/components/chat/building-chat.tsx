@@ -1,19 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import {
-  ArrowDown,
-  ArrowRight,
-  Check,
-  ChatCircleDots,
-  ImageSquare,
-  PaperPlaneTilt,
-  PencilSimple,
-  Smiley,
-  SpinnerGap,
-  Trash,
-  X,
-} from "@phosphor-icons/react";
+import { ArrowDown, ArrowRight, Check, MessageCircle, Image, Send, Pencil, Smile, LoaderCircle, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -575,7 +563,7 @@ export function BuildingChat({
           <ArrowRight size={22} />
         </button>
         <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <ChatCircleDots size={22} weight="duotone" />
+          <MessageCircle size={22} strokeWidth={1.75} />
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-bold text-foreground">
@@ -596,13 +584,13 @@ export function BuildingChat({
       >
         {loading ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
-            <SpinnerGap className="animate-spin text-primary" size={24} />
+            <LoaderCircle className="animate-spin text-primary" size={24} />
             <span>در حال بارگذاری گفتگو...</span>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
             <span className="mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <ChatCircleDots size={30} weight="duotone" />
+              <MessageCircle size={30} strokeWidth={1.75} />
             </span>
             <p className="text-sm font-semibold text-foreground">
               هنوز پیامی ثبت نشده است
@@ -739,12 +727,12 @@ export function BuildingChat({
                               disabled={savingId === message.id}
                             >
                               {savingId === message.id ? (
-                                <SpinnerGap
+                                <LoaderCircle
                                   className="animate-spin"
                                   size={13}
                                 />
                               ) : (
-                                <Check size={13} weight="bold" />
+                                <Check size={13} strokeWidth={2.5} />
                               )}
                               ذخیره
                             </Button>
@@ -784,7 +772,7 @@ export function BuildingChat({
                                   title="ویرایش پیام"
                                   aria-label="ویرایش پیام"
                                 >
-                                  <PencilSimple size={13} />
+                                  <Pencil size={13} />
                                 </button>
                               )}
                               {message.canDelete && (
@@ -797,12 +785,12 @@ export function BuildingChat({
                                   aria-label="حذف پیام"
                                 >
                                   {deletingId === message.id ? (
-                                    <SpinnerGap
+                                    <LoaderCircle
                                       className="animate-spin"
                                       size={13}
                                     />
                                   ) : (
-                                    <Trash size={13} />
+                                    <Trash2 size={13} />
                                   )}
                                 </button>
                               )}
@@ -826,7 +814,7 @@ export function BuildingChat({
           title="رفتن به پیام‌های جدید"
           aria-label="رفتن به پیام‌های جدید"
         >
-          <ArrowDown size={16} weight="bold" />
+          <ArrowDown size={16} strokeWidth={2.5} />
         </button>
       )}
 
@@ -933,7 +921,7 @@ export function BuildingChat({
             aria-label="ایموجی"
             aria-expanded={emojiOpen}
           >
-            <Smiley size={22} />
+            <Smile size={22} />
           </button>
 
           <label
@@ -942,7 +930,7 @@ export function BuildingChat({
             aria-label="افزودن تصویر"
             title="افزودن تصویر"
           >
-            <ImageSquare size={22} />
+            <Image size={22} />
           </label>
 
           <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-3xl bg-muted px-3">
@@ -972,11 +960,11 @@ export function BuildingChat({
             aria-label="ارسال پیام"
           >
             {sending ? (
-              <SpinnerGap className="animate-spin" size={18} />
+              <LoaderCircle className="animate-spin" size={18} />
             ) : (
-              <PaperPlaneTilt
+              <Send
                 size={18}
-                weight="fill"
+                strokeWidth={2.25}
                 className="-scale-x-100"
               />
             )}

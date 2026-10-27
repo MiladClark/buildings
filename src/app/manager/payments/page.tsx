@@ -8,7 +8,7 @@ import { requireManager } from "@/lib/session";
 import { isoDate } from "@/lib/format/jalali";
 import { formatToman } from "@/lib/format/money";
 import { toPersianDigits as fa } from "@/lib/format/money";
-import { CaretDown } from "@phosphor-icons/react/dist/ssr";
+import { ChevronDown } from "lucide-react";
 export default async function PaymentsPage({
   searchParams,
 }: {
@@ -163,7 +163,7 @@ export default async function PaymentsPage({
           <span>دفتر کل دریافت‌ها</span>
           <span className="flex items-center gap-3 text-xs font-normal text-muted-foreground">
             {fa(String(receipts.length))} واریز · مشاهده و اصلاح همه واحدها
-            <CaretDown
+            <ChevronDown
               size={17}
               className="transition-transform group-open:rotate-180"
             />

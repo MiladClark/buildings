@@ -3,19 +3,7 @@
 import { useId, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
-import {
-  ArrowLeft,
-  CaretLeft,
-  CaretRight,
-  CheckCircle,
-  DownloadSimple,
-  HouseLine,
-  MagnifyingGlass,
-  Plus,
-  Receipt,
-  Wallet,
-  X,
-} from "@phosphor-icons/react";
+import { ArrowLeft, ChevronLeft, ChevronRight, CircleCheck, Download, House, Search, Plus, Receipt, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,7 +122,7 @@ export function UnitAccounts(props: Props) {
             )
           }
         >
-          <DownloadSimple size={16} />
+          <Download size={16} />
           خروجی حساب‌ها
         </Button>
       </div>
@@ -143,7 +131,7 @@ export function UnitAccounts(props: Props) {
           <label htmlFor={searchId} className="sr-only">
             جست‌وجوی واحد یا نام ساکن
           </label>
-          <MagnifyingGlass
+          <Search
             size={18}
             className="pointer-events-none absolute right-3 top-3.5 text-muted-foreground"
           />
@@ -293,7 +281,7 @@ export function UnitAccounts(props: Props) {
                 disabled={!currentPage}
                 onClick={() => setPage(currentPage - 1)}
               >
-                <CaretRight />
+                <ChevronRight />
               </Button>
               <span>
                 صفحه {fa(String(currentPage + 1))} از {fa(String(lastPage + 1))}
@@ -305,7 +293,7 @@ export function UnitAccounts(props: Props) {
                 disabled={currentPage === lastPage}
                 onClick={() => setPage(currentPage + 1)}
               >
-                <CaretLeft />
+                <ChevronLeft />
               </Button>
             </>
           )}
@@ -318,14 +306,14 @@ export function UnitAccounts(props: Props) {
         }}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
+          <Dialog.Overlay className="motion-overlay fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
           <Dialog.Content
             dir="rtl"
             onCloseAutoFocus={(e) => {
               e.preventDefault();
               openedCard.current?.focus();
             }}
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[calc(100%-24px)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
+            className="motion-dialog fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[calc(100%-24px)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
           >
             <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-5 py-5 sm:px-7">
               <div>
@@ -529,7 +517,7 @@ function UnitAccountDetail({
                 )
               }
             >
-              <DownloadSimple size={15} />
+              <Download size={15} />
               خروجی هزینه‌ها
             </Button>
           </div>
@@ -545,9 +533,9 @@ function UnitAccountDetail({
                       <h3 className="flex items-center gap-2 text-sm font-semibold">
                         {s.title}
                         {s.amountRial > 0 && s.balanceRial === 0 && (
-                          <CheckCircle
+                          <CircleCheck
                             size={17}
-                            weight="fill"
+                            strokeWidth={2.25}
                             className="text-primary"
                           />
                         )}
@@ -661,7 +649,7 @@ function UnitAccountDetail({
         {!selected.deleted && (
           <Tabs.Content value="new" className="p-5 sm:p-7">
             <div className="mb-5 flex items-center gap-2 text-sm font-medium">
-              <HouseLine size={20} />
+              <House size={20} />
               دریافت از واحد {fa(selected.label)} · {selected.name}
             </div>
             <ReceiptForm

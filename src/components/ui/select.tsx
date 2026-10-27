@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { CaretDown, CaretUp, Check } from "@phosphor-icons/react";
+import { ChevronDown, ChevronUp, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Option = { value: string; label: string; disabled: boolean };
@@ -70,6 +70,8 @@ type SelectProps = Pick<
   value?: string | number;
   defaultValue?: string | number;
   onValueChange?: (value: string) => void;
+  onOpenChange?: (open: boolean) => void;
+  hideEmptyValue?: boolean;
 };
 
 /** A single RTL menu for forms and filters, retaining native FormData and validation. */
@@ -83,6 +85,8 @@ export function Select({
   value,
   defaultValue,
   onValueChange,
+  onOpenChange,
+  hideEmptyValue = false,
   form,
   autoComplete,
   title,
@@ -152,7 +156,10 @@ export function Select({
         dir="rtl"
         disabled={disabled || options.length === 0}
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          setOpen(next);
+          onOpenChange?.(next);
+        }}
         value={selected ? `option:${actualValue}` : ""}
         onValueChange={(next) => changeValue(next.slice(7))}
       >
@@ -174,11 +181,13 @@ export function Select({
             className="min-w-0 flex-1 truncate"
           >
             <span className="block min-w-0 truncate">
-              {selected?.label ?? "انتخاب کنید"}
+              {hideEmptyValue && actualValue === "" && !open
+                ? ""
+                : (selected?.label ?? "انتخاب کنید")}
             </span>
           </SelectPrimitive.Value>
           <SelectPrimitive.Icon className="shrink-0 text-muted-foreground">
-            <CaretDown size={15} />
+            <ChevronDown size={15} />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
         <SelectPrimitive.Portal>
@@ -188,10 +197,10 @@ export function Select({
             align="start"
             sideOffset={6}
             collisionPadding={12}
-            className="select-menu z-[90] w-[var(--radix-select-trigger-width)] min-w-36 max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-lg outline-none"
+            className="motion-pop select-menu z-[90] w-[var(--radix-select-trigger-width)] min-w-36 max-w-[calc(100vw-24px)] overflow-hidden rounded-xl border border-border bg-card text-foreground shadow-lg outline-none"
           >
             <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center bg-card text-muted-foreground">
-              <CaretUp size={14} />
+              <ChevronUp size={14} />
             </SelectPrimitive.ScrollUpButton>
             <SelectPrimitive.Viewport className="max-h-[min(320px,var(--radix-select-content-available-height))] p-1.5">
               {options.map((option) => (
@@ -206,13 +215,13 @@ export function Select({
                     {option.label}
                   </SelectPrimitive.ItemText>
                   <SelectPrimitive.ItemIndicator className="absolute end-2.5 inline-flex items-center justify-center">
-                    <Check size={15} weight="bold" />
+                    <Check size={15} strokeWidth={2.5} />
                   </SelectPrimitive.ItemIndicator>
                 </SelectPrimitive.Item>
               ))}
             </SelectPrimitive.Viewport>
             <SelectPrimitive.ScrollDownButton className="flex h-6 items-center justify-center bg-card text-muted-foreground">
-              <CaretDown size={14} />
+              <ChevronDown size={14} />
             </SelectPrimitive.ScrollDownButton>
           </SelectPrimitive.Content>
         </SelectPrimitive.Portal>

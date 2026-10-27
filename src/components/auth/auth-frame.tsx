@@ -1,16 +1,11 @@
-import {
-  Buildings,
-  Receipt,
-  ShieldCheck,
-  UsersThree,
-} from "@phosphor-icons/react/dist/ssr";
+import { Building2, Receipt, ShieldCheck, Users } from "lucide-react";
 export function AuthFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-[100dvh] lg:grid-cols-2">
       <section className="relative hidden flex-col justify-between overflow-hidden border-l border-border bg-secondary/70 px-14 py-12 lg:flex xl:px-20">
         <div className="flex items-center gap-3">
           <span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <Buildings size={28} weight="bold" />
+            <Building2 size={28} strokeWidth={2.5} />
           </span>
           <span className="text-2xl font-extrabold">واحدبان.</span>
         </div>
@@ -35,7 +30,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
                 text: "بر اساس نفرات، واحدها و شرایط سکونت",
               },
               {
-                icon: UsersThree,
+                icon: Users,
                 title: "همه در جریان حساب‌ها",
                 text: "فیش و سابقه پرداخت در پنل هر همسایه",
               },
@@ -46,7 +41,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
               },
             ].map((r) => (
               <div key={r.title} className="flex items-center gap-4">
-                <r.icon size={23} weight="duotone" className="text-primary" />
+                <r.icon size={23} strokeWidth={1.75} className="text-primary" />
                 <div>
                   <p className="text-[13px] font-semibold">{r.title}</p>
                   <p className="mt-1.5 text-[13px] text-muted-foreground">
@@ -64,7 +59,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
       <section className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-[370px]">
           <div className="mb-10 flex items-center gap-2 text-lg font-bold lg:hidden">
-            <Buildings size={24} className="text-primary" />
+            <Building2 size={24} className="text-primary" />
             واحدبان.
           </div>
           {children}

@@ -3,7 +3,7 @@ import { RowActions } from "@/components/ui/row-actions";
 import { Select } from "@/components/ui/select";
 
 import { useState } from "react";
-import { Buildings, PencilSimple, Users, House } from "@phosphor-icons/react";
+import { Building2, Pencil, Users, House } from "lucide-react";
 import { DataGrid } from "@/components/finance/data-grid";
 import { ActionForm, FormModal } from "@/components/finance/forms";
 import { Button } from "@/components/ui/button";
@@ -168,7 +168,7 @@ export function UnitsView({ units }: { units: Unit[] }) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "تعداد واحدها", value: units.length, icon: Buildings },
+          { label: "تعداد واحدها", value: units.length, icon: Building2 },
           {
             label: "نفرات حاضر؛ مبنای آب",
             value: units.reduce((s, u) => s + effectiveOccupants(u), 0),
@@ -188,7 +188,7 @@ export function UnitsView({ units }: { units: Unit[] }) {
           },
         ].map((s) => (
           <div key={s.label} className="panel flex items-center gap-4 p-5">
-            <s.icon size={25} weight="duotone" className="text-primary" />
+            <s.icon size={25} strokeWidth={1.75} className="text-primary" />
             <div>
               <p className="text-[11px] text-muted-foreground">{s.label}</p>
               <p className="mt-1 text-2xl font-bold">{fa(String(s.value))}</p>
@@ -231,7 +231,7 @@ export function UnitsView({ units }: { units: Unit[] }) {
                           variant="ghost"
                           aria-label={`ویرایش واحد ${u.label}`}
                         >
-                          <PencilSimple size={16} />
+                          <Pencil size={16} />
                         </Button>
                       }
                     >

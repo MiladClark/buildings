@@ -1,55 +1,44 @@
 "use client";
+import { CacheControls } from "@/components/cache-controls";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  Buildings,
-  ChartLineUp,
-  GearSix,
-  SquaresFour,
-  Receipt,
-  Users,
-  Wallet,
-  CalendarDots,
-  List,
-  X,
-  House,
-  CheckCircle,
-  Wrench,
-  ArrowCounterClockwise,
-  ChatCircleDots,
-} from "@phosphor-icons/react";
+import { Building2, ChartLine, Settings, LayoutGrid, Receipt, Users, Wallet, CalendarDays, Menu, X, House, CircleCheck, Wrench, Undo2, MessageCircle, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CHAT_SEEN_EVENT, readChatSeen } from "@/lib/chat-seen";
 import { cn } from "@/lib/utils";
 
 const managerNav = [
-  { href: "/manager", label: "نمای کلی", icon: SquaresFour },
-  { href: "/manager/units", label: "واحدها و ساکنان", icon: Buildings },
+  { href: "/manager", label: "نمای کلی", icon: LayoutGrid },
+  { href: "/manager/units", label: "واحدها و ساکنان", icon: Building2 },
   { href: "/manager/periods", label: "شارژ و صورت‌حساب‌ها", icon: Receipt },
   { href: "/manager/expenses", label: "هزینه‌های ساختمان", icon: Wallet },
   {
     href: "/manager/payments",
     label: "دریافت‌ها و پرداخت‌ها",
-    icon: CheckCircle,
+    icon: CircleCheck,
   },
-  { href: "/manager/calendar", label: "تقویم ساختمان", icon: CalendarDots },
+  { href: "/manager/calendar", label: "تقویم ساختمان", icon: CalendarDays },
   { href: "/manager/maintenance", label: "تعمیرات و درخواست‌ها", icon: Wrench },
-  { href: "/manager/chat", label: "گفتگوی ساختمان", icon: ChatCircleDots },
-  { href: "/manager/reports", label: "گزارش‌های مالی", icon: ChartLineUp },
+  { href: "/manager/chat", label: "گفتگوی ساختمان", icon: MessageCircle },
+  { href: "/manager/reports", label: "گزارش‌های مالی", icon: ChartLine },
 ];
-const secondaryNav = [
+const settingsHref = "/manager/settings";
+const settingsChildren = [
   {
     href: "/manager/history",
     label: "سابقه و بازیابی",
-    icon: ArrowCounterClockwise,
+    icon: Undo2,
   },
-  { href: "/manager/categories", label: "قواعد تقسیم هزینه", icon: GearSix },
+  {
+    href: "/manager/categories",
+    label: "قواعد تقسیم هزینه",
+    icon: SlidersHorizontal,
+  },
   { href: "/manager/residents", label: "حساب ساکنان", icon: Users },
-  { href: "/manager/settings", label: "تنظیمات ساختمان", icon: GearSix },
 ];
 const residentNav = [
   { href: "/resident", label: "خانه من", icon: House },
@@ -59,7 +48,7 @@ const residentNav = [
     href: "/resident/chat",
     label: "گفتگوی ساختمان",
     shortLabel: "گفتگو",
-    icon: ChatCircleDots,
+    icon: MessageCircle,
   },
   { href: "/resident/maintenance", label: "درخواست رسیدگی", icon: Wrench },
 ];
@@ -67,7 +56,7 @@ export function Brand() {
   return (
     <div className="flex items-center gap-3">
       <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-        <Buildings size={25} weight="bold" />
+        <Building2 size={25} strokeWidth={2.5} />
       </span>
       <div>
         <p className="text-[22px] font-extrabold tracking-tight">
@@ -93,6 +82,13 @@ export function AppShell({
 }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(
+    () =>
+      path === settingsHref ||
+      settingsChildren.some(
+        (item) => path === item.href || path.startsWith(`${item.href}/`),
+      ),
+  );
   const [unreadChat, setUnreadChat] = useState(false);
   const onChat = path.endsWith("/chat");
   const showUnread = unreadChat && !onChat;
@@ -134,9 +130,20 @@ export function AppShell({
     };
   }, [path]);
   const nav = role === "manager" ? managerNav : residentNav;
+  const settingsOpen =
+    path === settingsHref ||
+    settingsChildren.some(
+      (item) => path === item.href || path.startsWith(`${item.href}/`),
+    );
+  useEffect(() => {
+    if (settingsOpen) setSettingsExpanded(true);
+  }, [settingsOpen]);
   const current =
-    [...nav, ...secondaryNav].find((n) => n.href === path) ??
-    nav.find((n) => n.href !== "/manager" && path.startsWith(n.href));
+    settingsChildren.find((item) => item.href === path) ??
+    [...nav, { href: settingsHref, label: "تنظیمات ساختمان", icon: Settings }].find(
+      (item) => item.href === path,
+    ) ??
+    nav.find((item) => item.href !== "/manager" && path.startsWith(item.href));
   const links = (items: typeof nav) =>
     items.map((item) => {
       const active =
@@ -157,7 +164,7 @@ export function AppShell({
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
-          <item.icon size={20} weight={active ? "duotone" : "regular"} />
+          <item.icon size={20} strokeWidth={active ? 2.25 : 1.75} />
           <span>{item.label}</span>
           {item.href.endsWith("/chat") && showUnread ? (
             <span
@@ -182,7 +189,7 @@ export function AppShell({
       </Link>
       <div className="mt-6 flex items-center gap-3 rounded-xl border border-border p-3">
         <span className="flex size-9 items-center justify-center rounded-lg bg-muted">
-          <Buildings size={20} />
+          <Building2 size={20} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-semibold">{title}</p>
@@ -200,11 +207,86 @@ export function AppShell({
       {role === "manager" && (
         <>
           <div className="mx-3 mb-4 mt-5 border-t border-border" />
-          <p className="mb-3 px-3 text-[10px] font-medium text-muted-foreground">
-            تنظیمات و سابقه
-          </p>
-          <nav aria-label="تنظیمات و دسترسی‌ها" className="space-y-1">
-            {links(secondaryNav)}
+          <nav aria-label="تنظیمات ساختمان" className="space-y-1">
+            <div
+              className={cn(
+                "flex min-h-10 items-center rounded-lg pe-1 transition-colors",
+                path === settingsHref
+                  ? "bg-secondary text-primary"
+                  : settingsOpen
+                    ? "text-foreground"
+                    : "text-muted-foreground",
+              )}
+            >
+              <Link
+                href={settingsHref}
+                onClick={() => {
+                  setOpen(false);
+                  setSettingsExpanded(true);
+                }}
+                aria-current={path === settingsHref ? "page" : undefined}
+                className="flex min-h-10 min-w-0 flex-1 items-center gap-3 rounded-lg px-3.5 text-[12px] hover:text-foreground"
+              >
+                <Settings size={20} strokeWidth={settingsOpen ? 2.25 : 1.75} />
+                <span className={settingsOpen ? "font-semibold" : undefined}>
+                  تنظیمات ساختمان
+                </span>
+              </Link>
+              <button
+                type="button"
+                aria-expanded={settingsExpanded}
+                aria-label={
+                  settingsExpanded
+                    ? "بستن زیرمنوی تنظیمات"
+                    : "باز کردن زیرمنوی تنظیمات"
+                }
+                onClick={() => setSettingsExpanded((value) => !value)}
+                className="flex size-8 shrink-0 items-center justify-center rounded-lg hover:bg-muted hover:text-foreground"
+              >
+                <ChevronDown
+                  size={16}
+                  className={cn(
+                    "transition-transform duration-200",
+                    settingsExpanded && "rotate-180",
+                  )}
+                />
+              </button>
+            </div>
+            <div
+              className={cn(
+                "grid transition-[grid-template-rows] duration-200",
+                settingsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+              )}
+            >
+              <div className="overflow-hidden">
+                <div className="ms-5 space-y-0.5 border-s border-border ps-2">
+                  {settingsChildren.map((item) => {
+                    const active =
+                      path === item.href || path.startsWith(`${item.href}/`);
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-8 items-center gap-2 rounded-lg px-2.5 text-[11px] transition-colors",
+                          active
+                            ? "bg-secondary font-semibold text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        <item.icon
+                          size={15}
+                          strokeWidth={active ? 2.25 : 1.75}
+                        />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </nav>
         </>
       )}
@@ -257,15 +339,15 @@ export function AppShell({
                       : "باز کردن منو"
                   }
                 >
-                  <List size={23} />
+                  <Menu size={23} />
                   {showUnread && (
                     <span className="absolute top-1.5 start-1.5 size-2 rounded-full bg-destructive" />
                   )}
                 </button>
               </Dialog.Trigger>
               <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-40 bg-black/35" />
-                <Dialog.Content className="fixed inset-y-0 right-0 z-50 w-[280px] overflow-y-auto bg-card">
+                <Dialog.Overlay className="motion-overlay fixed inset-0 z-40 bg-black/35" />
+                <Dialog.Content className="motion-drawer fixed inset-y-0 right-0 z-50 w-[280px] overflow-y-auto bg-card">
                   <Dialog.Title className="sr-only">منوی ساختمان</Dialog.Title>
                   <Dialog.Description className="sr-only">
                     دسترسی به بخش‌های مدیریت ساختمان
@@ -285,6 +367,7 @@ export function AppShell({
             </span>
           </div>
           <div className="flex items-center">
+            {role === "manager" && <CacheControls />}
             <ThemeToggle />
           </div>
         </header>
@@ -320,7 +403,7 @@ export function AppShell({
                   )}
                 >
                   <span className="relative">
-                    <item.icon size={20} weight={active ? "fill" : "regular"} />
+                    <item.icon size={20} strokeWidth={active ? 2.4 : 1.75} />
                     {item.href.endsWith("/chat") && showUnread && (
                       <span className="absolute -top-0.5 -start-1 size-2 rounded-full bg-destructive" />
                     )}

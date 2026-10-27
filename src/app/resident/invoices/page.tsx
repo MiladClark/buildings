@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle, Receipt, Wallet } from "@phosphor-icons/react/dist/ssr";
+import { CircleCheck, Receipt, Wallet } from "lucide-react";
 
 import { InvoiceHistory } from "@/components/finance/invoice-history";
 import { EmptyState } from "@/components/finance/forms";
@@ -55,13 +55,13 @@ export default async function ResidentInvoicesPage() {
               .filter((row) => row.invoice.balanceRial <= 0)
               .length.toLocaleString("fa-IR"),
             note: `از ${invoices.length.toLocaleString("fa-IR")} فیش صادرشده`,
-            icon: CheckCircle,
+            icon: CircleCheck,
           },
         ].map((item) => (
           <div key={item.label} className="panel p-5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">{item.label}</p>
-              <item.icon size={20} className="text-primary" weight="duotone" />
+              <item.icon size={20} className="text-primary" strokeWidth={1.75} />
             </div>
             <p className="mt-4 text-xl font-bold">{item.value}</p>
             <p className="mt-2 text-[10px] text-muted-foreground">

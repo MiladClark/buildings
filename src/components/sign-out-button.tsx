@@ -1,6 +1,6 @@
 "use client";
 
-import { SignOut } from "@phosphor-icons/react";
+import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ export function SignOutButton() {
         router.refresh();
       }}
     >
-      <SignOut size={18} />
+      <LogOut size={18} />
       خروج
     </Button>
   );

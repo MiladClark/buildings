@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import jalaali from "jalaali-js";
-import { CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { fromJalali, jalaliMonths, jalaliParts } from "@/lib/format/jalali";
 import { toPersianDigits as fa } from "@/lib/format/money";
 
@@ -25,6 +25,7 @@ export function BuildingCalendar({
   const [month, setMonth] = useState({ jy: today.jy, jm: today.jm });
   const [selected, setSelected] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [picking, setPicking] = useState(false);
   const days = jalaali.jalaaliMonthLength(month.jy, month.jm);
   const first = fromJalali(month.jy, month.jm, 1);
   const offset = (first.getUTCDay() + 1) % 7;
@@ -36,50 +37,90 @@ export function BuildingCalendar({
     (e) => selected === null || jalaliParts(new Date(e.date)).jd === selected,
   );
   const move = (n: number) => {
-    setMonth((p) => {
-      const m = p.jm + n;
-      return {
-        jy: m < 1 ? p.jy - 1 : m > 12 ? p.jy + 1 : p.jy,
-        jm: m < 1 ? 12 : m > 12 ? 1 : m,
-      };
+    setMonth((current) => {
+      const index = current.jy * 12 + (current.jm - 1) + n;
+      const jy = Math.floor(index / 12);
+      return { jy, jm: index - jy * 12 + 1 };
     });
     setSelected(null);
     setShowAll(false);
   };
+  const chooseMonth = (jm: number) => {
+    setMonth((current) => ({ jy: current.jy, jm }));
+    setSelected(null);
+    setShowAll(false);
+    setPicking(false);
+  };
   return (
     <div>
       <div className="flex items-center justify-between px-5 pb-4">
-        <p className="text-xs font-medium">
+        <button
+          type="button"
+          aria-expanded={picking}
+          aria-label="انتخاب ماه"
+          onClick={() => setPicking((open) => !open)}
+          className="rounded-lg px-2 py-1 text-xs font-medium hover:bg-muted"
+        >
           {jalaliMonths[month.jm - 1]} {fa(String(month.jy))}
-        </p>
+        </button>
         <div className="flex items-center gap-2">
           <button
-            aria-label="ماه قبل"
-            onClick={() => move(-1)}
+            type="button"
+            aria-label={picking ? "سال قبل" : "ماه قبل"}
+            onClick={() => (picking ? move(-12) : move(-1))}
             className="rounded p-1.5 hover:bg-muted"
           >
-            <CaretRight size={14} />
+            <ChevronRight size={14} />
           </button>
           <button
+            type="button"
             onClick={() => {
               setMonth(today);
               setSelected(today.jd);
+              setPicking(false);
             }}
             className="text-[10px] text-muted-foreground"
           >
             امروز
           </button>
           <button
-            aria-label="ماه بعد"
-            onClick={() => move(1)}
+            type="button"
+            aria-label={picking ? "سال بعد" : "ماه بعد"}
+            onClick={() => (picking ? move(12) : move(1))}
             className="rounded p-1.5 hover:bg-muted"
           >
-            <CaretLeft size={14} />
+            <ChevronLeft size={14} />
           </button>
         </div>
       </div>
+      {picking ? (
+        <div className="grid grid-cols-3 gap-2 px-4 pb-2">
+          {jalaliMonths.map((name, index) => {
+            const jm = index + 1;
+            const current = month.jm === jm;
+            const isNow = today.jy === month.jy && today.jm === jm;
+            return (
+              <button
+                key={name}
+                type="button"
+                aria-pressed={current}
+                onClick={() => chooseMonth(jm)}
+                className={`rounded-lg px-2 py-2 text-xs ${
+                  current
+                    ? "bg-primary font-medium text-primary-foreground"
+                    : isNow
+                      ? "bg-secondary text-primary"
+                      : "hover:bg-muted"
+                }`}
+              >
+                {name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div
-        className={`grid grid-cols-7 gap-1 px-4 ${compact ? "text-[10px]" : "text-xs"}`}
+        className={`grid grid-cols-7 gap-1 px-4 ${compact ? "text-[10px]" : "text-xs"} ${picking ? "hidden" : ""}`}
       >
         <span className="py-2 text-center text-muted-foreground">ش</span>
         {["ی", "د", "س", "چ", "پ", "ج"].map((w) => (

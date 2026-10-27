@@ -1,13 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  X,
-  CircleNotch,
-  Plus,
-  CheckCircle,
-  WarningCircle,
-} from "@phosphor-icons/react";
+import { X, LoaderCircle, Plus, CircleCheck, CircleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -62,7 +56,7 @@ export function ActionForm({
           role="status"
           className="col-span-full flex items-center gap-2 text-xs text-muted-foreground"
         >
-          <CircleNotch size={15} className="animate-spin" />
+          <LoaderCircle size={15} className="animate-spin" />
           در حال ذخیره...
         </p>
       )}
@@ -71,7 +65,7 @@ export function ActionForm({
           role="alert"
           className="col-span-full flex items-center gap-2 text-xs text-destructive"
         >
-          <WarningCircle size={16} />
+          <CircleAlert size={16} />
           {message}
         </p>
       )}
@@ -123,12 +117,12 @@ export function FormModal({
         </Dialog.Trigger>
       )}
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="motion-overlay fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px]" />
         <Dialog.Content
           onCloseAutoFocus={onCloseAutoFocus}
           dir="rtl"
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl",
+            "motion-dialog fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl",
             contentClassName,
           )}
         >
@@ -186,16 +180,16 @@ export function ActionButton({
         aria-label={ariaLabel}
         onClick={() => (confirm ? setOpen(true) : run())}
       >
-        {pending ? <CircleNotch className="animate-spin" size={14} /> : null}
+        {pending ? <LoaderCircle className="animate-spin" size={14} /> : null}
         {children}
       </Button>
       {confirm && (
         <Dialog.Root open={open} onOpenChange={setOpen}>
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-40 bg-black/35" />
+            <Dialog.Overlay className="motion-overlay fixed inset-0 z-40 bg-black/35" />
             <Dialog.Content
               dir="rtl"
-              className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card p-6"
+              className="motion-dialog fixed left-1/2 top-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card p-6"
             >
               <Dialog.Title className="text-lg font-bold">
                 تأیید عملیات
@@ -230,7 +224,7 @@ export function EmptyState({
   return (
     <div className="flex min-h-48 flex-col items-center justify-center px-5 py-8 text-center">
       <span className="mb-3 rounded-xl bg-muted p-3 text-muted-foreground">
-        <CheckCircle size={25} weight="duotone" />
+        <CircleCheck size={25} strokeWidth={1.75} />
       </span>
       <p className="text-sm font-medium">{title}</p>
       <p className="mb-4 mt-2 max-w-sm text-xs leading-6 text-muted-foreground">

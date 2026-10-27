@@ -5,7 +5,7 @@ import { Select } from "@/components/ui/select";
 import Link from "next/link";
 import { formatToman } from "@/lib/format/money";
 import { useState } from "react";
-import { Wrench, CheckCircle, Clock } from "@phosphor-icons/react";
+import { Wrench, CircleCheck, Clock } from "lucide-react";
 import { ActionForm } from "@/components/finance/forms";
 import { LinkedFormModal as FormModal } from "./linked-modal";
 import { DataGrid } from "@/components/finance/data-grid";
@@ -127,11 +127,11 @@ export function MaintenanceView({
           {
             label: "انجام‌شده",
             value: tickets.filter((t) => t.status === "resolved").length,
-            icon: CheckCircle,
+            icon: CircleCheck,
           },
         ].map((s) => (
           <div key={s.label} className="panel flex items-center gap-4 p-5">
-            <s.icon size={24} className="text-primary" weight="duotone" />
+            <s.icon size={24} className="text-primary" strokeWidth={1.75} />
             <div>
               <p className="text-xs text-muted-foreground">{s.label}</p>
               <p className="mt-2 text-2xl font-bold">

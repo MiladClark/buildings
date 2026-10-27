@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { CalendarBlank, X } from "@phosphor-icons/react";
+import { Calendar as CalendarIcon, X } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { FieldHint } from "@/components/ui/field-hint";
 import {
@@ -97,7 +97,7 @@ export function JalaliDateField({
                   : formatJalaliDate(new Date(date))
                 : "انتخاب تاریخ"}
             </span>
-            <CalendarBlank
+            <CalendarIcon
               size={18}
               className="shrink-0 text-muted-foreground"
             />
@@ -121,7 +121,7 @@ export function JalaliDateField({
                   ?.focus(),
               );
             }}
-            className="z-[70] w-[min(300px,calc(100vw-24px))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-2xl border border-border bg-card text-foreground shadow-xl outline-none"
+            className="motion-pop z-[70] w-[min(300px,calc(100vw-24px))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto rounded-2xl border border-border bg-card text-foreground shadow-xl outline-none"
           >
             <Calendar
               mode="single"

@@ -4,12 +4,7 @@ import { ExpenseActions } from "@/components/finance/expense-actions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { and, eq } from "drizzle-orm";
-import {
-  ArrowRight,
-  DownloadSimple,
-  FilePdf,
-  Image as ImageIcon,
-} from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, Download, FileText, Image as ImageIcon } from "lucide-react";
 import {
   ActionButton,
   ActionForm,
@@ -144,7 +139,7 @@ export default async function PeriodDetailPage({
           ) : (
             <Button asChild variant="outline">
               <Link href={`/api/export/period/${id}/excel`}>
-                <DownloadSimple size={16} />
+                <Download size={16} />
                 خروجی Excel
               </Link>
             </Button>
@@ -201,7 +196,7 @@ export default async function PeriodDetailPage({
                 href={`/api/export/period/${id}/expenses/pdf`}
                 aria-label="دانلود PDF ریز هزینه‌های دوره"
               >
-                <FilePdf size={16} />
+                <FileText size={16} />
                 PDF هزینه‌ها
               </a>
             </Button>

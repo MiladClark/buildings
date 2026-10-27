@@ -4,7 +4,7 @@ import {
   type ForecastCategory,
 } from "@/lib/billing/forecast";
 import { useState } from "react";
-import { SlidersHorizontal, Info } from "@phosphor-icons/react";
+import { SlidersHorizontal, Info } from "lucide-react";
 import { formatToman, toPersianDigits as fa } from "@/lib/format/money";
 import { formatJalaliDate } from "@/lib/format/jalali";
 import { EmptyState } from "@/components/finance/forms";

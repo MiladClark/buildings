@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MoneyTrend } from "@/components/finance/charts";
+import { DeferredMoneyTrend } from "@/components/finance/lazy-section";
 import { PeriodChargePlanningCards } from "@/components/finance/period-charge-planning";
 import { Button } from "@/components/ui/button";
 import { dashboardData, getFinanceData } from "@/lib/queries/finance";
@@ -49,7 +49,7 @@ export default async function ReportsPage() {
           </Button>
         </section>
       )}
-      <MoneyTrend data={dashboardData(data).timeline} />
+      <DeferredMoneyTrend data={dashboardData(data).timeline} />
     </div>
   );
 }

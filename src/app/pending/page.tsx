@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Buildings } from "@phosphor-icons/react/dist/ssr";
+import { Building2 } from "lucide-react";
 import { getSession, getMembershipForUser } from "@/lib/session";
 import { SignOutButton } from "@/components/sign-out-button";
 import { eq } from "drizzle-orm";
@@ -18,10 +18,10 @@ export default async function PendingPage() {
   return (
     <main className="flex min-h-[100dvh] items-center justify-center p-6">
       <div className="panel max-w-md p-8 text-center">
-        <Buildings
+        <Building2
           size={38}
           className="mx-auto mb-5 text-primary"
-          weight="duotone"
+          strokeWidth={1.75}
         />
         <h1 className="text-xl font-bold">حساب شما آماده است.</h1>
         <p className="my-5 text-sm leading-8 text-muted-foreground">

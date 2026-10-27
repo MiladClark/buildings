@@ -4,6 +4,29 @@ import { Input } from "@/components/ui/input";
 import { updateBuildingSettings } from "@/lib/actions/building";
 import { getBuildingForUser } from "@/lib/queries/dashboard";
 import { requireManager } from "@/lib/session";
+import { ChevronLeft, SlidersHorizontal, Undo2, Users } from "lucide-react";
+import Link from "next/link";
+
+const sections = [
+  {
+    href: "/manager/history",
+    title: "سابقه و بازیابی",
+    text: "تغییرها، حذف‌ها و بازگرداندن مواردی که اشتباه ثبت شده‌اند.",
+    icon: Undo2,
+  },
+  {
+    href: "/manager/categories",
+    title: "قواعد تقسیم هزینه",
+    text: "سهم هر دسته؛ بر اساس نفرات، واحدها یا مبلغ ثابت.",
+    icon: SlidersHorizontal,
+  },
+  {
+    href: "/manager/residents",
+    title: "حساب ساکنان",
+    text: "ساخت حساب، رمز و اتصال هر همسایه به واحد خودش.",
+    icon: Users,
+  },
+];
 export default async function SettingsPage() {
   const { session } = await requireManager();
   const ctx = await getBuildingForUser(session.user.id);
@@ -26,9 +49,34 @@ export default async function SettingsPage() {
       <div className="page-heading">
         <div>
           <h1>تنظیمات ساختمان</h1>
-          <p>اطلاعات ساختمان، حساب دریافت شارژ و قواعد عمومی.</p>
+          <p>اطلاعات ساختمان، حساب دریافت شارژ و بخش‌های تنظیماتی.</p>
         </div>
       </div>
+      <section aria-label="بخش‌های تنظیمات" className="grid gap-3 sm:grid-cols-3">
+        {sections.map((section) => (
+          <Link
+            key={section.href}
+            href={section.href}
+            className="panel group flex items-start gap-3 p-4 transition-colors hover:border-primary"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
+              <section.icon size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-2 text-sm font-semibold">
+                {section.title}
+                <ChevronLeft
+                  size={16}
+                  className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5"
+                />
+              </span>
+              <span className="mt-1 block text-[11px] leading-6 text-muted-foreground">
+                {section.text}
+              </span>
+            </span>
+          </Link>
+        ))}
+      </section>
       <ActionForm
         action={save}
         className="grid items-start gap-6 xl:grid-cols-[1.5fr_1fr]"

@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
-import {
-  ArrowUpLeft,
-  Receipt,
-  Wallet,
-  CheckCircle,
-  ChatCircleDots,
-  WarningCircle,
-} from "@phosphor-icons/react/dist/ssr";
+import { ArrowUpLeft, Receipt, Wallet, CircleCheck, MessageCircle, CircleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/finance/forms";
 import { db } from "@/lib/db";
@@ -66,7 +59,7 @@ export default async function ResidentDashboardPage() {
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline">
             <Link href="/resident/chat">
-              <ChatCircleDots size={17} />
+              <MessageCircle size={17} />
               گفتگوی ساختمان
             </Link>
           </Button>
@@ -108,7 +101,7 @@ export default async function ResidentDashboardPage() {
           </p>
         </div>
         <div className="panel p-6">
-          <CheckCircle size={22} className="mb-5 text-primary" />
+          <CircleCheck size={22} className="mb-5 text-primary" />
           <p className="text-xs text-muted-foreground">
             پرداخت‌های تأییدشده شما
           </p>
@@ -122,7 +115,7 @@ export default async function ResidentDashboardPage() {
       </div>
       {balance > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--warning)_35%,var(--border))] bg-[var(--warning-bg)] px-4 py-3 text-xs">
-          <WarningCircle size={21} className="text-[var(--warning)]" />
+          <CircleAlert size={21} className="text-[var(--warning)]" />
           <div className="min-w-0 flex-1">
             <p className="font-semibold">مانده قابل پرداخت دارید</p>
             <p className="mt-1 text-[11px] text-muted-foreground">

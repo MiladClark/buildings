@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import { Question } from "@phosphor-icons/react";
+import { CircleHelp } from "lucide-react";
 
 export function FieldHint({
   label,
@@ -22,7 +22,7 @@ export function FieldHint({
             onClick={() => setOpen(true)}
             className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-primary focus-visible:text-primary"
           >
-            <Question size={17} />
+            <CircleHelp size={17} />
           </button>
         </Tooltip.Trigger>
         <Tooltip.Portal>

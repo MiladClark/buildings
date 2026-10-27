@@ -1,6 +1,6 @@
 import { buildingCalendarEvents } from "@/lib/queries/calendar";
 import Link from "next/link";
-import { CalendarDots } from "@phosphor-icons/react/dist/ssr";
+import { CalendarDays } from "lucide-react";
 import { BuildingCalendar } from "@/components/finance/calendar";
 import { getFinanceData } from "@/lib/queries/finance";
 import { requireManager } from "@/lib/session";
@@ -24,7 +24,7 @@ export default async function CalendarPage() {
         <section className="panel">
           <div className="panel-head">
             <h2 className="panel-title">روزهای حساب‌وکتاب</h2>
-            <CalendarDots size={23} className="text-primary" />
+            <CalendarDays size={23} className="text-primary" />
           </div>
           <BuildingCalendar events={events} />
         </section>

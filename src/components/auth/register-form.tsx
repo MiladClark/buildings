@@ -4,10 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { FloatingInput, FloatingSelect } from "@/components/auth/floating-field";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { registrationUnitNumber } from "@/lib/auth/phone";
 import { registerWithPhone } from "@/lib/actions/resident-accounts";
 
@@ -46,60 +44,56 @@ export function RegisterForm({
     <form
       method="post"
       onSubmit={onSubmit}
-      className="flex w-full max-w-sm flex-col gap-4"
+      className="flex w-full max-w-sm flex-col gap-5 pt-2"
     >
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="firstName">نام</Label>
-          <Input id="firstName" name="firstName" autoComplete="given-name" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="lastName">نام خانوادگی</Label>
-          <Input id="lastName" name="lastName" autoComplete="family-name" />
-        </div>
-      </div>
-      <div className={isFirstUser ? "space-y-2" : "grid grid-cols-2 gap-3"}>
-        <div className="space-y-2">
-          <Label htmlFor="phone">شماره تلفن</Label>
-          <Input
-            id="phone"
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            dir="ltr"
-            required
-            autoComplete="tel"
-            placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-          />
-        </div>
-        {!isFirstUser && (
-          <div className="space-y-2">
-            <Label htmlFor="unitId">واحد</Label>
-            <Select id="unitId" name="unitId" required>
-              <option value="">انتخاب</option>
-              {units.map((item) => {
-                const number = registrationUnitNumber(item.label);
-                return (
-                  <option key={item.id} value={item.id}>
-                    {number?.toLocaleString("fa-IR")}
-                  </option>
-                );
-              })}
-            </Select>
-          </div>
-        )}
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">رمز عبور (حداقل ۸ کاراکتر)</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          minLength={8}
-          required
-          autoComplete="new-password"
+        <FloatingInput
+          id="firstName"
+          name="firstName"
+          label="نام"
+          autoComplete="given-name"
+        />
+        <FloatingInput
+          id="lastName"
+          name="lastName"
+          label="نام خانوادگی"
+          autoComplete="family-name"
         />
       </div>
+      <div className={isFirstUser ? undefined : "grid grid-cols-2 gap-3"}>
+        <FloatingInput
+          id="phone"
+          name="phone"
+          label="شماره تلفن"
+          type="tel"
+          inputMode="tel"
+          dir="ltr"
+          required
+          autoComplete="tel"
+        />
+        {!isFirstUser && (
+          <FloatingSelect id="unitId" name="unitId" label="واحد" required>
+            <option value="">انتخاب</option>
+            {units.map((item) => {
+              const number = registrationUnitNumber(item.label);
+              return (
+                <option key={item.id} value={item.id}>
+                  {number?.toLocaleString("fa-IR")}
+                </option>
+              );
+            })}
+          </FloatingSelect>
+        )}
+      </div>
+      <FloatingInput
+        id="password"
+        name="password"
+        label="رمز عبور (حداقل ۸ کاراکتر)"
+        type="password"
+        minLength={8}
+        required
+        autoComplete="new-password"
+      />
       <Button type="submit" disabled={loading} className="w-full">
         {loading
           ? "در حال ساخت حساب..."

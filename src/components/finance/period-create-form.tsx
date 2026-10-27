@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { CalendarBlank, Info, WarningCircle } from "@phosphor-icons/react";
+import { Calendar, Info, CircleAlert } from "lucide-react";
 import { ActionForm } from "@/components/finance/forms";
 import { JalaliDateField } from "@/components/finance/calendar";
 import { Button } from "@/components/ui/button";
@@ -173,7 +173,7 @@ export function PeriodCreateForm({
           </div>
           <div className="flex min-h-11 items-center justify-between rounded-lg border border-border bg-muted/50 px-3 text-sm">
             <span>{formatJalaliDate(new Date(range.endDate))}</span>
-            <CalendarBlank size={18} className="text-muted-foreground" />
+            <Calendar size={18} className="text-muted-foreground" />
           </div>
         </div>
       )}
@@ -225,7 +225,7 @@ export function PeriodCreateForm({
         >
           {calculationChanged && initial.status !== "draft" ? (
             <>
-              <WarningCircle size={18} className="mt-0.5 shrink-0" />
+              <CircleAlert size={18} className="mt-0.5 shrink-0" />
               با ذخیره این بازه، فیش‌های فعلی باطل می‌شوند و باید دوباره صادرشان
               کنید. واریزهای ثبت‌شده حفظ می‌شوند.
             </>

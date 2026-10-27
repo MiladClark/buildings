@@ -1,6 +1,6 @@
 "use client";
 import { useId } from "react";
-import { Calculator, PencilSimple } from "@phosphor-icons/react";
+import { Calculator, Pencil } from "lucide-react";
 import { ActionButton, ActionForm, FormModal } from "./forms";
 import { MoneyInput } from "./money-input";
 import { Select } from "@/components/ui/select";
@@ -186,7 +186,7 @@ export function PeriodChargePlanningCards({
               description="با تعیین شارژ، هزینه‌های مشترک از همین مبلغ تأمین می‌شوند و دوباره به فیش اضافه نمی‌شوند. تغییر دوره صادرشده نیاز به صدور دوباره فیش دارد."
               trigger={
                 <Button variant="outline" size="sm">
-                  <PencilSimple size={16} />
+                  <Pencil size={16} />
                   {plan.manualMonthlyRial == null
                     ? "تعیین مبلغ"
                     : "ویرایش مبلغ"}

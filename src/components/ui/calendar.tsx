@@ -7,7 +7,7 @@ import {
   useReducedMotion,
   type AnimationDefinition,
 } from "framer-motion";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   calendarDay as startOfDay,
@@ -460,7 +460,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
               "focus-visible:bg-secondary focus-visible:text-secondary-foreground",
             )}
           >
-            <IconChevronRight className="size-4" stroke={1.9} />
+            <ChevronRight size={16} />
           </button>
 
           <div className="flex items-center gap-0.5">
@@ -548,7 +548,7 @@ export const Calendar = React.forwardRef<HTMLDivElement, CalendarProps>(
               "focus-visible:bg-secondary focus-visible:text-secondary-foreground",
             )}
           >
-            <IconChevronLeft className="size-4" stroke={1.9} />
+            <ChevronLeft size={16} />
           </button>
         </div>
 

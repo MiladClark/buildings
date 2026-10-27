@@ -1,6 +1,6 @@
 "use client";
 import { RowActions } from "@/components/ui/row-actions";
-import { Eye } from "@phosphor-icons/react";
+import { Eye } from "lucide-react";
 import { DataGrid } from "@/components/finance/data-grid";
 import { FormModal } from "@/components/finance/forms";
 import { Button } from "@/components/ui/button";

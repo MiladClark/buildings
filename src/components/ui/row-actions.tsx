@@ -10,7 +10,7 @@ import {
 } from "react";
 import * as Menu from "@radix-ui/react-dropdown-menu";
 import * as Dialog from "@radix-ui/react-dialog";
-import { DotsThree, CircleNotch } from "@phosphor-icons/react";
+import { Ellipsis, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "./button";
@@ -106,9 +106,9 @@ export function RowActions({
             className="size-10 shrink-0 p-0 data-[state=open]:bg-muted"
           >
             {pending ? (
-              <CircleNotch size={20} className="animate-spin" />
+              <LoaderCircle size={20} className="animate-spin" />
             ) : (
-              <DotsThree size={24} weight="bold" />
+              <Ellipsis size={24} strokeWidth={2.5} />
             )}
           </Button>
         </Menu.Trigger>
@@ -123,7 +123,7 @@ export function RowActions({
             onCloseAutoFocus={(event) => {
               if (selected !== null) event.preventDefault();
             }}
-            className="z-[80] min-w-44 max-w-[calc(100vw-24px)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg"
+            className="motion-pop z-[80] min-w-44 max-w-[calc(100vw-24px)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto rounded-xl border border-border bg-card p-1.5 text-foreground shadow-lg"
           >
             <Menu.Label className="max-w-72 truncate px-3 py-2 text-[11px] text-muted-foreground">
               {label}
@@ -178,7 +178,7 @@ export function RowActions({
         }}
       >
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/35" />
+          <Dialog.Overlay className="motion-overlay fixed inset-0 z-[60] bg-black/35" />
           <Dialog.Content
             dir="rtl"
             onCloseAutoFocus={focusTrigger}
@@ -188,7 +188,7 @@ export function RowActions({
             onPointerDownOutside={(event) => {
               if (pending) event.preventDefault();
             }}
-            className="fixed left-1/2 top-1/2 z-[70] w-[calc(100%-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6"
+            className="motion-dialog fixed left-1/2 top-1/2 z-[70] w-[calc(100%-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-6"
           >
             <Dialog.Title className="text-lg font-bold">
               {current?.label}
@@ -202,7 +202,7 @@ export function RowActions({
                 variant={current?.danger ? "destructive" : "default"}
                 onClick={() => current && run(current)}
               >
-                {pending && <CircleNotch size={16} className="animate-spin" />}
+                {pending && <LoaderCircle size={16} className="animate-spin" />}
                 تأیید و ادامه
               </Button>
               <Dialog.Close asChild>
