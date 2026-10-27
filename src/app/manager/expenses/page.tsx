@@ -50,8 +50,7 @@ export default async function ExpensesPage({
           />
         </FormModal>
       </div>
-      {/* Three equal columns and two 1px rules fill the ledger width. */}
-      <dl className="panel grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:divide-x-reverse">
+      <dl className="panel grid sm:grid-cols-3">
         {[
           [
             "کل هزینه‌های فعال",
@@ -66,8 +65,15 @@ export default async function ExpensesPage({
             "هزینه‌های داخل دوره‌ها",
             data.expenses.reduce((s, r) => s + r.expense.amountRial, 0),
           ],
-        ].map(([label, amount]) => (
-          <div className="p-5" key={label}>
+        ].map(([label, amount], index) => (
+          <div
+            className={
+              index > 0
+                ? "border-t border-border p-5 sm:border-s sm:border-t-0"
+                : "p-5"
+            }
+            key={label}
+          >
             <dt className="text-xs text-muted-foreground">{label}</dt>
             <dd className="mt-3 text-xl font-semibold tabular-nums">
               {formatToman(Number(amount))}

@@ -79,13 +79,20 @@ export default async function IndependentExpensePage({
           </FormModal>
         )}
       </div>
-      <dl className="panel grid divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:divide-x-reverse">
+      <dl className="panel grid sm:grid-cols-3">
         {[
           ["مبلغ کل هزینه", cost.amountRial],
           ["واریز به مدیر", received],
           ["پرداخت مستقیم از جیب واحدها", advances],
-        ].map(([label, amount]) => (
-          <div key={label} className="p-5">
+        ].map(([label, amount], index) => (
+          <div
+            key={label}
+            className={
+              index > 0
+                ? "border-t border-border p-5 sm:border-s sm:border-t-0"
+                : "p-5"
+            }
+          >
             <dt className="text-xs text-muted-foreground">{label}</dt>
             <dd className="mt-3 text-xl font-semibold tabular-nums">
               {formatToman(Number(amount))}
