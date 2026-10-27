@@ -1,9 +1,5 @@
 import { Select } from "@/components/ui/select";
-import {
-  ActionForm,
-  ActionButton,
-  EmptyState,
-} from "@/components/finance/forms";
+import { ActionForm, ActionButton } from "@/components/finance/forms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { assignResidentMembership, listUnits } from "@/lib/actions/building";
@@ -56,6 +52,21 @@ export default async function ResidentsPage() {
   );
   const waiting = residents.filter((row) => !activated.has(row.userId));
   const active = residents.filter((row) => activated.has(row.userId));
+  const unitRows = registrationUnits.map((item) => {
+    const rows = residents.filter((row) => row.unitId === item.id);
+    const entered = rows.find((row) => activated.has(row.userId));
+    const pending = rows.find((row) => !activated.has(row.userId));
+    const row = entered ?? pending;
+    const person = users.find((userRow) => userRow.id === row?.userId);
+    const state = entered ? "active" : pending ? "waiting" : "open";
+    return {
+      id: item.id,
+      number: registrationUnitNumber(item.label),
+      state,
+      name: row ? displayName(person) : "",
+    } as const;
+  });
+  const openCount = unitRows.filter((item) => item.state === "open").length;
   async function assign(form: FormData) {
     "use server";
     await assignResidentMembership(
@@ -73,14 +84,47 @@ export default async function ResidentsPage() {
         <div>
           <h1>حساب ساکنان</h1>
           <p>
-            با شماره تلفن و واحد ۱ تا ۸ حساب را از قبل بسازید. ثبت‌نام فقط وقتی
-            انجام می‌شود که همان شماره و همان واحد وارد شود.
+            {openCount
+              ? `${openCount.toLocaleString("fa-IR")} واحد هنوز حساب ندارد. ثبت‌نام فقط با همان شماره و همان واحدی که اینجا می‌سازید قبول می‌شود.`
+              : "همه واحدهای قابل ثبت‌نام حساب دارند. ثبت‌نام فقط با همان شماره و همان واحد قبول می‌شود."}
           </p>
         </div>
       </div>
-      <div className="grid items-start gap-6 lg:grid-cols-2">
+      <section aria-label="وضعیت واحدها" className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+        {unitRows.map((item) => (
+          <div key={item.id} className="rounded-lg border border-border px-3 py-2.5">
+            <p className="text-[11px] text-muted-foreground">
+              واحد {item.number?.toLocaleString("fa-IR") ?? "—"}
+            </p>
+            <p
+              className={
+                item.state === "active"
+                  ? "mt-1 text-xs font-medium text-[var(--positive)]"
+                  : item.state === "waiting"
+                    ? "mt-1 text-xs font-medium text-[var(--warning)]"
+                    : "mt-1 text-xs text-muted-foreground"
+              }
+            >
+              {item.state === "active"
+                ? "وارد شده"
+                : item.state === "waiting"
+                  ? "منتظر ثبت‌نام"
+                  : "بدون حساب"}
+            </p>
+            <p className="mt-1 truncate text-[10px] text-muted-foreground">
+              {item.name || "—"}
+            </p>
+          </div>
+        ))}
+      </section>
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+        <div className="space-y-6">
         <section className="panel p-6">
-          <h2 className="mb-6 panel-title">ساخت حساب با شماره</h2>
+          <h2 className="mb-2 panel-title">ساخت حساب با شماره</h2>
+          <p className="mb-6 text-[11px] leading-6 text-muted-foreground">
+            نام اختیاری است. شماره و واحد باید همان چیزی باشد که همسایه در
+            ثبت‌نام وارد می‌کند.
+          </p>
           <ActionForm
             action={createAccount}
             className="space-y-5"
@@ -119,55 +163,15 @@ export default async function ResidentsPage() {
                 ))}
               </Select>
             </div>
-            <Button type="submit">ایجاد حساب</Button>
+            <Button type="submit" className="w-full">
+              ایجاد حساب
+            </Button>
           </ActionForm>
         </section>
         <section className="panel p-6">
-          <h2 className="mb-2 panel-title">منتظر ثبت‌نام</h2>
-          <p className="mb-4 text-[11px] leading-6 text-muted-foreground">
-            برای اتصال خودکار، شماره و واحد را مشخص کنید. تا پیش از ثبت‌نام با
-            رمز یا گوگل، این ردیف قابل حذف است.
-          </p>
-          {waiting.length ? (
-            waiting.map((row) => {
-              const person = users.find((item) => item.id === row.userId);
-              return (
-                <ResidentRow
-                  key={row.id}
-                  name={displayName(person)}
-                  detail={person?.phone ?? "بدون شماره"}
-                  unitLabel={
-                    units.find((item) => item.id === row.unitId)?.label ??
-                    "تعیین نشده"
-                  }
-                  status="منتظر ثبت‌نام"
-                  action={
-                    <ActionButton
-                      variant="ghost"
-                      action={async () => {
-                        "use server";
-                        await deleteResidentShell(row.userId);
-                      }}
-                      confirm="این حساب حذف شود؟ هنوز رمز ندارد و بعداً می‌توانید دوباره بسازید."
-                    >
-                      حذف
-                    </ActionButton>
-                  }
-                />
-              );
-            })
-          ) : (
-            <p className="text-xs leading-7 text-muted-foreground">
-              حساب منتظری نیست.
-            </p>
-          )}
-        </section>
-      </div>
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <section className="panel p-6">
-          <h2 className="mb-6 panel-title">اتصال حساب ثبت‌نام‌شده</h2>
+          <h2 className="mb-2 panel-title">اتصال حساب بدون واحد</h2>
           <p className="mb-5 text-[11px] leading-6 text-muted-foreground">
-            برای کسی که بدون حساب ازپیش‌ساخته ثبت‌نام کرده است.
+            برای همسایه‌ای که خودش ثبت‌نام کرده و هنوز به واحدی وصل نیست.
           </p>
           {candidates.length && registrationUnits.length ? (
             <ActionForm action={assign} className="space-y-5">
@@ -191,17 +195,62 @@ export default async function ResidentsPage() {
                   ))}
                 </Select>
               </div>
-              <Button type="submit">ذخیره اتصال</Button>
+              <Button type="submit" className="w-full">
+                ذخیره اتصال
+              </Button>
             </ActionForm>
           ) : (
-            <EmptyState
-              title="حساب آماده اتصال نیست"
-              description="اگر همسایه خودش ثبت‌نام کند و واحد نداشته باشد، اینجا به واحد وصل می‌شود."
-            />
+            <p className="text-xs leading-7 text-muted-foreground">
+              حساب ثبت‌نام‌شده‌ای بدون واحد نیست.
+            </p>
           )}
         </section>
+        </div>
         <section className="panel p-6">
-          <h2 className="mb-6 panel-title">ساکنان واردشده</h2>
+          <h2 className="panel-title">فهرست حساب‌ها</h2>
+          <p className="mb-2 mt-2 text-[11px] leading-6 text-muted-foreground">
+            {waiting.length.toLocaleString("fa-IR")} منتظر ثبت‌نام،{" "}
+            {active.length.toLocaleString("fa-IR")} وارد شده.
+          </p>
+          <h3 className="mb-1 mt-6 text-xs font-medium">منتظر ثبت‌نام</h3>
+          <p className="mb-2 text-[11px] leading-6 text-muted-foreground">
+            تا وقتی رمز یا گوگل نساخته‌اند می‌توانید این ردیف را حذف کنید.
+          </p>
+          {waiting.length ? (
+            waiting.map((row) => {
+              const person = users.find((item) => item.id === row.userId);
+              return (
+                <ResidentRow
+                  key={row.id}
+                  name={displayName(person)}
+                  detail={person?.phone ?? "بدون شماره"}
+                  unitLabel={unitNumberLabel(units, row.unitId)}
+                  status="منتظر ثبت‌نام"
+                  tone="warning"
+                  action={
+                    <ActionButton
+                      variant="ghost"
+                      action={async () => {
+                        "use server";
+                        await deleteResidentShell(row.userId);
+                      }}
+                      confirm="این حساب حذف شود؟ هنوز رمز ندارد و بعداً می‌توانید دوباره بسازید."
+                    >
+                      حذف
+                    </ActionButton>
+                  }
+                />
+              );
+            })
+          ) : (
+            <p className="border-t border-border py-4 text-xs leading-7 text-muted-foreground">
+              حساب منتظری نیست.
+            </p>
+          )}
+          <h3 className="mb-1 mt-6 text-xs font-medium">وارد شده</h3>
+          <p className="mb-2 text-[11px] leading-6 text-muted-foreground">
+            ریست رمز، ورود گوگل را هم پاک می‌کند. سوابق مالی واحد می‌ماند.
+          </p>
           {active.length ? (
             active.map((row) => {
               const person = users.find((item) => item.id === row.userId);
@@ -210,13 +259,11 @@ export default async function ResidentsPage() {
                   key={row.id}
                   name={displayName(person)}
                   detail={contactOf(person)}
-                  unitLabel={
-                    units.find((item) => item.id === row.unitId)?.label ??
-                    "تعیین نشده"
-                  }
+                  unitLabel={unitNumberLabel(units, row.unitId)}
                   status="وارد شده"
+                  tone="success"
                   action={
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center justify-end gap-1">
                       <ActionButton
                         variant="ghost"
                         action={async () => {
@@ -245,7 +292,7 @@ export default async function ResidentsPage() {
               );
             })
           ) : (
-            <p className="text-xs leading-7 text-muted-foreground">
+            <p className="border-t border-border py-4 text-xs leading-7 text-muted-foreground">
               هنوز کسی با شماره ساخته‌شده وارد نشده است.
             </p>
           )}
@@ -253,6 +300,16 @@ export default async function ResidentsPage() {
       </div>
     </div>
   );
+}
+
+function unitNumberLabel(
+  units: { id: string; label: string }[],
+  unitId: string | null,
+) {
+  const label = units.find((item) => item.id === unitId)?.label;
+  const number = label ? registrationUnitNumber(label) : null;
+  if (number) return number.toLocaleString("fa-IR");
+  return label || "تعیین نشده";
 }
 
 function displayName(
@@ -278,26 +335,29 @@ function ResidentRow({
   detail,
   unitLabel,
   status,
+  tone,
   action,
 }: {
   name: string;
   detail: string;
   unitLabel: string;
   status: string;
+  tone: "warning" | "success";
   action: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-4">
-      <div>
-        <p className="text-xs font-medium">{name}</p>
-        <p className="mt-2 text-[10px] text-muted-foreground" dir="ltr">
-          {detail}
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{name}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          <span dir="ltr">{detail}</span>
+          <span> · واحد {unitLabel}</span>
         </p>
       </div>
-      <span className="status status-success">
-        {status} · واحد {unitLabel}
-      </span>
-      {action}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span className={`status status-${tone}`}>{status}</span>
+        {action}
+      </div>
     </div>
   );
 }
