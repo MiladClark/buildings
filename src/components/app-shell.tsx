@@ -82,13 +82,17 @@ export function AppShell({
 }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
-  const [settingsExpanded, setSettingsExpanded] = useState(
-    () =>
-      path === settingsHref ||
-      settingsChildren.some(
-        (item) => path === item.href || path.startsWith(`${item.href}/`),
-      ),
-  );
+  const settingsOpen =
+    path === settingsHref ||
+    settingsChildren.some(
+      (item) => path === item.href || path.startsWith(`${item.href}/`),
+    );
+  const [settingsExpanded, setSettingsExpanded] = useState(settingsOpen);
+  const [trackedSettingsOpen, setTrackedSettingsOpen] = useState(settingsOpen);
+  if (settingsOpen !== trackedSettingsOpen) {
+    setTrackedSettingsOpen(settingsOpen);
+    if (settingsOpen) setSettingsExpanded(true);
+  }
   const [unreadChat, setUnreadChat] = useState(false);
   const onChat = path.endsWith("/chat");
   const showUnread = unreadChat && !onChat;
@@ -130,14 +134,6 @@ export function AppShell({
     };
   }, [path]);
   const nav = role === "manager" ? managerNav : residentNav;
-  const settingsOpen =
-    path === settingsHref ||
-    settingsChildren.some(
-      (item) => path === item.href || path.startsWith(`${item.href}/`),
-    );
-  useEffect(() => {
-    if (settingsOpen) setSettingsExpanded(true);
-  }, [settingsOpen]);
   const current =
     settingsChildren.find((item) => item.href === path) ??
     [...nav, { href: settingsHref, label: "تنظیمات ساختمان", icon: Settings }].find(

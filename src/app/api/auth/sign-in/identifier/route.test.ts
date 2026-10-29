@@ -38,6 +38,28 @@ describe("phone/email password login", () => {
     expect(response.headers.get("Set-Cookie")).toBe("test-signed-session");
     expect(await response.json()).toEqual({ ok: true });
   });
+  it("treats Persian digits in the email and password as English digits", async () => {
+    await POST(
+      request({
+        identifier: "User۱۲@Example.com",
+        password: "secret۱۲۳",
+      }),
+    );
+    expect(await (mocks.handler.mock.calls[0][0] as Request).json()).toEqual({
+      email: "user12@example.com",
+      password: "secret123",
+    });
+  });
+  it("rejects a password written with Persian letters", async () => {
+    const response = await POST(
+      request({ identifier: "09123456789", password: "رمزعبور۱۲" }),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      message: expect.stringMatching(/انگلیسی/),
+    });
+    expect(mocks.handler).not.toHaveBeenCalled();
+  });
   it("keeps existing email login working", async () => {
     await POST(
       request({ identifier: "  Manager@Example.com ", password: "password" }),

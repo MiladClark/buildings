@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm";
 
 import { auth } from "@/lib/auth";
-import { loginToEmail, normalizeIranMobile } from "@/lib/auth/phone";
+import {
+  englishPassword,
+  latinDigits,
+  loginToEmail,
+  normalizeIranMobile,
+} from "@/lib/auth/phone";
 import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
 import { isSameOriginRequest } from "@/lib/request-security";
@@ -33,12 +38,27 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  const identifier = latinDigits(input.identifier);
+  let password: string;
+  try {
+    password = englishPassword(input.password);
+  } catch (error) {
+    return Response.json(
+      {
+        message:
+          error instanceof Error
+            ? error.message
+            : "رمز عبور باید فقط با حروف انگلیسی باشد.",
+      },
+      { status: 400 },
+    );
+  }
   let email: string;
   try {
-    email = loginToEmail(input.identifier);
-    if (!input.identifier.includes("@")) {
+    email = loginToEmail(identifier);
+    if (!identifier.includes("@")) {
       const found = await db.query.user.findFirst({
-        where: eq(user.phone, normalizeIranMobile(input.identifier)),
+        where: eq(user.phone, normalizeIranMobile(identifier)),
       });
       if (found) email = found.email;
     }
@@ -55,7 +75,7 @@ export async function POST(request: Request) {
     new Request(new URL("/api/auth/sign-in/email", request.url), {
       method: "POST",
       headers,
-      body: JSON.stringify({ email, password: input.password }),
+      body: JSON.stringify({ email, password }),
     }),
   );
 }

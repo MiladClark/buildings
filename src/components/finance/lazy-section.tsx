@@ -20,13 +20,13 @@ function WhenVisible({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const show =
+    visible ||
+    (typeof window !== "undefined" &&
+      typeof IntersectionObserver === "undefined");
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setVisible(true);
-      return;
-    }
+    if (!node || show) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
@@ -38,10 +38,10 @@ function WhenVisible({
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [show]);
   return (
-    <div ref={ref} className={`${className}${visible ? " module-enter" : ""}`}>
-      {visible ? children : <WidgetSkeleton className="h-full min-h-full" />}
+    <div ref={ref} className={`${className}${show ? " module-enter" : ""}`}>
+      {show ? children : <WidgetSkeleton className="h-full min-h-full" />}
     </div>
   );
 }

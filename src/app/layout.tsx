@@ -1,13 +1,32 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
 
+import { PwaInstallHint, PwaRegister } from "@/components/pwa";
 import { vazirmatn } from "@/lib/fonts";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
+  applicationName: "واحدبان",
   title: "واحدبان | مدیریت ساختمان",
   description: "حساب‌وکتاب روشن ساختمان؛ شارژ، هزینه‌ها و پرداخت ساکنان",
+  appleWebApp: {
+    title: "واحدبان",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      {
+        url: "/icons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
@@ -15,6 +34,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
+  themeColor: "#26745d",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -27,6 +47,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col font-sans antialiased">
         {children}
+        <PwaInstallHint />
+        <PwaRegister />
         <Toaster position="top-center" richColors closeButton />
       </body>
     </html>

@@ -6,7 +6,12 @@ import { toast } from "sonner";
 
 import { FloatingInput, FloatingSelect } from "@/components/auth/floating-field";
 import { Button } from "@/components/ui/button";
-import { registrationUnitNumber } from "@/lib/auth/phone";
+import {
+  englishPassword,
+  latinDigits,
+  registrationUnitNumber,
+  writeLatinDigits,
+} from "@/lib/auth/phone";
 import { registerWithPhone } from "@/lib/actions/resident-accounts";
 
 export function RegisterForm({
@@ -23,9 +28,21 @@ export function RegisterForm({
     event.preventDefault();
     setLoading(true);
     const form = new FormData(event.currentTarget);
+    let password: string;
+    try {
+      password = englishPassword(String(form.get("password") ?? ""));
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "رمز عبور باید فقط با حروف انگلیسی باشد.",
+      );
+      setLoading(false);
+      return;
+    }
     const result = await registerWithPhone({
-      phone: String(form.get("phone") ?? ""),
-      password: String(form.get("password") ?? ""),
+      phone: latinDigits(String(form.get("phone") ?? "")),
+      password,
       firstName: String(form.get("firstName") ?? ""),
       lastName: String(form.get("lastName") ?? ""),
       unitId: String(form.get("unitId") ?? ""),
@@ -70,6 +87,7 @@ export function RegisterForm({
           dir="ltr"
           required
           autoComplete="tel"
+          onInput={(event) => writeLatinDigits(event.currentTarget)}
         />
         {!isFirstUser && (
           <FloatingSelect id="unitId" name="unitId" label="واحد" required>
@@ -93,6 +111,7 @@ export function RegisterForm({
         minLength={8}
         required
         autoComplete="new-password"
+        onInput={(event) => writeLatinDigits(event.currentTarget)}
       />
       <Button type="submit" disabled={loading} className="w-full">
         {loading

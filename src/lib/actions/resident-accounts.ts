@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import {
   claimedDisplayName,
   joinedPersonName,
+  englishPassword,
   normalizeIranMobile,
   phoneToAuthEmail,
   registrationUnitNumber,
@@ -31,8 +32,9 @@ function personName(firstName: string, lastName: string, fallback: string) {
 }
 
 function passwordOf(value: string) {
-  if (value.length < 8 || value.length > 200) throw new Error(passwordHint);
-  return value;
+  const password = englishPassword(value);
+  if (password.length < 8 || password.length > 200) throw new Error(passwordHint);
+  return password;
 }
 
 async function unitInBuilding(unitId: string, buildingId: string) {

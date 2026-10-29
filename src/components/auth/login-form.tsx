@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
+import {
+  englishPassword,
+  latinDigits,
+  writeLatinDigits,
+} from "@/lib/auth/phone";
 
 export function LoginForm({
   connectGoogle = false,
@@ -21,22 +26,37 @@ export function LoginForm({
     event.preventDefault();
     setLoading(true);
     const form = new FormData(event.currentTarget);
+    let password: string;
+    try {
+      password = englishPassword(String(form.get("password") ?? ""));
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "رمز عبور باید فقط با حروف انگلیسی باشد.",
+      );
+      setLoading(false);
+      return;
+    }
     try {
       const response = await fetch("/api/auth/sign-in/identifier", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          identifier: form.get("identifier"),
-          password: form.get("password"),
+          identifier: latinDigits(String(form.get("identifier") ?? "")),
+          password,
         }),
       });
       if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as {
+          message?: string;
+        } | null;
         toast.error(
           response.status === 403
             ? "آدرس ورود معتبر نیست؛ صفحه را بازخوانی کنید و دوباره وارد شوید."
             : response.status === 429
               ? "کمی صبر کنید و دوباره تلاش کنید."
-              : "ورود ناموفق بود. شماره یا رمز را بررسی کنید.",
+              : body?.message || "ورود ناموفق بود. شماره یا رمز را بررسی کنید.",
         );
         return;
       }
@@ -78,6 +98,7 @@ export function LoginForm({
           required
           autoComplete="username"
           placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+          onInput={(event) => writeLatinDigits(event.currentTarget)}
         />
       </div>
       <div className="space-y-2">
@@ -88,6 +109,7 @@ export function LoginForm({
           type="password"
           required
           autoComplete="current-password"
+          onInput={(event) => writeLatinDigits(event.currentTarget)}
         />
       </div>
       <Button type="submit" disabled={loading} className="w-full">

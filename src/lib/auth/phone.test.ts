@@ -3,6 +3,8 @@ import {
   claimedDisplayName,
   claimedUnitId,
   joinedPersonName,
+  latinDigits,
+  englishPassword,
   loginToEmail,
   normalizeIranMobile,
   phoneToAuthEmail,
@@ -49,6 +51,13 @@ describe("Iranian mobile numbers", () => {
       "manager@preview.local",
     );
     expect(loginToEmail("۰۹۱۲۳۴۵۶۷۸۹")).toBe("09123456789@residents.internal");
+    expect(loginToEmail("User۱۲@Example.com")).toBe("user12@example.com");
+    expect(latinDigits("رمز۱۲۳٤")).toBe("رمز1234");
+  });
+
+  it("rejects Persian letters in a password and keeps English digits", () => {
+    expect(englishPassword("Secret۱۲۳")).toBe("Secret123");
+    expect(() => englishPassword("رمز۱۲۳")).toThrow(/انگلیسی/);
   });
 });
 
