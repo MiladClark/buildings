@@ -9,6 +9,7 @@ import { isoDate } from "@/lib/format/jalali";
 import { formatToman } from "@/lib/format/money";
 import { toPersianDigits as fa } from "@/lib/format/money";
 import { ChevronDown } from "lucide-react";
+import { TreasurySummary } from "@/components/finance/treasury";
 export default async function PaymentsPage({
   searchParams,
 }: {
@@ -82,8 +83,8 @@ export default async function PaymentsPage({
         <div>
           <h1>دریافت‌ها و پرداخت‌ها</h1>
           <p>
-            ثبت و اصلاح واریزها با مدیر است؛ سهم هر هزینه و مانده حساب واحدها از
-            دریافت‌های ثبت‌شده محاسبه می‌شود.
+            واریز واحدها و پرداخت هزینه از حساب، جدا ثبت می‌شوند؛ موجودی با
+            پرداخت واقعی تغییر می‌کند.
           </p>
         </div>
         <FormModal
@@ -110,6 +111,7 @@ export default async function PaymentsPage({
           />
         </FormModal>
       </div>
+      <TreasurySummary treasury={data.treasury} />
       <div className="grid gap-4 sm:grid-cols-3">
         {[
           {

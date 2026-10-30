@@ -47,7 +47,6 @@ export function Dashboard({
   );
   const debtors = data.summaries.filter((u) => u.balance > 0).length;
   const occupants = data.summaries.reduce((s, u) => s + u.occupants, 0);
-  const totalExpenses = data.expenses.reduce((s, e) => s + e.amount, 0);
   const categories = Object.entries(
     expenses.reduce<Record<string, number>>((a, e) => {
       a[e.name] = (a[e.name] ?? 0) + e.amount;
@@ -84,10 +83,10 @@ export function Dashboard({
   const current = data.periods.find((p) => p.id === periodId);
   const stats = [
     {
-      label: "خالص دریافت و هزینه",
-      value: received - totalExpenses,
+      label: "موجودی حساب ساختمان",
+      value: data.treasury.balanceRial,
       icon: Wallet,
-      note: "مجموع دریافت‌ها منهای هزینه‌های ثبت‌شده",
+      note: `فقط پرداخت واقعی کسر شده · در انتظار پرداخت: ${formatToman(data.treasury.pendingRial)}`,
       money: true,
     },
     {
@@ -125,6 +124,9 @@ export function Dashboard({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/manager/expenses#fund-payments">پرداخت هزینه‌ها</Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/api/export/finance">
               <Download size={16} />
@@ -233,7 +235,7 @@ export function Dashboard({
           </Button>
         </div>
       )}
-      <DeferredDashboardCharts timeline={data.timeline} categories={categories} />
+      <DeferredDashboardCharts timeline={data.cashTimeline} categories={categories} />
       <div>
         <section className="panel min-w-0">
           <div className="panel-head">

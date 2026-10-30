@@ -1,7 +1,19 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { ArrowDown, ArrowRight, Check, MessageCircle, Image, Send, Pencil, Smile, LoaderCircle, Trash2, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  Check,
+  MessageCircle,
+  Image as ImageIcon,
+  Send,
+  Pencil,
+  Smile,
+  LoaderCircle,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -689,26 +701,30 @@ export function BuildingChat({
 
                       {editingId === message.id ? (
                         <div className="min-w-[220px] space-y-2 py-1 sm:min-w-[280px]">
-                          <textarea
-                            value={editBody}
-                            onChange={(event) =>
-                              setEditBody(event.target.value)
-                            }
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" && !event.shiftKey) {
-                                event.preventDefault();
-                                void saveEdit(message);
-                              } else if (event.key === "Escape") {
-                                event.preventDefault();
-                                setEditingId(null);
+                          <label className="form-field">
+                            <span>ویرایش متن پیام</span>
+                            <textarea
+                              value={editBody}
+                              onChange={(event) =>
+                                setEditBody(event.target.value)
                               }
-                            }}
-                            autoFocus
-                            rows={3}
-                            className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2 text-xs leading-6 text-foreground outline-none"
-                            maxLength={2_000}
-                            aria-label="ویرایش متن پیام"
-                          />
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" && !event.shiftKey) {
+                                  event.preventDefault();
+                                  void saveEdit(message);
+                                } else if (event.key === "Escape") {
+                                  event.preventDefault();
+                                  setEditingId(null);
+                                }
+                              }}
+                              autoFocus
+                              rows={3}
+                              className="form-control form-textarea w-full"
+                              placeholder=" "
+                              maxLength={2_000}
+                              aria-label="ویرایش متن پیام"
+                            />
+                          </label>
                           <div className="flex items-center justify-end gap-1.5">
                             <Button
                               type="button"
@@ -930,10 +946,11 @@ export function BuildingChat({
             aria-label="افزودن تصویر"
             title="افزودن تصویر"
           >
-            <Image size={22} />
+            <ImageIcon size={22} />
           </label>
 
-          <div className="flex min-h-11 min-w-0 flex-1 items-center rounded-3xl bg-muted px-3">
+          <label className="form-field chat-compose-field min-w-0 flex-1">
+            <span>متن پیام</span>
             <textarea
               ref={textareaRef}
               value={body}
@@ -947,11 +964,11 @@ export function BuildingChat({
               onKeyDown={onComposerKeyDown}
               maxLength={2_000}
               rows={1}
-              placeholder="پیام"
+              placeholder=" "
               aria-label="متن پیام"
-              className="max-h-32 min-h-6 w-full resize-none bg-transparent py-2.5 text-base leading-6 text-foreground outline-none placeholder:text-muted-foreground lg:text-sm"
+              className="form-control w-full"
             />
-          </div>
+          </label>
 
           <button
             type="submit"
@@ -962,11 +979,7 @@ export function BuildingChat({
             {sending ? (
               <LoaderCircle className="animate-spin" size={18} />
             ) : (
-              <Send
-                size={18}
-                strokeWidth={2.25}
-                className="-scale-x-100"
-              />
+              <Send size={18} strokeWidth={2.25} className="-scale-x-100" />
             )}
           </button>
         </div>

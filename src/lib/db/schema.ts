@@ -8,6 +8,7 @@ import {
   boolean,
   timestamp,
   bigint,
+  jsonb,
   text,
 } from "drizzle-orm/pg-core";
 
@@ -378,6 +379,60 @@ export const standaloneExpense = pgTable("standalone_expense", {
     .notNull()
     .defaultNow(),
 });
+
+/** Actual money leaving the building fund. Billing and receipts remain separate. */
+export const expenseDisbursement = pgTable(
+  "expense_disbursement",
+  {
+    id: text("id").primaryKey(),
+    buildingId: text("building_id")
+      .notNull()
+      .references(() => building.id),
+    expenseId: text("expense_id").references(() => expenseLine.id),
+    standaloneExpenseId: text("standalone_expense_id").references(
+      () => standaloneExpense.id,
+    ),
+    amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
+    payee: text("payee").notNull(),
+    paidAt: timestamp("paid_at", {
+      withTimezone: true,
+      mode: "date",
+      precision: 3,
+    }).notNull(),
+    method: text("method", {
+      enum: ["bank_transfer", "cash", "other"],
+    }).notNull(),
+    reference: text("reference"),
+    note: text("note"),
+    items: jsonb("items")
+      .$type<{ description: string; amountRial: number }[]>()
+      .notNull()
+      .default([]),
+    finalPayment: boolean("final_payment").notNull().default(true),
+    recordedByUserId: text("recorded_by_user_id").references(() => user.id),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "date",
+      precision: 3,
+    })
+      .notNull()
+      .defaultNow(),
+    cancelledAt: timestamp("cancelled_at", {
+      withTimezone: true,
+      mode: "date",
+      precision: 3,
+    }),
+    cancellationReason: text("cancellation_reason"),
+  },
+  (t) => [
+    check(
+      "disbursement_one_cost",
+      sql`(${t.expenseId} IS NOT NULL)::int + (${t.standaloneExpenseId} IS NOT NULL)::int = 1`,
+    ),
+    check("disbursement_positive", sql`${t.amountRial} > 0`),
+    index("disbursement_building_idx").on(t.buildingId),
+  ],
+);
 
 export const unitInvoice = pgTable("unit_invoice", {
   id: text("id").primaryKey(),

@@ -79,7 +79,7 @@ export function GoogleResidentForm({
     <div className="space-y-5">
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
+          <div className="form-field">
             <Label htmlFor="google-first-name">نام</Label>
             <Input
               id="google-first-name"
@@ -89,7 +89,7 @@ export function GoogleResidentForm({
               maxLength={60}
             />
           </div>
-          <div className="space-y-2">
+          <div className="form-field">
             <Label htmlFor="google-last-name">نام خانوادگی</Label>
             <Input
               id="google-last-name"
@@ -100,7 +100,7 @@ export function GoogleResidentForm({
             />
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="form-field">
           <Label htmlFor="google-phone">شماره تلفن</Label>
           <Input
             id="google-phone"
@@ -114,7 +114,7 @@ export function GoogleResidentForm({
             maxLength={40}
           />
         </div>
-        <div className="space-y-2">
+        <div className="form-field">
           <Label htmlFor="google-unit">واحد شما</Label>
           <Select id="google-unit" name="unitId" required>
             <option value="">واحد را انتخاب کنید</option>

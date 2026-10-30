@@ -6,7 +6,25 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Building2, ChartLine, Settings, LayoutGrid, Receipt, Users, Wallet, CalendarDays, Menu, X, House, CircleCheck, Wrench, Undo2, MessageCircle, SlidersHorizontal, ChevronDown } from "lucide-react";
+import {
+  Building2,
+  ChartLine,
+  Settings,
+  LayoutGrid,
+  Receipt,
+  Users,
+  Wallet,
+  CalendarDays,
+  Menu,
+  X,
+  House,
+  CircleCheck,
+  Wrench,
+  Undo2,
+  MessageCircle,
+  SlidersHorizontal,
+  ChevronDown,
+} from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CHAT_SEEN_EVENT, readChatSeen } from "@/lib/chat-seen";
 import { cn } from "@/lib/utils";
@@ -28,6 +46,7 @@ const managerNav = [
 ];
 const settingsHref = "/manager/settings";
 const settingsChildren = [
+  { href: "/manager/account", label: "حساب کاربری من", icon: Users },
   {
     href: "/manager/history",
     label: "سابقه و بازیابی",
@@ -38,7 +57,7 @@ const settingsChildren = [
     label: "قواعد تقسیم هزینه",
     icon: SlidersHorizontal,
   },
-  { href: "/manager/residents", label: "حساب ساکنان", icon: Users },
+  { href: "/manager/residents", label: "حساب‌ها و دسترسی‌ها", icon: Users },
 ];
 const residentNav = [
   { href: "/resident", label: "خانه من", icon: House },
@@ -51,6 +70,7 @@ const residentNav = [
     icon: MessageCircle,
   },
   { href: "/resident/maintenance", label: "درخواست رسیدگی", icon: Wrench },
+  { href: "/resident/account", label: "حساب کاربری من", icon: Users },
 ];
 export function Brand() {
   return (
@@ -136,9 +156,10 @@ export function AppShell({
   const nav = role === "manager" ? managerNav : residentNav;
   const current =
     settingsChildren.find((item) => item.href === path) ??
-    [...nav, { href: settingsHref, label: "تنظیمات ساختمان", icon: Settings }].find(
-      (item) => item.href === path,
-    ) ??
+    [
+      ...nav,
+      { href: settingsHref, label: "تنظیمات ساختمان", icon: Settings },
+    ].find((item) => item.href === path) ??
     nav.find((item) => item.href !== "/manager" && path.startsWith(item.href));
   const links = (items: typeof nav) =>
     items.map((item) => {
@@ -287,6 +308,13 @@ export function AppShell({
         </>
       )}
       <div className="mt-auto pt-6">
+        <Link
+          href={role === "manager" ? "/manager/account" : "/resident/account"}
+          className="mb-3 block text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setOpen(false)}
+        >
+          تنظیمات حساب کاربری
+        </Link>
         <div className="flex items-center gap-2 border-t border-border pt-4">
           <span className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-bold">
             {userName?.slice(0, 1) || "م"}
@@ -382,34 +410,36 @@ export function AppShell({
             aria-label="دسترسی سریع ساکن"
             className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
           >
-            {residentNav.map((item) => {
-              const active =
-                item.href === path ||
-                (item.href !== "/resident" && path.startsWith(item.href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    "flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[9px] transition-colors",
-                    active
-                      ? "font-semibold text-primary"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  <span className="relative">
-                    <item.icon size={20} strokeWidth={active ? 2.4 : 1.75} />
-                    {item.href.endsWith("/chat") && showUnread && (
-                      <span className="absolute -top-0.5 -start-1 size-2 rounded-full bg-destructive" />
+            {residentNav
+              .filter((item) => item.href !== "/resident/account")
+              .map((item) => {
+                const active =
+                  item.href === path ||
+                  (item.href !== "/resident" && path.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex min-h-16 flex-col items-center justify-center gap-1 px-1 text-[9px] transition-colors",
+                      active
+                        ? "font-semibold text-primary"
+                        : "text-muted-foreground",
                     )}
-                  </span>
-                  <span className="max-w-full truncate">
-                    {"shortLabel" in item ? item.shortLabel : item.label}
-                  </span>
-                </Link>
-              );
-            })}
+                  >
+                    <span className="relative">
+                      <item.icon size={20} strokeWidth={active ? 2.4 : 1.75} />
+                      {item.href.endsWith("/chat") && showUnread && (
+                        <span className="absolute -top-0.5 -start-1 size-2 rounded-full bg-destructive" />
+                      )}
+                    </span>
+                    <span className="max-w-full truncate">
+                      {"shortLabel" in item ? item.shortLabel : item.label}
+                    </span>
+                  </Link>
+                );
+              })}
           </nav>
         )}
       </div>

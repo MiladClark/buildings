@@ -14,7 +14,15 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, Search, ChevronLeft, ChevronRight, Download, CircleCheck } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  CircleCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   formatToman,
@@ -106,7 +114,11 @@ export function DataGrid<T extends object>({
                 className={`status ${["تسویه‌شده", "تأییدشده", "مسکونی", "نهایی‌شده"].includes(s) ? "status-success" : ["بدهکار", "در انتظار بررسی", "پیش‌نویس", "سررسید گذشته", "پرداخت ناقص", "پرداخت‌نشده"].includes(s) ? "status-warning" : "status-neutral"}`}
               >
                 {s === "تسویه‌شده" && (
-                  <CircleCheck size={13} strokeWidth={2.25} aria-hidden="true" />
+                  <CircleCheck
+                    size={13}
+                    strokeWidth={2.25}
+                    aria-hidden="true"
+                  />
                 )}
                 {s}
               </span>
@@ -164,9 +176,10 @@ export function DataGrid<T extends object>({
         <div className="relative min-w-0 flex-1 sm:max-w-[260px]">
           <Search
             size={16}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            className="pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
           />
           <Input
+            label={searchPlaceholder}
             data-search-input=""
             aria-label={searchPlaceholder}
             value={search}

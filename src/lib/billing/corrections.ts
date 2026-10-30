@@ -23,6 +23,7 @@ import { buildSettlementState, scopeKey } from "./settlement-state";
 import { validateMaintenanceLink } from "./maintenance-link";
 import { notifyUnitAccounts } from "./notifications";
 import { isoDate } from "@/lib/format/jalali";
+import { assertCostHasNoDisbursements } from "./disbursements";
 
 export function periodCalculationChanged(
   before: { startDate: Date; endDate: Date; periodType: string },
@@ -444,6 +445,7 @@ export async function removePeriod(
   id: string,
   actorId?: string,
 ) {
+  await assertCostHasNoDisbursements(tx, buildingId, { periodId: id });
   await reopenPeriod(tx, buildingId, id, actorId);
   const period = await tx.query.billingPeriod.findFirst({
     where: eq(billingPeriod.id, id),
@@ -536,6 +538,8 @@ export async function correctExpense(
   });
   if (!period || period.deletedAt)
     throw new Error("ابتدا دوره این هزینه را بازیابی کنید.");
+  if (operation === "delete")
+    await assertCostHasNoDisbursements(tx, buildingId, { expenseId: id });
   if (operation === "restore" ? !expense.deletedAt : !!expense.deletedAt)
     throw new Error("وضعیت هزینه تغییر کرده است؛ صفحه را تازه کنید.");
   if (input) {

@@ -90,6 +90,7 @@ export function MaintenanceView({
                 id="ticket-description"
                 name="description"
                 className="form-control form-textarea w-full"
+                placeholder=" "
                 maxLength={3000}
               />
             </div>
@@ -264,6 +265,7 @@ export function MaintenanceView({
                                   defaultValue={t.description ?? ""}
                                   maxLength={3000}
                                   className="form-control form-textarea w-full"
+                                  placeholder=" "
                                 />
                               </div>
                               <div className="form-field">

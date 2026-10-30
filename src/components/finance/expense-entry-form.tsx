@@ -123,7 +123,7 @@ export function ExpenseEntryForm({
         </Select>
       </div>
       <div className="form-field">
-        <label htmlFor="expense-amount">مبلغ کل (تومان)</label>
+        <label htmlFor="expense-amount">مبلغ هزینه / برآورد خرید (تومان)</label>
         <MoneyInput
           id="expense-amount"
           name="amountToman"
@@ -131,6 +131,10 @@ export function ExpenseEntryForm({
           defaultRial={initial?.amountRial}
           placeholder="مثلاً ۴٬۵۰۰٬۰۰۰"
         />
+        <p className="text-xs text-muted-foreground leading-7">
+          ثبت این مبلغ، پرداخت محسوب نمی‌شود و موجودی را کم نمی‌کند. مبلغ واقعی
+          را بعداً با «ثبت پرداخت» تأیید کنید.
+        </p>
       </div>
       <JalaliDateField
         name="expenseDate"

@@ -2,6 +2,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   maintenanceTicket,
+  expenseDisbursement,
   membership,
   paymentRequest,
   unit,
@@ -19,6 +20,7 @@ import { formatAllocationBasis } from "@/lib/format/allocation-basis";
 import { unstable_cache } from "next/cache";
 
 import { buildingCacheTag } from "@/lib/cache/building";
+import { buildTreasury } from "@/lib/billing/treasury";
 
 const isoDateTime =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -39,8 +41,8 @@ function reviveDates<T>(value: T): T {
 }
 
 async function loadFinanceData(buildingId: string) {
-  const [ledger, requests, tickets, residentUnits] = await db.transaction(
-    (tx) =>
+  const [ledger, requests, tickets, residentUnits, disbursements] =
+    await db.transaction((tx) =>
       Promise.all([
         loadSettlementData(tx, buildingId),
         tx
@@ -68,9 +70,19 @@ async function loadFinanceData(buildingId: string) {
               eq(membership.role, "resident"),
             ),
           ),
+        tx
+          .select()
+          .from(expenseDisbursement)
+          .where(eq(expenseDisbursement.buildingId, buildingId))
+          .orderBy(
+            desc(expenseDisbursement.paidAt),
+            desc(expenseDisbursement.createdAt),
+          ),
       ]),
-  );
+    );
   return {
+    disbursements,
+    treasury: buildTreasury(ledger, disbursements),
     maintenance: tickets,
     invoiceLines: ledger.lines.map((line) => ({
       ...line,
@@ -127,7 +139,7 @@ export async function getFinanceData(buildingId: string) {
   try {
     const cached = unstable_cache(
       async () => loadFinanceData(buildingId),
-      ["finance-data", buildingId],
+      ["finance-data-treasury-v1", buildingId],
       { revalidate: 60, tags: [buildingCacheTag(buildingId)] },
     );
     return reviveDates(await cached());
@@ -182,7 +194,7 @@ export function dashboardData(data: FinanceData) {
   });
   const months = new Map<
     string,
-    { id: string; label: string; expense: number; income: number }
+    { id: string; label: string; expense: number; income: number; paid: number }
   >();
   const bucket = (date: Date) => {
     const { jy, jm } = jalaliParts(date);
@@ -193,6 +205,7 @@ export function dashboardData(data: FinanceData) {
         label: formatJalaliMonthLabel(date),
         expense: 0,
         income: 0,
+        paid: 0,
       });
     return months.get(id)!;
   };
@@ -204,13 +217,17 @@ export function dashboardData(data: FinanceData) {
     bucket(cost.expenseDate).expense += cost.amountRial;
   for (const row of data.payments.filter((r) => r.payment.kind !== "advance"))
     bucket(row.payment.paidAt).income += row.payment.amountRial;
+  for (const row of data.disbursements.filter((d) => !d.cancelledAt))
+    bucket(row.paidAt).paid += row.amountRial;
   const timeline = [...months.values()].sort((a, b) =>
     a.id.localeCompare(b.id),
   );
   return {
     summaries,
+    treasury: data.treasury,
     calendarEvents: buildingCalendarEvents(data),
     timeline,
+    cashTimeline: timeline.map((month) => ({ ...month, expense: month.paid })),
     periods: data.periods.map((p) => ({
       id: p.id,
       title: p.title,

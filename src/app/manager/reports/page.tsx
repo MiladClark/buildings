@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { dashboardData, getFinanceData } from "@/lib/queries/finance";
 import { getPeriodChargePlan } from "@/lib/queries/charge-plan";
 import { requireManager } from "@/lib/session";
+import { TreasurySummary } from "@/components/finance/treasury";
 export default async function ReportsPage() {
   const { member } = await requireManager();
   const data = await getFinanceData(member.buildingId);
@@ -26,6 +27,7 @@ export default async function ReportsPage() {
           <Link href="/api/export/finance">دریافت گزارش Excel</Link>
         </Button>
       </div>
+      <TreasurySummary treasury={data.treasury} />
       {period && plan ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -49,7 +51,7 @@ export default async function ReportsPage() {
           </Button>
         </section>
       )}
-      <DeferredMoneyTrend data={dashboardData(data).timeline} />
+      <DeferredMoneyTrend data={dashboardData(data).cashTimeline} />
     </div>
   );
 }

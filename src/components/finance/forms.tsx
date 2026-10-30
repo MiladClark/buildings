@@ -28,7 +28,7 @@ export function ActionForm({
   const closeModal = useContext(ModalCloseContext);
   return (
     <form
-      className={className}
+      className="action-form min-w-0"
       action={(form) =>
         start(async () => {
           setMessage("");
@@ -48,7 +48,10 @@ export function ActionForm({
         })
       }
     >
-      <fieldset disabled={pending} className="contents">
+      <fieldset
+        disabled={pending}
+        className={cn("action-form-fields", className)}
+      >
         {children}
       </fieldset>
       {pending && (

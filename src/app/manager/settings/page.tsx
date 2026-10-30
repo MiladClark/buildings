@@ -9,6 +9,12 @@ import Link from "next/link";
 
 const sections = [
   {
+    href: "/manager/account",
+    title: "حساب کاربری من",
+    text: "مشخصات حساب، شماره و ایمیل و رمز ورود.",
+    icon: Users,
+  },
+  {
     href: "/manager/history",
     title: "سابقه و بازیابی",
     text: "تغییرها، حذف‌ها و بازگرداندن مواردی که اشتباه ثبت شده‌اند.",
@@ -22,8 +28,8 @@ const sections = [
   },
   {
     href: "/manager/residents",
-    title: "حساب ساکنان",
-    text: "ساخت حساب، رمز و اتصال هر همسایه به واحد خودش.",
+    title: "حساب‌ها و دسترسی‌ها",
+    text: "ساخت حساب با شماره، انتخاب مدیر یا ساکن و تنظیم دسترسی‌ها.",
     icon: Users,
   },
 ];
@@ -52,7 +58,10 @@ export default async function SettingsPage() {
           <p>اطلاعات ساختمان، حساب دریافت شارژ و بخش‌های تنظیماتی.</p>
         </div>
       </div>
-      <section aria-label="بخش‌های تنظیمات" className="grid gap-3 sm:grid-cols-3">
+      <section
+        aria-label="بخش‌های تنظیمات"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
         {sections.map((section) => (
           <Link
             key={section.href}

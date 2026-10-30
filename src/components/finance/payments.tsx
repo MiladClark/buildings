@@ -164,6 +164,7 @@ export function PaymentHistory({
           </Button>
         </div>
         <Input
+          label="جست‌وجوی واریزهای این واحد"
           aria-label="جست‌وجوی واریزهای این واحد"
           value={receiptSearch}
           onChange={(e) => setReceiptSearch(e.target.value)}

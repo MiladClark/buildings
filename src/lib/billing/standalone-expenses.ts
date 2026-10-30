@@ -17,6 +17,7 @@ import {
 import { correctExpense, logManagementEvent } from "./corrections";
 import { validateMaintenanceLink } from "./maintenance-link";
 import { paymentDestination } from "./charge-model";
+import { assertCostHasNoDisbursements } from "./disbursements";
 
 export type StandaloneInput = {
   categoryId: string;
@@ -273,6 +274,9 @@ export async function setStandaloneCostDeleted(
   if (cost.linkedExpenseId)
     throw new Error("ابتدا این هزینه را از دوره خارج کنید.");
   if (deleted) {
+    await assertCostHasNoDisbursements(tx, buildingId, {
+      standaloneExpenseId: id,
+    });
     const active = await tx.query.payment.findFirst({
       where: and(
         eq(payment.standaloneExpenseId, id),

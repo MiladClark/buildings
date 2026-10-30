@@ -40,7 +40,7 @@ export function MoneyTrend({
         <div>
           <h2 className="panel-title">جریان مالی ساختمان</h2>
           <p className="panel-subtitle">
-            مقایسه دریافت‌ها و هزینه‌ها در ماه‌های شمسی
+            دریافت تأییدشده و پرداخت واقعی از حساب در ماه‌های شمسی
           </p>
         </div>
         <Select
@@ -61,7 +61,7 @@ export function MoneyTrend({
         </span>
         <span className="flex items-center gap-2">
           <span className="h-0.5 w-4 bg-[var(--chart-muted)]" />
-          هزینه‌ها
+          پرداخت از حساب
         </span>
         <span className="ms-auto">میلیون تومان</span>
       </div>
@@ -70,7 +70,7 @@ export function MoneyTrend({
           dir="ltr"
           className="h-[240px] px-3 pb-2"
           role="img"
-          aria-label="نمودار دریافت‌ها و هزینه‌های ساختمان"
+          aria-label="نمودار دریافت و پرداخت واقعی حساب ساختمان"
         >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
@@ -113,7 +113,7 @@ export function MoneyTrend({
                 }}
                 formatter={(value, name) => [
                   formatToman(Number(value)),
-                  name === "income" ? "دریافت‌ها" : "هزینه‌ها",
+                  name === "income" ? "دریافت‌ها" : "پرداخت از حساب",
                 ]}
               />
               <Area
@@ -140,12 +140,13 @@ export function MoneyTrend({
       ) : (
         <EmptyState
           title="اولین فصل حساب‌وکتاب شما"
-          description="با ایجاد اولین دوره و ثبت هزینه یا دریافت، روند مالی ساختمان اینجا شکل می‌گیرد."
+          description="با ثبت اولین دریافت یا پرداخت واقعی، روند حساب ساختمان اینجا نمایش داده می‌شود."
         />
       )}
       <div className="mx-6 flex items-center gap-1.5 border-t border-border py-3.5 text-[10px] text-muted-foreground">
         <ChartLine size={14} />
-        دریافت‌ها و هزینه‌ها بر اساس تاریخ ثبت در ماه شمسی
+        فقط دریافت و پرداخت تأییدشده؛ برآورد و هزینه پرداخت‌نشده در این نمودار
+        نیست.
       </div>
     </section>
   );

@@ -5,8 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FloatingInput } from "@/components/auth/floating-field";
 import { authClient } from "@/lib/auth-client";
 import {
   englishPassword,
@@ -86,32 +85,28 @@ export function LoginForm({
     <form
       method="post"
       onSubmit={onSubmit}
-      className="flex w-full max-w-sm flex-col gap-4"
+      className="flex w-full max-w-sm flex-col gap-6 pt-2"
     >
-      <div className="space-y-2">
-        <Label htmlFor="identifier">شماره تلفن یا ایمیل</Label>
-        <Input
-          id="identifier"
-          name="identifier"
-          type="text"
-          dir="ltr"
-          required
-          autoComplete="username"
-          placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-          onInput={(event) => writeLatinDigits(event.currentTarget)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="password">رمز عبور</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          onInput={(event) => writeLatinDigits(event.currentTarget)}
-        />
-      </div>
+      <FloatingInput
+        label="شماره تلفن یا ایمیل"
+        id="identifier"
+        name="identifier"
+        type="text"
+        dir="ltr"
+        required
+        autoComplete="username"
+        placeholder="۰۹۱۲۳۴۵۶۷۸۹"
+        onInput={(event) => writeLatinDigits(event.currentTarget)}
+      />
+      <FloatingInput
+        label="رمز عبور"
+        id="password"
+        name="password"
+        type="password"
+        required
+        autoComplete="current-password"
+        onInput={(event) => writeLatinDigits(event.currentTarget)}
+      />
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "لطفاً صبر کنید..." : "ورود"}
       </Button>

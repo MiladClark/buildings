@@ -106,6 +106,108 @@ export async function GET() {
       amount: toToman(cost.amountRial),
       period: "مستقل؛ خارج از شارژ",
     });
+  const fund = book.addWorksheet("حساب ساختمان", {
+    views: [{ rightToLeft: true }],
+  });
+  fund.columns = [
+    { header: "عنوان", key: "label", width: 45 },
+    { header: "مبلغ (تومان)", key: "amount", width: 25 },
+  ];
+  for (const [label, amount] of [
+    ["دریافت تأییدشده", data.treasury.receivedRial],
+    ["پرداخت واقعی از حساب", data.treasury.paidRial],
+    ["موجودی حساب", data.treasury.balanceRial],
+    ["مانده برآورد پرداخت‌نشده", data.treasury.pendingRial],
+  ] as const)
+    fund.addRow({ label, amount: toToman(amount) });
+  const status = book.addWorksheet("وضعیت پرداخت هزینه‌ها", {
+    views: [{ rightToLeft: true }],
+  });
+  status.columns = [
+    { header: "هزینه", key: "title", width: 40 },
+    { header: "دسته", key: "category", width: 20 },
+    { header: "برآورد (تومان)", key: "estimate", width: 22 },
+    { header: "پرداخت از حساب (تومان)", key: "fund", width: 25 },
+    { header: "از جیب واحدها (تومان)", key: "direct", width: 25 },
+    { header: "مبلغ نهایی (تومان)", key: "actual", width: 25 },
+    { header: "مانده برآورد (تومان)", key: "remaining", width: 25 },
+    { header: "وضعیت", key: "state", width: 25 },
+  ];
+  data.treasury.costs.forEach((c) =>
+    status.addRow({
+      title: c.title,
+      category: c.category,
+      estimate: toToman(c.estimateRial),
+      fund: toToman(c.paidFromFundRial),
+      direct: toToman(c.directRial),
+      actual: c.actualRial == null ? null : toToman(c.actualRial),
+      remaining: toToman(c.remainingRial),
+      state: c.state,
+    }),
+  );
+  const outlays = book.addWorksheet("اسناد پرداخت از حساب", {
+    views: [{ rightToLeft: true }],
+  });
+  outlays.columns = [
+    { header: "شناسه سند", key: "id", width: 40 },
+    { header: "بابت", key: "title", width: 40 },
+    { header: "گیرنده", key: "payee", width: 25 },
+    { header: "تاریخ پرداخت", key: "date", width: 18 },
+    { header: "مبلغ (تومان)", key: "amount", width: 22 },
+    { header: "روش", key: "method", width: 18 },
+    { header: "شماره پیگیری", key: "reference", width: 25 },
+    { header: "توضیح", key: "note", width: 40 },
+    { header: "وضعیت", key: "state", width: 20 },
+    { header: "تاریخ لغو", key: "cancelled", width: 18 },
+    { header: "دلیل لغو", key: "reason", width: 40 },
+  ];
+  const items = book.addWorksheet("ریز خرید", {
+    views: [{ rightToLeft: true }],
+  });
+  items.columns = [
+    { header: "شناسه سند", key: "id", width: 40 },
+    { header: "نام کالا", key: "description", width: 35 },
+    { header: "مبلغ (تومان)", key: "amount", width: 22 },
+    { header: "وضعیت سند", key: "state", width: 20 },
+  ];
+  for (const d of data.disbursements) {
+    const state = d.cancelledAt
+      ? "لغوشده؛ بدون اثر بر موجودی"
+      : d.finalPayment
+        ? "پرداخت نهایی"
+        : "علی‌الحساب";
+    const cost = data.treasury.costs.find((c) =>
+      d.standaloneExpenseId
+        ? c.target.standaloneExpenseId === d.standaloneExpenseId
+        : c.target.expenseId === d.expenseId,
+    );
+    outlays.addRow({
+      id: d.id,
+      title: cost?.title ?? "هزینه بایگانی‌شده",
+      payee: d.payee,
+      date: formatJalaliDate(d.paidAt),
+      amount: toToman(d.amountRial),
+      method:
+        d.method === "cash"
+          ? "نقدی"
+          : d.method === "bank_transfer"
+            ? "بانکی"
+            : "سایر",
+      reference: d.reference,
+      note: d.note,
+      state,
+      cancelled: d.cancelledAt ? formatJalaliDate(d.cancelledAt) : "",
+      reason: d.cancellationReason,
+    });
+    d.items.forEach((i) =>
+      items.addRow({
+        id: d.id,
+        description: i.description,
+        amount: toToman(i.amountRial),
+        state,
+      }),
+    );
+  }
   for (const sheet of book.worksheets) {
     sheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
     sheet.getRow(1).fill = {

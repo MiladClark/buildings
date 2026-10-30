@@ -3,7 +3,19 @@
 import { useId, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Tabs from "@radix-ui/react-tabs";
-import { ArrowLeft, ChevronLeft, ChevronRight, CircleCheck, Download, House, Search, Plus, Receipt, Wallet, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  Download,
+  House,
+  Search,
+  Plus,
+  Receipt,
+  Wallet,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,14 +140,12 @@ export function UnitAccounts(props: Props) {
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative min-w-0 flex-1">
-          <label htmlFor={searchId} className="sr-only">
-            جست‌وجوی واحد یا نام ساکن
-          </label>
           <Search
             size={18}
-            className="pointer-events-none absolute right-3 top-3.5 text-muted-foreground"
+            className="pointer-events-none absolute right-3 top-3.5 z-10 text-muted-foreground"
           />
           <Input
+            label="جست‌وجوی واحد یا نام ساکن"
             data-search-input
             id={searchId}
             value={search}

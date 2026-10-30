@@ -17,11 +17,13 @@ export function MoneyInput({
       dir="ltr"
       maxLength={30}
       defaultValue={
-        defaultRial == null
-          ? ""
-          : toToman(defaultRial).toLocaleString("en-US", {
-              maximumFractionDigits: 1,
-            })
+        props.value !== undefined
+          ? undefined
+          : defaultRial == null
+            ? ""
+            : toToman(defaultRial).toLocaleString("en-US", {
+                maximumFractionDigits: 1,
+              })
       }
     />
   );

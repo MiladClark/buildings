@@ -18,12 +18,17 @@ const names: Record<string, string> = {
   category: "دسته هزینه",
   maintenance: "تعمیر و درخواست",
   membership: "حساب ساکن",
+  profile: "حساب کاربری",
   request: "اعلام واریز",
   settings: "تنظیمات",
   charge_plan: "برنامه‌ریزی شارژ",
   standalone_expense: "هزینه مستقل",
+  disbursement: "پرداخت از حساب ساختمان",
 };
 const actions: Record<string, string> = {
+  role: "تغییر نقش و دسترسی",
+  password: "تعیین رمز ورود",
+  merge: "یکپارچه‌سازی حساب",
   release: "برگشت به بستانکاری",
   settle: "تخصیص از بستانکاری",
   edit: "ویرایش",
@@ -37,12 +42,19 @@ const actions: Record<string, string> = {
   create: "ثبت",
   include: "انتقال به شارژ دوره",
   detach: "خروج از شارژ",
+  cancel: "لغو پرداخت اشتباه",
 };
 const labels: Record<string, string> = {
   title: "عنوان",
   label: "واحد",
   name: "نام",
+  phone: "شماره تلفن",
+  role: "نقش حساب",
   amountRial: "مبلغ",
+  payee: "گیرنده وجه",
+  finalPayment: "تسویه نهایی",
+  reference: "شماره پیگیری / رسید",
+  cancellationReason: "دلیل لغو پرداخت",
   note: "شرح واریز",
   description: "شرح",
   status: "وضعیت",
@@ -70,6 +82,8 @@ const labels: Record<string, string> = {
   deletedAt: "حذف‌شده",
 };
 const values: Record<string, string> = {
+  manager: "مدیر ساختمان",
+  resident: "ساکن",
   open: "در انتظار رسیدگی",
   in_progress: "در حال رسیدگی",
   resolved: "انجام‌شده",

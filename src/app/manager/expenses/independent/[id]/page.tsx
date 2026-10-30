@@ -11,6 +11,7 @@ import { requireManager } from "@/lib/session";
 import { formatToman } from "@/lib/format/money";
 import { formatJalaliDate, isoDate } from "@/lib/format/jalali";
 import { invoiceRecipient } from "@/lib/export/invoice-recipient";
+import { TreasurySummary, TreasuryLedger } from "@/components/finance/treasury";
 
 export default async function IndependentExpensePage({
   params,
@@ -79,9 +80,21 @@ export default async function IndependentExpensePage({
           </FormModal>
         )}
       </div>
+      <TreasurySummary treasury={data.treasury} />
+      <TreasuryLedger
+        treasury={data.treasury}
+        today={today}
+        standaloneId={id}
+        history={data.disbursements.map((d) => ({
+          ...d,
+          paidAt: d.paidAt.toISOString(),
+          createdAt: d.createdAt.toISOString(),
+          cancelledAt: d.cancelledAt?.toISOString() ?? null,
+        }))}
+      />
       <dl className="panel grid sm:grid-cols-3">
         {[
-          ["مبلغ کل هزینه", cost.amountRial],
+          ["مبلغ ثبت‌شده / برآورد", cost.amountRial],
           ["واریز به مدیر", received],
           ["پرداخت مستقیم از جیب واحدها", advances],
         ].map(([label, amount], index) => (

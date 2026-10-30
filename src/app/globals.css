@@ -101,12 +101,12 @@ button:disabled {
   color: var(--secondary-foreground);
 }
 .form-control {
-  height: 44px;
-  min-height: 44px;
+  height: 48px;
+  min-height: 48px;
   border: 1px solid var(--input);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--background);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--card);
   color: var(--foreground);
   font: inherit;
   font-size: 13px;
@@ -129,7 +129,10 @@ button:disabled {
 }
 .form-control:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.65;
+}
+.form-control[readonly] {
+  color: var(--muted-foreground);
 }
 button.form-control {
   height: 32px;
@@ -226,9 +229,20 @@ h1 {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 24px 20px;
+}
+.action-form-fields {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.action-form > [role="status"],
+.action-form > [role="alert"] {
+  margin-top: 16px;
 }
 .form-field {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -247,6 +261,140 @@ h1 {
 .form-field label {
   font-size: 12px;
   font-weight: 500;
+}
+/* Keep native label associations; float the same label for empty, filled,
+   focused and autofilled fields. CSS also follows native form.reset(). */
+.form-field > span:first-child {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.form-field:has(
+  > input.form-control,
+  > textarea.form-control,
+  > button.form-control
+) {
+  gap: 10px;
+}
+.form-field:has(> button.form-control) > button.form-control {
+  height: 48px;
+  min-height: 48px;
+  padding-inline: 14px;
+  font-size: 13px;
+}
+.form-field:has(
+    > input.form-control,
+    > textarea.form-control,
+    > button.form-control
+  )
+  > :is(label, span:first-child, div:first-child:has(> label)) {
+  position: absolute;
+  z-index: 1;
+  inset-inline-start: 10px;
+  top: 24px;
+  min-height: 0;
+  max-width: calc(100% - 30px);
+  margin: 0;
+  padding: 0 5px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  transform: translateY(-50%);
+  transition:
+    top 180ms ease,
+    color 180ms ease,
+    font-size 180ms ease;
+}
+.form-field:has(> input.form-control, > textarea.form-control)
+  > :is(input, textarea)::placeholder {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.form-field:has(> input.form-control, > textarea.form-control)
+  > :is(input, textarea):focus::placeholder {
+  opacity: 0.65;
+}
+.form-field:has(
+    > input.form-control:focus,
+    > textarea.form-control:focus,
+    > input.form-control:not(:placeholder-shown),
+    > textarea.form-control:not(:placeholder-shown),
+    > input.form-control[readonly],
+    > button.form-control
+  )
+  > :is(label, span:first-child, div:first-child:has(> label)) {
+  top: 0;
+  font-size: 11px;
+  font-weight: 500;
+}
+.form-field:has(> input.form-control:autofill) > :is(label, span:first-child) {
+  top: 0;
+  font-size: 11px;
+}
+.form-field:focus-within
+  > :is(label, span:first-child, div:first-child:has(> label)) {
+  color: var(--primary);
+}
+.form-field > .form-control[dir="ltr"] {
+  text-align: left;
+}
+.form-field:has(> [data-search-input]) > span:first-child {
+  inset-inline-start: 32px;
+}
+.form-field .form-control[data-search-input] {
+  padding-inline-start: 38px;
+}
+.chat-compose-field > textarea.form-control {
+  height: auto;
+  min-height: 48px;
+  max-height: 128px;
+  resize: none;
+}
+.form-field > :is(input, textarea)[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+@media (prefers-reduced-motion: reduce) {
+  .form-field > :is(label, span:first-child, div:first-child:has(> label)) {
+    transition: none;
+  }
+}
+.account-settings-sheet {
+  max-width: 1040px;
+  overflow: hidden;
+}
+.account-settings-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
+  gap: 48px;
+  padding: 32px;
+}
+.account-settings-row + .account-settings-row {
+  border-top: 1px solid var(--border);
+}
+.account-settings-row h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.account-settings-row > div:first-child > p {
+  font-size: 12px;
+  line-height: 2;
+  color: var(--muted-foreground);
+}
+.account-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+@media (max-width: 767px) {
+  .account-settings-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 24px;
+  }
 }
 .stat-figure {
   font-size: clamp(22px, 2.25vw, 32px);

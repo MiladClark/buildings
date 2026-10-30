@@ -6,6 +6,7 @@ import { getFinanceData } from "@/lib/queries/finance";
 import { requireManager } from "@/lib/session";
 import { isoDate, formatJalaliDate } from "@/lib/format/jalali";
 import { formatToman } from "@/lib/format/money";
+import { TreasurySummary, TreasuryLedger } from "@/components/finance/treasury";
 
 export default async function ExpensesPage({
   searchParams,
@@ -31,8 +32,8 @@ export default async function ExpensesPage({
         <div>
           <h1>هزینه‌های ساختمان</h1>
           <p>
-            هزینه را مستقل نگه دارید یا در شارژ یک دوره ثبت کنید؛ انتخاب با
-            شماست.
+            اول هزینه یا برآورد خرید را ثبت کنید؛ پس از پرداخت واقعی، مبلغ را از
+            حساب کسر کنید.
           </p>
         </div>
         <FormModal
@@ -50,6 +51,17 @@ export default async function ExpensesPage({
           />
         </FormModal>
       </div>
+      <TreasurySummary treasury={data.treasury} />
+      <TreasuryLedger
+        treasury={data.treasury}
+        today={isoDate(new Date())}
+        history={data.disbursements.map((d) => ({
+          ...d,
+          paidAt: d.paidAt.toISOString(),
+          createdAt: d.createdAt.toISOString(),
+          cancelledAt: d.cancelledAt?.toISOString() ?? null,
+        }))}
+      />
       <dl className="panel grid sm:grid-cols-3">
         {[
           [
