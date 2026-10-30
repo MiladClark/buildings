@@ -17,7 +17,7 @@ export default async function CalendarPage() {
       <div className="page-heading">
         <div>
           <h1>تقویم ساختمان</h1>
-          <p>سررسید شارژ، تاریخ هزینه‌ها و واریزها روی تقویم شمسی.</p>
+          <p>سررسید شارژ و قبوض، تاریخ هزینه‌ها و واریزها روی تقویم شمسی.</p>
         </div>
       </div>
       <div className="grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
@@ -31,8 +31,8 @@ export default async function CalendarPage() {
         <section className="panel p-6">
           <h2 className="panel-title">سررسیدهای پیش رو</h2>
           <p className="mb-6 mt-2 text-xs leading-6 text-muted-foreground">
-            برای تغییر مهلت پرداخت دوره‌های جدید، روز سررسید را در تنظیمات
-            ساختمان تعیین کنید.
+            روز سررسید شارژ در تنظیمات ساختمان تعیین می‌شود؛ مهلت هر قبض از
+            پرونده همان قبض قابل ویرایش است.
           </p>
           {upcoming.length ? (
             upcoming.map((e) => (

@@ -2,6 +2,7 @@
 import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { db } from "@/lib/db";
 import { requireManager } from "@/lib/session";
+import type { UtilityBill } from "@/lib/billing/utility-bill";
 import {
   saveStandaloneCost,
   includeStandaloneCost,
@@ -19,6 +20,7 @@ export async function saveStandaloneExpense(
     amountRial: number;
     expenseDate: string;
     maintenanceTicketId?: string | null;
+    utilityBill?: UtilityBill | null;
   },
   id?: string,
 ) {

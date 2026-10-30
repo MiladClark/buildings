@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
-import { ArrowUpLeft, Receipt, Wallet, CircleCheck, MessageCircle, CircleAlert } from "lucide-react";
+import {
+  ArrowUpLeft,
+  Receipt,
+  Wallet,
+  CircleCheck,
+  MessageCircle,
+  CircleAlert,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/finance/forms";
 import { db } from "@/lib/db";
@@ -183,6 +190,12 @@ export default async function ResidentDashboardPage() {
         <section className="panel">
           <div className="panel-head">
             <h2 className="panel-title">خبرهای حساب شما</h2>
+            <Link
+              href="/resident/notifications"
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              همه اعلان‌ها و تنظیمات
+            </Link>
           </div>
           {notifications.length ? (
             <div className="px-6 pb-6">

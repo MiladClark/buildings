@@ -455,6 +455,8 @@ export async function insertUnitPayment(
       standalone && !standalone.linkedExpenseId
         ? "مدیر مبلغ مربوط به یک هزینه مستقل را ثبت کرده است؛ مبلغ برای همان هزینه محفوظ است و هنوز در شارژ دوره قرار ندارد."
         : "مدیر یک دریافت یا اعتبار در حساب واحد ثبت کرده است؛ سهم هزینه‌ها، بدهی و بستانکاری در حساب شما به‌روز شده‌اند.",
+      "payment",
+      "/resident/payments",
     );
   return id;
 }

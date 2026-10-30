@@ -6,7 +6,9 @@ import { DataGrid } from "@/components/finance/data-grid";
 import { ExpenseActions } from "./expense-actions";
 
 import { formatJalaliDate } from "@/lib/format/jalali";
+import type { UtilityBill } from "@/lib/billing/utility-bill";
 type ExpenseRow = {
+  utilityBill?: UtilityBill | null;
   coverageMonths?: number | null;
   billingTreatment?: "auto" | "separate";
   id: string;

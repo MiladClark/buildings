@@ -179,6 +179,7 @@ export async function finalizeBillingPeriod(periodId: string) {
       units.map((u) => u.id),
       "فیش شارژ جدید",
       `فیش «${period.title}» صادر شد. مانده و جزئیات آن در فیش‌های من به‌روز است.`,
+      "invoice",
     );
     return preview;
   });

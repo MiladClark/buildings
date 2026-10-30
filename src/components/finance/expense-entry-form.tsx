@@ -12,6 +12,11 @@ import { tomanInputToRial } from "@/lib/format/money";
 import { addExpenseLine } from "@/lib/actions/building";
 import { saveStandaloneExpense } from "@/lib/actions/standalone-expenses";
 import { BillCoverageField } from "./bill-coverage-field";
+import { UtilityBillFields } from "./utility-bill-fields";
+import {
+  utilityBillFromForm,
+  type UtilityBill,
+} from "@/lib/billing/utility-bill";
 
 export function ExpenseEntryForm({
   categories,
@@ -33,6 +38,7 @@ export function ExpenseEntryForm({
     description: string;
     expenseDate: string;
     maintenanceTicketId?: string | null;
+    utilityBill?: UtilityBill | null;
   };
 }) {
   const [mode, setMode] = useState(
@@ -49,6 +55,7 @@ export function ExpenseEntryForm({
           amountRial: tomanInputToRial(f.get("amountToman")),
           description: String(f.get("description") || ""),
           expenseDate: String(f.get("expenseDate")),
+          utilityBill: utilityBillFromForm(f),
           maintenanceTicketId:
             ticket?.id ?? initial?.maintenanceTicketId ?? undefined,
         };
@@ -154,6 +161,7 @@ export function ExpenseEntryForm({
         />
       </div>
       {mode === "period" && <BillCoverageField />}
+      <UtilityBillFields initial={initial?.utilityBill} />
       {mode === "period" && (
         <div className="form-field col-span-full">
           <label htmlFor="expense-payment-source">روش تأمین هزینه</label>

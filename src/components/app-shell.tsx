@@ -1,6 +1,7 @@
 "use client";
 import { CacheControls } from "@/components/cache-controls";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationBell } from "@/components/notifications/bell";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -24,6 +25,7 @@ import {
   MessageCircle,
   SlidersHorizontal,
   ChevronDown,
+  Bell,
 } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CHAT_SEEN_EVENT, readChatSeen } from "@/lib/chat-seen";
@@ -34,6 +36,8 @@ const managerNav = [
   { href: "/manager/units", label: "واحدها و ساکنان", icon: Building2 },
   { href: "/manager/periods", label: "شارژ و صورت‌حساب‌ها", icon: Receipt },
   { href: "/manager/expenses", label: "هزینه‌های ساختمان", icon: Wallet },
+  { href: "/manager/bills", label: "قبوض و سررسیدها", icon: Receipt },
+  { href: "/manager/notifications", label: "اعلان‌ها", icon: Bell },
   {
     href: "/manager/payments",
     label: "دریافت‌ها و پرداخت‌ها",
@@ -71,6 +75,7 @@ const residentNav = [
   },
   { href: "/resident/maintenance", label: "درخواست رسیدگی", icon: Wrench },
   { href: "/resident/account", label: "حساب کاربری من", icon: Users },
+  { href: "/resident/notifications", label: "اعلان‌ها", icon: Bell },
 ];
 export function Brand() {
   return (
@@ -391,6 +396,7 @@ export function AppShell({
             </span>
           </div>
           <div className="flex items-center">
+            <NotificationBell role={role} />
             {role === "manager" && <CacheControls />}
             <ThemeToggle />
           </div>
@@ -411,7 +417,11 @@ export function AppShell({
             className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
           >
             {residentNav
-              .filter((item) => item.href !== "/resident/account")
+              .filter(
+                (item) =>
+                  item.href !== "/resident/account" &&
+                  item.href !== "/resident/notifications",
+              )
               .map((item) => {
                 const active =
                   item.href === path ||

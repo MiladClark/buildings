@@ -6,6 +6,8 @@ import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { setRecordDeleted } from "./management";
 import { logManagementEvent } from "@/lib/billing/corrections";
 import { notifyUnitAccounts } from "@/lib/billing/notifications";
+import { enqueueNotice } from "@/lib/notifications/store";
+import { parseUtilityBill, type UtilityBill } from "@/lib/billing/utility-bill";
 import { validateMaintenanceLink } from "@/lib/billing/maintenance-link";
 import { allocatePeriodCharges } from "@/lib/billing/engine";
 import { receivableExpenses, usesChargeFund } from "@/lib/billing/charge-model";
@@ -24,7 +26,6 @@ import { finalizeBillingPeriod } from "@/lib/billing/finalize";
 import { computeChargeRecommendation } from "@/lib/billing/recommendations";
 import { db } from "@/lib/db";
 import {
-  appNotification,
   billingPeriod,
   building,
   expenseCategory,
@@ -363,6 +364,7 @@ export async function createBillingPeriod(data: {
   return id;
 }
 export async function addExpenseLine(data: {
+  utilityBill?: UtilityBill | null;
   coverageMonths?: number | null;
   billingTreatment?: "auto" | "separate";
   maintenanceTicketId?: string;
@@ -413,6 +415,7 @@ export async function addExpenseLine(data: {
     await validateMaintenanceLink(tx, b.id, data.maintenanceTicketId);
     await tx.insert(expenseLine).values({
       ...data,
+      utilityBill: parseUtilityBill(data.utilityBill),
       id: crypto.randomUUID(),
       amountRial: amount(data.amountRial),
       expenseDate: date(data.expenseDate),
@@ -519,8 +522,11 @@ export async function reviewPaymentRequest(id: string, approve: boolean) {
       .update(paymentRequest)
       .set({ status: approve ? "approved" : "rejected" })
       .where(eq(paymentRequest.id, id));
-    await tx.insert(appNotification).values({
-      id: crypto.randomUUID(),
+    await enqueueNotice(tx, {
+      buildingId: member.buildingId,
+      kind: "payment",
+      href: "/resident/payments",
+      dedupeKey: `request-result:${id}:${approve}`,
       userId: r.userId,
       title: approve ? "پرداخت شما تأیید شد" : "پرداخت نیاز به بررسی دارد",
       body: approve
@@ -563,15 +569,37 @@ export async function requestPayment(data: {
     )
       throw new Error("هزینه انتخاب‌شده معتبر نیست.");
   }
-  await db.insert(paymentRequest).values({
-    id: crypto.randomUUID(),
-    unitId: member.unitId,
-    userId: session.user.id,
-    amountRial: amount(data.amountRial),
-    periodId: data.periodId,
-    categoryId: data.categoryId,
-    note: data.note,
-    status: "pending",
+  await db.transaction(async (tx) => {
+    const requestId = crypto.randomUUID();
+    await tx.insert(paymentRequest).values({
+      id: requestId,
+      unitId: currentUnit.id,
+      userId: session.user.id,
+      amountRial: amount(data.amountRial),
+      periodId: data.periodId,
+      categoryId: data.categoryId,
+      note: data.note,
+      status: "pending",
+    });
+    const managers = await tx
+      .select()
+      .from(membership)
+      .where(
+        and(
+          eq(membership.buildingId, member.buildingId),
+          eq(membership.role, "manager"),
+        ),
+      );
+    for (const manager of managers)
+      await enqueueNotice(tx, {
+        buildingId: member.buildingId,
+        userId: manager.userId,
+        kind: "payment",
+        title: "واریز تازه منتظر بررسی است",
+        body: "یکی از ساکنان اطلاعات واریز را ثبت کرده است. مبلغ و شرح را در دریافت‌ها و پرداخت‌ها بررسی کنید.",
+        href: "/manager/payments",
+        dedupeKey: `payment-request:${requestId}`,
+      });
   });
   await refresh();
 }
@@ -707,11 +735,15 @@ export async function sendUnitReminder(unitId: string) {
   if (!members.length)
     throw new Error("برای این واحد هنوز حساب ساکن متصل نشده است.");
   for (const m of members)
-    await db.insert(appNotification).values({
-      id: crypto.randomUUID(),
-      userId: m.userId,
-      title: "یادآوری پرداخت شارژ",
-      body: `لطفاً مانده حساب واحد خود را در بخش فیش‌ها بررسی و پس از واریز، پرداخت را ثبت کنید. ${b.name}`,
-    });
+    await db.transaction((tx) =>
+      enqueueNotice(tx, {
+        buildingId: b.id,
+        kind: "charge_due",
+        href: "/resident/invoices",
+        userId: m.userId,
+        title: "یادآوری پرداخت شارژ",
+        body: `لطفاً مانده حساب واحد خود را در بخش فیش‌ها بررسی و پس از واریز، پرداخت را ثبت کنید. ${b.name}`,
+      }),
+    );
   await refresh();
 }

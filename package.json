@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3300",
     "build": "next build",
-    "start": "next start --port 3300",
+    "start": "node scripts/start.mjs",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -46,6 +46,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "vazirmatn": "^33.0.3",
+    "web-push": "^3.6.7",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -56,6 +57,7 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "drizzle-kit": "^0.31.5",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",

@@ -132,6 +132,7 @@ export default async function ExpensesPage({
         rows={data.expenses.map(({ expense: e, category: c }) => ({
           billingTreatment: e.billingTreatment,
           coverageMonths: e.coverageMonths,
+          utilityBill: e.utilityBill,
           id: e.id,
           maintenanceTicketId: e.maintenanceTicketId,
           ticketTitle:

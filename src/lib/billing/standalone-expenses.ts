@@ -18,6 +18,7 @@ import { correctExpense, logManagementEvent } from "./corrections";
 import { validateMaintenanceLink } from "./maintenance-link";
 import { paymentDestination } from "./charge-model";
 import { assertCostHasNoDisbursements } from "./disbursements";
+import { parseUtilityBill, type UtilityBill } from "./utility-bill";
 
 export type StandaloneInput = {
   categoryId: string;
@@ -25,6 +26,7 @@ export type StandaloneInput = {
   description: string;
   expenseDate: Date;
   maintenanceTicketId?: string | null;
+  utilityBill?: UtilityBill | null;
 };
 async function owned(tx: LedgerTransaction, buildingId: string, id: string) {
   const cost = await tx.query.standaloneExpense.findFirst({
@@ -91,6 +93,10 @@ export async function saveStandaloneCost(
   const key = id ?? crypto.randomUUID();
   const values = {
     ...input,
+    utilityBill:
+      input.utilityBill === undefined
+        ? (before?.utilityBill ?? null)
+        : parseUtilityBill(input.utilityBill),
     description: input.description.trim(),
     maintenanceTicketId: input.maintenanceTicketId ?? null,
   };
@@ -163,6 +169,7 @@ export async function includeStandaloneCost(
     amountRial: cost.amountRial,
     description: cost.description,
     expenseDate: cost.expenseDate,
+    utilityBill: cost.utilityBill,
     maintenanceTicketId: cost.maintenanceTicketId,
   });
   await tx

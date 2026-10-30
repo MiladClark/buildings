@@ -1,4 +1,10 @@
 import { periodTypes } from "@/lib/billing/periods";
+import type { UtilityBill } from "@/lib/billing/utility-bill";
+import type {
+  NotificationKind,
+  NotificationPolicy,
+  NotificationPreferences,
+} from "@/lib/notifications/types";
 import { relations, sql } from "drizzle-orm";
 import {
   check,
@@ -299,6 +305,7 @@ export const expenseLine = pgTable("expense_line", {
     .notNull()
     .default("auto"),
   coverageMonths: integer("coverage_months"),
+  utilityBill: jsonb("utility_bill").$type<UtilityBill>(),
   sourceStandaloneId: text("source_standalone_id"),
   description: text("description"),
   expenseDate: timestamp("expense_date", {
@@ -354,6 +361,7 @@ export const standaloneExpense = pgTable("standalone_expense", {
     .notNull()
     .references(() => expenseCategory.id),
   description: text("description").notNull(),
+  utilityBill: jsonb("utility_bill").$type<UtilityBill>(),
   amountRial: bigint("amount_rial", { mode: "number" }).notNull(),
   expenseDate: timestamp("expense_date", {
     withTimezone: true,
@@ -578,12 +586,119 @@ export const appNotification = pgTable("app_notification", {
     .references(() => user.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   body: text("body").notNull(),
+  buildingId: text("building_id").references(() => building.id, {
+    onDelete: "cascade",
+  }),
+  kind: text("kind").$type<NotificationKind>().notNull().default("system"),
+  href: text("href").notNull().default("/resident/notifications"),
+  dedupeKey: text("dedupe_key").unique(),
+  context: jsonb("context").$type<{
+    periodId?: string;
+    unitId?: string;
+    costKey?: string;
+    dueOn?: string;
+    announcementId?: string;
+  }>(),
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("created_at", {
     withTimezone: true,
     mode: "date",
     precision: 3,
   })
+    .notNull()
+    .defaultNow(),
+});
+
+export const notificationRule = pgTable("notification_rule", {
+  buildingId: text("building_id")
+    .primaryKey()
+    .references(() => building.id, { onDelete: "cascade" }),
+  settings: jsonb("settings").$type<NotificationPolicy>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+export const notificationPreference = pgTable("notification_preference", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  settings: jsonb("settings").$type<NotificationPreferences>().notNull(),
+});
+// Signing credentials remain server-side; only the public key is exposed to browsers.
+export const pushIdentity = pgTable("push_identity", {
+  id: text("id").primaryKey(),
+  publicKey: text("public_key").notNull(),
+  privateKey: text("private_key").notNull(),
+  subject: text("subject").notNull(),
+});
+export const pushSubscription = pgTable("push_subscription", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  buildingId: text("building_id")
+    .notNull()
+    .references(() => building.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  keys: jsonb("keys").$type<{ p256dh: string; auth: string }>().notNull(),
+  deviceName: text("device_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true, mode: "date" })
+    .notNull()
+    .defaultNow(),
+});
+export const notificationDelivery = pgTable(
+  "notification_delivery",
+  {
+    id: text("id").primaryKey(),
+    notificationId: text("notification_id")
+      .notNull()
+      .references(() => appNotification.id, { onDelete: "cascade" }),
+    subscriptionId: text("subscription_id")
+      .notNull()
+      .references(() => pushSubscription.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["pending", "sent", "failed", "cancelled"] })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextAttemptAt: timestamp("next_attempt_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    leaseUntil: timestamp("lease_until", { withTimezone: true, mode: "date" }),
+    expiresAt: timestamp("expires_at", {
+      withTimezone: true,
+      mode: "date",
+    }).notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true, mode: "date" }),
+    lastError: text("last_error"),
+  },
+  (t) => [
+    index("notification_delivery_pending_idx").on(t.status, t.nextAttemptAt),
+  ],
+);
+export const scheduledAnnouncement = pgTable("scheduled_announcement", {
+  id: text("id").primaryKey(),
+  buildingId: text("building_id")
+    .notNull()
+    .references(() => building.id, { onDelete: "cascade" }),
+  createdBy: text("created_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  audience: text("audience", {
+    enum: ["all", "residents", "managers", "unit"],
+  }).notNull(),
+  unitId: text("unit_id").references(() => unit.id, { onDelete: "cascade" }),
+  sendAt: timestamp("send_at", { withTimezone: true, mode: "date" }).notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true, mode: "date" }),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true, mode: "date" }),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
     .notNull()
     .defaultNow(),
 });

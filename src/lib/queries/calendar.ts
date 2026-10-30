@@ -3,6 +3,16 @@ import type { FinanceData } from "./finance";
 /** Both calendar surfaces use these events, built from the current ledger. */
 export function buildingCalendarEvents(data: FinanceData) {
   return [
+    ...(data.treasury?.costs ?? [])
+      .filter((c) => c.utilityBill?.dueOn)
+      .map((c) => ({
+        id: `bill-due:${c.key}`,
+        title: `مهلت قبض ${c.title}${c.settled ? " · پرداخت‌شده" : ""}`,
+        date: new Date(`${c.utilityBill!.dueOn}T12:00:00Z`).toISOString(),
+        href: "/manager/bills",
+        kind: "due" as const,
+        needsPayment: !c.settled && c.remainingRial > 0,
+      })),
     ...data.maintenance
       .filter((t) => !t.deletedAt && t.scheduledAt && t.status !== "resolved")
       .map((t) => ({

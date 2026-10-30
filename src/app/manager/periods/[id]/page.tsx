@@ -4,7 +4,12 @@ import { ExpenseActions } from "@/components/finance/expense-actions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { and, eq } from "drizzle-orm";
-import { ArrowRight, Download, FileText, Image as ImageIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Download,
+  FileText,
+  Image as ImageIcon,
+} from "lucide-react";
 import {
   ActionButton,
   ActionForm,
@@ -31,6 +36,8 @@ import { getPeriodChargePlan } from "@/lib/queries/charge-plan";
 import { PeriodChargePlanningCards } from "@/components/finance/period-charge-planning";
 import { costCoveredByCharge } from "@/lib/billing/charge-model";
 import { BillCoverageField } from "@/components/finance/bill-coverage-field";
+import { UtilityBillFields } from "@/components/finance/utility-bill-fields";
+import { utilityBillFromForm } from "@/lib/billing/utility-bill";
 export default async function PeriodDetailPage({
   params,
 }: {
@@ -67,6 +74,7 @@ export default async function PeriodDetailPage({
       categoryId: String(f.get("categoryId")),
       amountRial: tomanInputToRial(f.get("amountToman")),
       expenseDate: String(f.get("expenseDate")),
+      utilityBill: utilityBillFromForm(f),
       description: String(f.get("description") || ""),
     });
   }
@@ -249,6 +257,7 @@ export default async function PeriodDetailPage({
                     <Input id="detail-desc" name="description" />
                   </div>
                   <BillCoverageField />
+                  <UtilityBillFields />
                   <div className="form-field col-span-full">
                     <label htmlFor="detail-billing">روش تأمین هزینه</label>
                     <Select
@@ -316,6 +325,7 @@ export default async function PeriodDetailPage({
                   expense={{
                     billingTreatment: e.billingTreatment,
                     coverageMonths: e.coverageMonths,
+                    utilityBill: e.utilityBill,
                     id: e.id,
                     maintenanceTicketId: e.maintenanceTicketId,
                     categoryId: e.categoryId,

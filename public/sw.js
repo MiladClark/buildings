@@ -61,6 +61,82 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data?.json() ?? {};
+  } catch {
+    /* Use the safe fallback. */
+  }
+  const title =
+    typeof payload.title === "string" ? payload.title.slice(0, 150) : "واحدبان";
+  const body =
+    typeof payload.body === "string"
+      ? payload.body.slice(0, 2000)
+      : "پیام تازه‌ای در واحدبان دارید.";
+  let url = "/";
+  try {
+    const target = new URL(payload.url || "/", self.location.origin);
+    if (
+      target.origin === self.location.origin &&
+      /^\/(manager|resident)(\/|\?|$)/.test(target.pathname)
+    )
+      url = target.pathname + target.search;
+  } catch {
+    /* Keep the app home as the destination. */
+  }
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: typeof payload.tag === "string" ? payload.tag : "vahedban",
+      data: { url },
+      dir: "rtl",
+      lang: "fa",
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    (async () => {
+      const read =
+        typeof event.notification.tag === "string" &&
+        /^[\w-]{1,100}$/.test(event.notification.tag)
+          ? fetch("/api/notifications/read", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: event.notification.tag }),
+            }).catch(() => {})
+          : Promise.resolve();
+      const target = new URL(
+        event.notification.data?.url || "/",
+        self.location.origin,
+      );
+      const url =
+        target.origin === self.location.origin
+          ? target.href
+          : self.location.origin;
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      const client = windows.find(
+        (c) => new URL(c.url).origin === self.location.origin,
+      );
+      if (client) {
+        await client.navigate(url);
+        await Promise.all([client.focus(), read]);
+        return;
+      }
+      await Promise.all([self.clients.openWindow(url), read]);
+    })(),
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET" || request.mode !== "navigate") return;

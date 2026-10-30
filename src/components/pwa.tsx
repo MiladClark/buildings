@@ -25,19 +25,12 @@ export function PwaRegister() {
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
-    if (process.env.NODE_ENV !== "production") {
-      void navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (const registration of registrations) {
-          void registration.unregister();
-        }
-      });
-      return;
-    }
-
-    void navigator.serviceWorker.register("/sw.js", {
-      scope: "/",
-      updateViaCache: "none",
-    });
+    void navigator.serviceWorker
+      .register("/sw.js", {
+        scope: "/",
+        updateViaCache: "none",
+      })
+      .catch(() => {});
   }, []);
 
   return null;
@@ -57,7 +50,11 @@ function hintVisible() {
 }
 
 export function PwaInstallHint() {
-  const eligible = useSyncExternalStore(subscribeHint, hintVisible, () => false);
+  const eligible = useSyncExternalStore(
+    subscribeHint,
+    hintVisible,
+    () => false,
+  );
   const [closed, setClosed] = useState(false);
 
   if (!eligible || closed) return null;
@@ -69,8 +66,8 @@ export function PwaInstallHint() {
           <Share size={18} />
         </span>
         <p className="min-w-0 flex-1 text-[13px] leading-6">
-          برای نصب واحدبان، دکمهٔ اشتراک‌گذاری را بزنید و «افزودن به صفحهٔ
-          اصلی» را انتخاب کنید.
+          برای نصب واحدبان، دکمهٔ اشتراک‌گذاری را بزنید و «افزودن به صفحهٔ اصلی»
+          را انتخاب کنید.
         </p>
         <button
           type="button"

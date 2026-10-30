@@ -12,6 +12,11 @@ import { MoneyInput } from "./money-input";
 import { isoDate } from "@/lib/format/jalali";
 import { tomanInputToRial } from "@/lib/format/money";
 import { editExpense, setRecordDeleted } from "@/lib/actions/management";
+import { UtilityBillFields, UtilityBillDetails } from "./utility-bill-fields";
+import {
+  utilityBillFromForm,
+  type UtilityBill,
+} from "@/lib/billing/utility-bill";
 
 export function ExpenseActions({
   expense,
@@ -23,6 +28,7 @@ export function ExpenseActions({
   expense: {
     billingTreatment?: "auto" | "separate";
     coverageMonths?: number | null;
+    utilityBill?: UtilityBill | null;
     id: string;
     categoryId: string;
     amount: number;
@@ -64,6 +70,21 @@ export function ExpenseActions({
       label="عملیات هزینه"
       items={[
         ...links,
+        ...(expense.utilityBill
+          ? [
+              {
+                label: "مشخصات قبض",
+                dialog: (
+                  <FormModal
+                    title="مشخصات قبض"
+                    description={expense.description}
+                  >
+                    <UtilityBillDetails bill={expense.utilityBill} />
+                  </FormModal>
+                ),
+              },
+            ]
+          : []),
         {
           label: "ویرایش",
           dialog: (
@@ -96,6 +117,7 @@ export function ExpenseActions({
                     amountRial: tomanInputToRial(f.get("amountToman")),
                     description: String(f.get("description") || ""),
                     expenseDate: String(f.get("expenseDate")),
+                    utilityBill: utilityBillFromForm(f),
                   });
                 }}
               >
@@ -179,6 +201,7 @@ export function ExpenseActions({
                   </Select>
                 </div>
                 <BillCoverageField months={expense.coverageMonths} />
+                <UtilityBillFields initial={expense.utilityBill} />
                 <div className="form-field col-span-full">
                   <label htmlFor={`billing-${expense.id}`}>
                     روش تأمین هزینه

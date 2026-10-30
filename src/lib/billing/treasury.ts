@@ -21,6 +21,7 @@ export function buildTreasury(
       categoryId: c.categoryId,
       estimateRial: c.amountRial,
       date: c.expenseDate.toISOString(),
+      utilityBill: c.utilityBill ?? null,
       periodId:
         data.expenses.find((e) => e.id === c.linkedExpenseId)?.periodId ?? null,
       directRial: data.payments
@@ -43,6 +44,7 @@ export function buildTreasury(
         categoryId: e.categoryId,
         estimateRial: e.amountRial,
         date: e.expenseDate.toISOString(),
+        utilityBill: e.utilityBill ?? null,
         periodId: e.periodId,
         directRial: 0,
       })),

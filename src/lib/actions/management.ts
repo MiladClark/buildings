@@ -17,6 +17,7 @@ import {
   unit,
 } from "@/lib/db/schema";
 import { requireManager } from "@/lib/session";
+import type { UtilityBill } from "@/lib/billing/utility-bill";
 import {
   correctExpense,
   correctReceipt,
@@ -198,6 +199,7 @@ export async function editPeriod(
 export async function editExpense(
   id: string,
   data: {
+    utilityBill?: UtilityBill | null;
     billingTreatment?: "auto" | "separate";
     coverageMonths?: number | null;
     categoryId: string;

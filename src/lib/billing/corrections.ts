@@ -22,6 +22,7 @@ import {
 import { buildSettlementState, scopeKey } from "./settlement-state";
 import { validateMaintenanceLink } from "./maintenance-link";
 import { notifyUnitAccounts } from "./notifications";
+import { parseUtilityBill, type UtilityBill } from "./utility-bill";
 import { isoDate } from "@/lib/format/jalali";
 import { assertCostHasNoDisbursements } from "./disbursements";
 
@@ -367,6 +368,8 @@ export async function correctReceipt(
     operation === "delete"
       ? "مدیر یک واریز را ابطال کرده است؛ مانده بدهی و بستانکاری دوباره محاسبه شد."
       : "مدیر یک واریز را اصلاح یا بازیابی کرده است؛ مبلغ و وضعیت فعلی را در حساب واحد بررسی کنید.",
+    "payment",
+    "/resident/payments",
   );
   await logManagementEvent(
     tx,
@@ -431,6 +434,7 @@ export async function reopenPeriod(
     invoices.map((i) => i.unitId),
     "بازنگری فیش دوره",
     `فیش «${period.title}» برای اصلاح از اعتبار خارج شد. واریزهای شما حفظ شده‌اند؛ پس از صدور دوباره، فیش جدید نمایش داده می‌شود.`,
+    "invoice",
   );
   await tx
     .update(billingPeriod)
@@ -509,6 +513,7 @@ export async function correctExpense(
   operation: "edit" | "delete" | "restore",
   actorId?: string,
   input?: {
+    utilityBill?: UtilityBill | null;
     billingTreatment?: "auto" | "separate";
     coverageMonths?: number | null;
     categoryId: string;
@@ -581,7 +586,14 @@ export async function correctExpense(
     await reopenPeriod(tx, buildingId, period.id, actorId);
   await tx
     .update(expenseLine)
-    .set({ ...input, deletedAt: operation === "delete" ? new Date() : null })
+    .set({
+      ...input,
+      utilityBill:
+        input?.utilityBill === undefined
+          ? expense.utilityBill
+          : parseUtilityBill(input.utilityBill),
+      deletedAt: operation === "delete" ? new Date() : null,
+    })
     .where(eq(expenseLine.id, id));
   await reconcileDraftPayments(tx, buildingId);
   await logManagementEvent(

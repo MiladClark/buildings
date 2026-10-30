@@ -12,6 +12,7 @@ import { formatToman } from "@/lib/format/money";
 import { formatJalaliDate, isoDate } from "@/lib/format/jalali";
 import { invoiceRecipient } from "@/lib/export/invoice-recipient";
 import { TreasurySummary, TreasuryLedger } from "@/components/finance/treasury";
+import { UtilityBillDetails } from "@/components/finance/utility-bill-fields";
 
 export default async function IndependentExpensePage({
   params,
@@ -81,6 +82,12 @@ export default async function IndependentExpensePage({
         )}
       </div>
       <TreasurySummary treasury={data.treasury} />
+      {cost.utilityBill && (
+        <section className="panel p-6 space-y-5">
+          <h2 className="panel-title">مشخصات قبض</h2>
+          <UtilityBillDetails bill={cost.utilityBill} />
+        </section>
+      )}
       <TreasuryLedger
         treasury={data.treasury}
         today={today}

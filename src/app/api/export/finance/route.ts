@@ -70,6 +70,42 @@ export async function GET() {
       period: data.periods.find((p) => p.id === e.periodId)?.title,
     }),
   );
+  const bills = book.addWorksheet("قبوض", { views: [{ rightToLeft: true }] });
+  bills.columns = [
+    { header: "شرح", key: "title", width: 35 },
+    { header: "شناسه قبض", key: "billId", width: 22 },
+    { header: "شناسه پرداخت", key: "paymentId", width: 22 },
+    { header: "اشتراک", key: "subscriptionId", width: 22 },
+    { header: "کنتور", key: "meterNumber", width: 22 },
+    { header: "صدور", key: "issuedOn", width: 18 },
+    { header: "دریافت", key: "receivedOn", width: 18 },
+    { header: "قرائت قبلی", key: "periodStart", width: 18 },
+    { header: "قرائت فعلی", key: "periodEnd", width: 18 },
+    { header: "مهلت پرداخت", key: "dueOn", width: 18 },
+    { header: "مبلغ کل (تومان)", key: "amount", width: 22 },
+    { header: "پرداخت واقعی (تومان)", key: "paid", width: 24 },
+    { header: "وضعیت", key: "status", width: 22 },
+  ];
+  for (const cost of data.treasury.costs.filter((c) => c.utilityBill)) {
+    const bill = cost.utilityBill!;
+    const billDate = (v: string) =>
+      v ? formatJalaliDate(new Date(`${v}T12:00:00Z`)) : "";
+    bills.addRow({
+      title: cost.title,
+      billId: bill.billId,
+      paymentId: bill.paymentId,
+      subscriptionId: bill.subscriptionId,
+      meterNumber: bill.meterNumber,
+      issuedOn: billDate(bill.issuedOn),
+      receivedOn: billDate(bill.receivedOn),
+      periodStart: billDate(bill.periodStart),
+      periodEnd: billDate(bill.periodEnd),
+      dueOn: billDate(bill.dueOn),
+      amount: toToman(cost.estimateRial),
+      paid: toToman(cost.paidRial),
+      status: cost.state,
+    });
+  }
   const payments = book.addWorksheet("واریزها", {
     views: [{ rightToLeft: true }],
   });

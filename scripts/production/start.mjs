@@ -18,7 +18,10 @@ if (
 await import("./migrate.mjs");
 const server = spawn(process.execPath, ["server.js"], {
   stdio: "inherit",
-  env: process.env,
+  env: {
+    ...process.env,
+    NOTIFICATION_WORKER_ENABLED: process.env.NOTIFICATION_WORKER_ENABLED ?? "1",
+  },
 });
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => server.kill(signal));
