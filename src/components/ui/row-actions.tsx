@@ -100,10 +100,10 @@ export function RowActions({
           <Button
             ref={trigger}
             variant="ghost"
-            size="sm"
+            size="icon"
             disabled={pending}
             aria-label={label}
-            className="size-10 shrink-0 p-0 data-[state=open]:bg-muted"
+            className="data-[state=open]:bg-muted"
           >
             {pending ? (
               <LoaderCircle size={20} className="animate-spin" />

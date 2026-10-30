@@ -113,7 +113,10 @@ export function MaintenanceView({
           </ActionForm>
         </FormModal>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <section
+        aria-label="وضعیت درخواست‌ها"
+        className="grid grid-cols-3 gap-2 sm:gap-4"
+      >
         {[
           {
             label: "در انتظار رسیدگی",
@@ -131,19 +134,31 @@ export function MaintenanceView({
             icon: CircleCheck,
           },
         ].map((s) => (
-          <div key={s.label} className="panel flex items-center gap-4 p-5">
-            <s.icon size={24} className="text-primary" strokeWidth={1.75} />
-            <div>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
-              <p className="mt-2 text-2xl font-bold">
+          <div
+            key={s.label}
+            className="panel flex min-w-0 flex-col items-center gap-2 px-2 py-3 text-center sm:flex-row sm:gap-4 sm:p-5 sm:text-start"
+          >
+            <s.icon
+              size={24}
+              className="size-[18px] shrink-0 text-primary sm:size-6"
+              strokeWidth={1.75}
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <p className="flex min-h-8 items-center justify-center text-[11px] leading-4 text-muted-foreground sm:block sm:min-h-0 sm:text-xs">
+                {s.label}
+              </p>
+              <p className="mt-1 text-xl font-bold tabular-nums sm:mt-2 sm:text-2xl">
                 {s.value.toLocaleString("fa-IR")}
               </p>
             </div>
           </div>
         ))}
-      </div>
+      </section>
       <section className="panel">
-        <div className="panel-head">
+        <div
+          className={`panel-head ${!manager ? "max-sm:flex-col max-sm:items-stretch!" : ""}`}
+        >
           <h2 className="panel-title">فهرست درخواست‌ها</h2>
           <Select
             aria-label="فیلتر وضعیت درخواست"
@@ -161,6 +176,54 @@ export function MaintenanceView({
           data={rows}
           filename="maintenance-requests"
           searchPlaceholder="جست‌وجو در عنوان و شرح درخواست"
+          mobile={
+            !manager
+              ? {
+                  title: "title",
+                  status: "statusLabel",
+                  details: ["priorityLabel", "dateLabel", "scheduledLabel"],
+                }
+              : undefined
+          }
+          renderMobileAction={
+            !manager
+              ? (ticket) => (
+                  <FormModal
+                    title={ticket.title}
+                    description={
+                      ticket.description || "توضیح بیشتری ثبت نشده است."
+                    }
+                    trigger={
+                      <Button
+                        variant="outline"
+                        aria-label={`جزئیات ${ticket.title}`}
+                      >
+                        جزئیات درخواست
+                      </Button>
+                    }
+                  >
+                    <dl className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <dt className="text-muted-foreground">وضعیت</dt>
+                        <dd className="mt-2">{ticket.statusLabel}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">اولویت</dt>
+                        <dd className="mt-2">{ticket.priorityLabel}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">تاریخ ثبت</dt>
+                        <dd className="mt-2">{ticket.dateLabel}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">برنامه رسیدگی</dt>
+                        <dd className="mt-2">{ticket.scheduledLabel}</dd>
+                      </div>
+                    </dl>
+                  </FormModal>
+                )
+              : undefined
+          }
           columns={[
             { key: "title", label: "درخواست" },
             { key: "priorityLabel", label: "اولویت" },

@@ -54,7 +54,9 @@ export function CostSettlements({
     }));
   return (
     <section className="panel">
-      <div className="panel-head">
+      <div
+        className={`panel-head ${resident ? "max-sm:flex-col max-sm:items-stretch!" : ""}`}
+      >
         <div>
           <h2 className="panel-title">تسویه به تفکیک هزینه</h2>
           <p className="panel-subtitle">
@@ -79,6 +81,17 @@ export function CostSettlements({
         data={rows}
         filename={resident ? "my-cost-settlements" : "cost-settlements"}
         searchPlaceholder="جست‌وجوی واحد، هزینه یا دوره"
+        mobile={
+          resident
+            ? {
+                title: "title",
+                subtitle: "periodTitle",
+                status: "status",
+                amount: "balanceRial",
+                details: ["amountRial", "paidRial", "kind", "unitLabel"],
+              }
+            : undefined
+        }
         columns={[
           { key: "unitLabel", label: "واحد" },
           { key: "title", label: "بابت" },

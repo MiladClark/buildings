@@ -164,6 +164,10 @@ input[type="checkbox"] {
 }
 h1 {
   letter-spacing: -0.5px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .page-heading {
   display: flex;
@@ -172,10 +176,6 @@ h1 {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 28px;
-}
-.page-heading h1 {
-  font-size: 25px;
-  font-weight: 750;
 }
 .page-heading p {
   margin-top: 7px;
@@ -364,6 +364,27 @@ h1 {
   max-width: 1040px;
   overflow: hidden;
 }
+
+/* Keep peer actions equal in width as well as height. */
+.page-heading > div:has(> .app-button) {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+@media (max-width: 639px) {
+  .page-heading > div:has(> .app-button) {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .page-heading > div:has(> .app-button) > .app-button {
+    flex: 1 1 144px;
+    min-width: min(144px, 100%);
+  }
+}
 .account-settings-row {
   display: grid;
   grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
@@ -424,8 +445,8 @@ h1 {
   .form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .page-heading h1 {
-    font-size: 22px;
+  h1 {
+    font-size: 18px;
   }
   .panel-head {
     padding: 18px;

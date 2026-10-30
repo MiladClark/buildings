@@ -35,7 +35,10 @@ export default async function ResidentInvoicesPage() {
           </Button>
         )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <section
+        aria-label="خلاصه فیش‌های من"
+        className="grid max-sm:divide-y max-sm:divide-border max-sm:overflow-hidden max-sm:rounded-xl max-sm:border max-sm:border-border max-sm:bg-card sm:grid-cols-3 sm:gap-4"
+      >
         {[
           {
             label: "مانده فیش‌ها",
@@ -58,18 +61,28 @@ export default async function ResidentInvoicesPage() {
             icon: CircleCheck,
           },
         ].map((item) => (
-          <div key={item.label} className="panel p-5">
+          <div
+            key={item.label}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 p-4 sm:block sm:rounded-[14px] sm:border sm:border-border sm:bg-card sm:p-5"
+          >
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-muted-foreground">{item.label}</p>
-              <item.icon size={20} className="text-primary" strokeWidth={1.75} />
+              <item.icon
+                size={20}
+                className="hidden text-primary sm:block"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
             </div>
-            <p className="mt-4 text-xl font-bold">{item.value}</p>
-            <p className="mt-2 text-[10px] text-muted-foreground">
+            <p className="min-w-0 break-words text-left text-base font-bold tabular-nums min-[360px]:text-lg sm:mt-4 sm:text-right sm:text-xl">
+              {item.value}
+            </p>
+            <p className="col-span-2 text-[11px] leading-6 text-muted-foreground sm:mt-2 sm:text-[10px] sm:leading-normal">
               {item.note}
             </p>
           </div>
         ))}
-      </div>
+      </section>
       <InvoiceHistory
         rows={invoices.map(({ invoice: i, period: p }) => ({
           id: i.id,

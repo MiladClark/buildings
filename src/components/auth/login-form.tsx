@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FloatingInput } from "@/components/auth/floating-field";
 import { authClient } from "@/lib/auth-client";
+import "./login-form.css";
 import {
   englishPassword,
   latinDigits,
@@ -85,7 +86,7 @@ export function LoginForm({
     <form
       method="post"
       onSubmit={onSubmit}
-      className="flex w-full max-w-sm flex-col gap-6 pt-2"
+      className="login-form mx-auto flex w-full max-w-sm flex-col gap-6 pt-2 text-right"
     >
       <FloatingInput
         label="شماره تلفن یا ایمیل"

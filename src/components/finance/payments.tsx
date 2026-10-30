@@ -2,7 +2,7 @@
 import { RowActions } from "@/components/ui/row-actions";
 import { useState } from "react";
 import { DataGrid, downloadCsv } from "@/components/finance/data-grid";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/finance/forms";
 import { LinkedFormModal as FormModal } from "./linked-modal";
 import { Button } from "@/components/ui/button";
@@ -163,7 +163,7 @@ export function PaymentHistory({
             خروجی واریزها
           </Button>
         </div>
-        <Input
+        <SearchInput
           label="جست‌وجوی واریزهای این واحد"
           aria-label="جست‌وجوی واریزهای این واحد"
           value={receiptSearch}

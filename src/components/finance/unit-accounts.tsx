@@ -10,7 +10,6 @@ import {
   CircleCheck,
   Download,
   House,
-  Search,
   Plus,
   Receipt,
   Wallet,
@@ -18,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { FieldHint } from "@/components/ui/field-hint";
 import { ActionForm, EmptyState, FormModal } from "./forms";
@@ -138,25 +137,17 @@ export function UnitAccounts(props: Props) {
           خروجی حساب‌ها
         </Button>
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative min-w-0 flex-1">
-          <Search
-            size={18}
-            className="pointer-events-none absolute right-3 top-3.5 z-10 text-muted-foreground"
-          />
-          <Input
-            label="جست‌وجوی واحد یا نام ساکن"
-            data-search-input
-            id={searchId}
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(0);
-            }}
-            placeholder="شماره واحد یا نام ساکن را جست‌وجو کنید"
-            className="pr-10"
-          />
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <SearchInput
+          label="جست‌وجوی واحد یا نام ساکن"
+          id={searchId}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
+          placeholder="شماره واحد یا نام ساکن را جست‌وجو کنید"
+        />
         <Select
           value={filter}
           onValueChange={(v) => {
@@ -286,7 +277,7 @@ export function UnitAccounts(props: Props) {
             <>
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 aria-label="صفحه قبل واحدها"
                 disabled={!currentPage}
                 onClick={() => setPage(currentPage - 1)}
@@ -298,7 +289,7 @@ export function UnitAccounts(props: Props) {
               </span>
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 aria-label="صفحه بعد واحدها"
                 disabled={currentPage === lastPage}
                 onClick={() => setPage(currentPage + 1)}
@@ -336,7 +327,11 @@ export function UnitAccounts(props: Props) {
                 </Dialog.Description>
               </div>
               <Dialog.Close asChild>
-                <Button variant="ghost" size="sm" aria-label="بستن پرونده واحد">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="بستن پرونده واحد"
+                >
                   <X size={20} />
                 </Button>
               </Dialog.Close>

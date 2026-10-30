@@ -4,8 +4,10 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+const textButtonSize = "h-9 min-h-9 min-w-32 rounded-lg px-4 text-xs leading-5";
+
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-xs font-medium transition-colors active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none",
+  "app-button inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap border border-transparent font-medium transition-colors active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -19,9 +21,10 @@ const buttonVariants = cva(
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
       },
       size: {
-        default: "h-9 rounded-[8px] px-4 text-xs",
-        sm: "h-8 rounded-[8px] px-3 text-xs",
-        lg: "h-10 rounded-[8px] px-5 text-[13px]",
+        default: textButtonSize,
+        sm: textButtonSize,
+        lg: textButtonSize,
+        icon: "size-9 min-h-9 min-w-9 rounded-lg p-0 leading-none",
       },
     },
     defaultVariants: {

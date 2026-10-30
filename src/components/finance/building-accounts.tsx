@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ActionButton, ActionForm, FormModal } from "./forms";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/lib/actions/account-management";
 import { deleteResidentShell } from "@/lib/actions/resident-accounts";
 import { latinDigits } from "@/lib/auth/phone";
+import { KeyRound, Settings, ShieldCheck, Trash2 } from "lucide-react";
 
 type UnitOption = { id: string; label: string };
 export type BuildingAccountRow = {
@@ -252,83 +254,131 @@ export function BuildingAccountList({
             ساکن
           </p>
         </div>
-        <Select
-          aria-label="فیلتر نقش حساب"
-          value={role}
-          onValueChange={setRole}
-        >
-          <option value="all">همه نقش‌ها</option>
-          <option value="manager">مدیران ساختمان</option>
-          <option value="resident">ساکنان</option>
-        </Select>
       </div>
-      <div className="px-5 pb-5">
-        <label className="form-field max-w-md">
-          <span>جست‌وجوی حساب</span>
-          <Input
-            aria-label="جست‌وجوی حساب"
-            placeholder="نام، شماره تلفن یا ایمیل"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="flex flex-wrap items-center gap-3 px-5 pb-5">
+        <SearchInput
+          aria-label="جست‌وجوی حساب"
+          placeholder="نام، شماره تلفن یا ایمیل"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <label className="form-field w-[200px] max-w-full">
+          <span>نقش حساب</span>
+          <Select
+            aria-label="فیلتر نقش حساب"
+            value={role}
+            onValueChange={setRole}
+          >
+            <option value="all">همه نقش‌ها</option>
+            <option value="manager">مدیران ساختمان</option>
+            <option value="resident">ساکنان</option>
+          </Select>
         </label>
+      </div>
+      <div
+        aria-hidden="true"
+        className="hidden items-center gap-6 border-y border-border px-5 py-3 text-xs text-muted-foreground md:grid md:grid-cols-[minmax(0,1fr)_minmax(200px,0.8fr)_124px]"
+      >
+        <span>حساب و اطلاعات تماس</span>
+        <span>دسترسی و وضعیت</span>
+        <span className="text-center">عملیات</span>
       </div>
       <ul className="divide-y divide-border">
         {filtered.map((row) => (
           <li
             key={row.id}
-            className="flex flex-wrap items-start justify-between gap-4 p-5"
+            className="grid min-h-28 items-center gap-x-6 gap-y-4 p-5 md:grid-cols-[minmax(0,1fr)_minmax(200px,0.8fr)_124px]"
           >
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <p className="text-sm font-semibold break-words">
                 {row.name}
-                {row.own ? " (حساب شما)" : ""}
+                {row.own && (
+                  <span className="ms-2 text-xs font-normal text-muted-foreground">
+                    (حساب شما)
+                  </span>
+                )}
               </p>
-              <p
-                className="mt-2 text-xs text-muted-foreground break-all"
-                dir="ltr"
+              <div
+                dir="rtl"
+                className="mt-2 flex min-h-10 flex-col gap-1 text-right text-xs leading-5 text-muted-foreground"
               >
-                {row.phone || "شماره ثبت نشده"}
-                {!row.email.endsWith("@residents.internal")
-                  ? ` · ${row.email}`
-                  : ""}
+                <bdi
+                  dir="ltr"
+                  className="block w-full break-all text-right tabular-nums"
+                >
+                  {row.phone || "شماره ثبت نشده"}
+                </bdi>
+                {!row.email.endsWith("@residents.internal") && (
+                  <bdi dir="ltr" className="block w-full break-all text-right">
+                    {row.email}
+                  </bdi>
+                )}
+              </div>
+            </div>
+            <div className="min-w-0 space-y-2 text-xs leading-5">
+              <p className="font-medium">
+                {row.role === "manager" ? "مدیر ساختمان" : "ساکن / کاربر عادی"}
               </p>
-              <p className="mt-2 text-xs">
-                {row.role === "manager"
-                  ? "مدیر ساختمان؛ دسترسی کامل"
-                  : "ساکن / کاربر عادی"}{" "}
-                ·{" "}
+              <p className="text-muted-foreground">
+                {row.role === "manager" && "دسترسی کامل · "}
                 {row.unitId
                   ? `واحد ${units.find((u) => u.id === row.unitId)?.label ?? "—"}`
                   : "بدون واحد"}
               </p>
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="flex items-center gap-2 text-muted-foreground">
+                <span
+                  aria-hidden="true"
+                  className={`size-1.5 shrink-0 rounded-full ${row.active ? "bg-primary" : "bg-muted-foreground"}`}
+                />
                 {row.active ? "ورود فعال" : "منتظر ثبت‌نام یا تعیین رمز"}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-[124px] grid-cols-3 items-center gap-2 md:justify-self-end">
               <FormModal
                 title="نقش و دسترسی حساب"
                 description={`${row.name} · ${row.phone || row.email}`}
                 trigger={
-                  <Button variant="outline" size="sm">
-                    نقش و دسترسی
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="size-9 p-0"
+                    title="نقش و دسترسی"
+                    aria-label={`نقش و دسترسی ${row.name}`}
+                  >
+                    <ShieldCheck size={17} aria-hidden="true" />
                   </Button>
                 }
               >
                 <RoleForm row={row} units={units} />
               </FormModal>
               {row.own ? (
-                <Button size="sm" variant="outline" asChild>
-                  <Link href="/manager/account">تنظیمات حساب من</Link>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="size-9 p-0"
+                  asChild
+                >
+                  <Link
+                    href="/manager/account"
+                    title="تنظیمات حساب من"
+                    aria-label="تنظیمات حساب من"
+                  >
+                    <Settings size={17} aria-hidden="true" />
+                  </Link>
                 </Button>
               ) : (
                 <FormModal
                   title="تعیین رمز ورود"
                   description={`رمز ورود ${row.name} را تعیین کنید. سوابق حساب حفظ می‌شوند.`}
                   trigger={
-                    <Button variant="ghost" size="sm">
-                      تعیین رمز ورود
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-9 p-0"
+                      title="تعیین رمز ورود"
+                      aria-label={`تعیین رمز ورود ${row.name}`}
+                    >
+                      <KeyRound size={17} aria-hidden="true" />
                     </Button>
                   }
                 >
@@ -367,11 +417,19 @@ export function BuildingAccountList({
               )}
               {!row.active && row.role === "resident" && (
                 <ActionButton
-                  variant="ghost"
+                  variant="outline"
+                  ariaLabel={`حذف حساب آماده ${row.name}`}
+                  size="icon"
+                  title="حذف حساب آماده"
+                  className="group size-9 p-0 text-muted-foreground hover:border-destructive/40 hover:text-destructive"
                   action={() => deleteResidentShell(row.userId)}
                   confirm={`حساب آماده‌شدهٔ ${row.name} حذف شود؟ هنوز ورود فعالی ندارد.`}
                 >
-                  حذف حساب آماده
+                  <Trash2
+                    size={17}
+                    aria-hidden="true"
+                    className="group-disabled:hidden"
+                  />
                 </ActionButton>
               )}
             </div>

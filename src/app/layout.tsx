@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Toaster } from "sonner";
 
 import { PwaInstallHint, PwaRegister } from "@/components/pwa";
 import { vazirmatn } from "@/lib/fonts";
+import { themeInitScript } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -46,6 +48,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-sans antialiased">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {themeInitScript}
+        </Script>
         {children}
         <PwaInstallHint />
         <PwaRegister />

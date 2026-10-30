@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ResidentNotificationMenu } from "./resident-menu";
 export function NotificationBell({ role }: { role: "manager" | "resident" }) {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -28,22 +30,46 @@ export function NotificationBell({ role }: { role: "manager" | "resident" }) {
       window.removeEventListener("notifications-updated", refresh);
     };
   }, []);
-  return (
-    <Link
-      href={`/${role}/notifications`}
-      className="relative inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-      aria-label={
-        count
-          ? `اعلان‌ها؛ ${count.toLocaleString("fa-IR")} خوانده‌نشده`
-          : "اعلان‌ها"
-      }
-    >
-      <Bell size={19} />
+  const label = count
+    ? `اعلان‌ها؛ ${count.toLocaleString("fa-IR")} خوانده‌نشده`
+    : "اعلان‌ها";
+  const icon = (
+    <>
+      <Bell size={19} aria-hidden="true" />
       {count > 0 && (
-        <span className="absolute top-0.5 end-0.5 flex min-w-4 h-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground">
+        <span
+          aria-hidden="true"
+          className="absolute top-0.5 end-0.5 flex min-w-4 h-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground"
+        >
           {count > 99 ? "۹۹+" : count.toLocaleString("fa-IR")}
         </span>
       )}
-    </Link>
+    </>
+  );
+  if (role === "resident")
+    return (
+      <ResidentNotificationMenu count={count} onCountChange={setCount}>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="relative text-muted-foreground"
+          aria-label={label}
+          title="اعلان‌ها"
+        >
+          {icon}
+        </Button>
+      </ResidentNotificationMenu>
+    );
+  return (
+    <Button
+      asChild
+      size="icon"
+      variant="ghost"
+      className="relative text-muted-foreground"
+    >
+      <Link href={`/${role}/notifications`} aria-label={label}>
+        {icon}
+      </Link>
+    </Button>
   );
 }

@@ -1,0 +1,14 @@
+.login-form .form-field > input.form-control {
+  text-align: right;
+}
+
+.login-form .form-field:has(> input.form-control) > label[for] {
+  inset-inline-start: 10px;
+  inset-inline-end: auto;
+  left: auto;
+  right: 10px;
+  width: max-content;
+  max-width: calc(100% - 28px);
+  text-align: right;
+  transform: translateY(-50%);
+}

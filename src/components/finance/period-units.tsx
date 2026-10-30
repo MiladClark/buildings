@@ -56,7 +56,7 @@ export function PeriodUnits({
                     description="سهم همین دوره نمایش داده می‌شود. بدهی دوره‌های دیگر در مانده حساب واحد قابل مشاهده است."
                     trigger={
                       <Button
-                        size="sm"
+                        size="icon"
                         variant="ghost"
                         aria-label={`جزئیات محاسبه واحد ${r.label}`}
                       >

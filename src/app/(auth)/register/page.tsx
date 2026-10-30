@@ -16,9 +16,7 @@ export default async function RegisterPage() {
   return (
     <AuthFrame>
       <div className="mb-8">
-        <h1 className="text-[27px] font-bold">
-          {first ? "به واحدبان خوش آمدید." : "همسایه جدید، خوش آمدید."}
-        </h1>
+        <h1>{first ? "به واحدبان خوش آمدید." : "همسایه جدید، خوش آمدید."}</h1>
         {!first && (
           <p className="mt-3 text-[13px] leading-7 text-muted-foreground">
             نام، شماره تلفن و واحد ۱ تا ۸ را وارد کنید. فقط شماره‌ای که مدیر

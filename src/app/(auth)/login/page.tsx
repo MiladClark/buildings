@@ -41,9 +41,9 @@ export default async function LoginPage({
       identities[0].providerId === "google"
     ) {
       return (
-        <AuthFrame>
+        <AuthFrame centered>
           <div className="mb-7">
-            <h1 className="text-[27px] font-bold">حسابتان را کامل کنید.</h1>
+            <h1>حسابتان را کامل کنید.</h1>
             <p className="mt-3 text-[13px] leading-7 text-muted-foreground">
               نام، شماره تلفن و واحد را وارد کنید. شماره و واحد با همان حسابی که
               مدیر ساخته یکی می‌شود و وارد آن حساب می‌شوید.
@@ -64,8 +64,8 @@ export default async function LoginPage({
     }
     if (params.connect === "google" && googleEnabled) {
       return (
-        <AuthFrame>
-          <h1 className="text-[27px] font-bold">اتصال حساب گوگل</h1>
+        <AuthFrame centered>
+          <h1>اتصال حساب گوگل</h1>
           <p className="my-5 text-[13px] leading-7 text-muted-foreground">
             با اتصال گوگل، دفعه بعد با همان حساب وارد می‌شوید.
           </p>
@@ -83,11 +83,9 @@ export default async function LoginPage({
   }
   const connecting = params.connect === "google" && googleEnabled;
   return (
-    <AuthFrame>
+    <AuthFrame centered>
       <div className="mb-8">
-        <h1 className="text-[27px] font-bold">
-          {connecting ? "ابتدا وارد حساب فعلی شوید." : "خوش برگشتید."}
-        </h1>
+        <h1>{connecting ? "ابتدا وارد حساب فعلی شوید." : "خوش برگشتید."}</h1>
         <p className="mt-3 text-[13px] leading-7 text-muted-foreground">
           {connecting
             ? "شماره تلفن یا ایمیل و رمز فعلی را بزنید؛ سپس حساب گوگل را انتخاب کنید."

@@ -1,0 +1,33 @@
+.search-field {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.search-field-icon {
+  position: absolute;
+  z-index: 2;
+  inset-inline-start: 16px;
+  top: 24px;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.search-field .form-field > input.form-control[data-search-input] {
+  width: 100%;
+  height: 48px;
+  min-height: 48px;
+  padding-inline-start: 44px;
+  padding-inline-end: 14px;
+  text-align: start;
+}
+
+.search-field .form-field:has(> input.form-control) > span:first-child {
+  inset-inline-start: 40px;
+  max-width: calc(100% - 54px);
+}

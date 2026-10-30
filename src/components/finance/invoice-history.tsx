@@ -1,4 +1,7 @@
 "use client";
+import Link from "next/link";
+import { Download, Image as ImageIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { RowActions } from "@/components/ui/row-actions";
 import { DataGrid } from "@/components/finance/data-grid";
 import { formatJalaliDate } from "@/lib/format/jalali";
@@ -35,6 +38,34 @@ export function InvoiceHistory({
           { key: "status", label: "وضعیت", type: "status" },
         ]}
         filename="my-invoices"
+        mobile={{
+          title: "period",
+          status: "status",
+          amount: "total",
+          details: ["paid", "balance", "dueLabel"],
+        }}
+        renderMobileAction={(r) => (
+          <div className="grid w-full grid-cols-2 gap-2">
+            <Button asChild variant="outline" className="w-full min-w-0 px-2">
+              <Link
+                href={`/api/export/invoice/${r.id}/pdf`}
+                aria-label={`دریافت PDF ${r.period}`}
+              >
+                <Download aria-hidden="true" />
+                دریافت PDF
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className="w-full min-w-0 px-2">
+              <Link
+                href={`/api/export/invoice/${r.id}/png`}
+                aria-label={`دریافت تصویر ${r.period}`}
+              >
+                <ImageIcon aria-hidden="true" />
+                تصویر فیش
+              </Link>
+            </Button>
+          </div>
+        )}
         emptyTitle="هنوز فیشی صادر نشده"
         emptyDescription="پس از نهایی‌شدن دوره توسط مدیر، فیش شما اینجا قرار می‌گیرد."
         renderAction={(r) => (

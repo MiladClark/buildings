@@ -106,6 +106,8 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const path = usePathname();
+  const accountHref =
+    role === "manager" ? "/manager/account" : "/resident/account";
   const [open, setOpen] = useState(false);
   const settingsOpen =
     path === settingsHref ||
@@ -263,7 +265,7 @@ export function AppShell({
                     : "باز کردن زیرمنوی تنظیمات"
                 }
                 onClick={() => setSettingsExpanded((value) => !value)}
-                className="flex size-8 shrink-0 items-center justify-center rounded-lg hover:bg-muted hover:text-foreground"
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg hover:bg-muted hover:text-foreground"
               >
                 <ChevronDown
                   size={16}
@@ -313,18 +315,11 @@ export function AppShell({
         </>
       )}
       <div className="mt-auto pt-6">
-        <Link
-          href={role === "manager" ? "/manager/account" : "/resident/account"}
-          className="mb-3 block text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => setOpen(false)}
-        >
-          تنظیمات حساب کاربری
-        </Link>
         <div className="flex items-center gap-2 border-t border-border pt-4">
-          <span className="flex size-9 items-center justify-center rounded-full bg-muted text-sm font-bold">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold">
             {userName?.slice(0, 1) || "م"}
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium">
               {userName || "حساب کاربری"}
             </p>
@@ -332,6 +327,21 @@ export function AppShell({
               {role === "manager" ? "مدیر ساختمان" : "ساکن"}
             </p>
           </div>
+          <Link
+            href={accountHref}
+            aria-label="تنظیمات حساب کاربری"
+            title="تنظیمات حساب کاربری"
+            aria-current={path === accountHref ? "page" : undefined}
+            onClick={() => setOpen(false)}
+            className={cn(
+              "inline-flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
+              path === accountHref
+                ? "bg-secondary text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <Settings size={18} strokeWidth={1.75} aria-hidden="true" />
+          </Link>
         </div>
         <div className="mt-3">
           <SignOutButton />
@@ -350,10 +360,16 @@ export function AppShell({
       <aside className="fixed inset-y-0 right-0 z-30 hidden w-[240px] overflow-y-auto border-l border-border bg-card lg:block">
         {sidebar}
       </aside>
-      <div className="lg:mr-[240px]">
+      <div
+        className={cn(
+          "lg:mr-[240px]",
+          !onChat && "max-lg:pt-[calc(4rem+env(safe-area-inset-top))]",
+        )}
+      >
         <header
           className={cn(
             "flex h-16 items-center justify-between border-b border-border bg-card px-5 lg:px-9",
+            "max-lg:fixed max-lg:inset-x-0 max-lg:top-0 max-lg:z-30 max-lg:h-[calc(4rem+env(safe-area-inset-top))] max-lg:pt-[env(safe-area-inset-top)]",
             onChat && "max-lg:hidden",
           )}
         >
@@ -361,14 +377,14 @@ export function AppShell({
             <Dialog.Root open={open} onOpenChange={setOpen}>
               <Dialog.Trigger asChild>
                 <button
-                  className="relative p-2 lg:hidden"
+                  className="relative inline-flex size-9 items-center justify-center rounded-lg lg:hidden"
                   aria-label={
                     showUnread
                       ? "باز کردن منو، پیام جدید دارید"
                       : "باز کردن منو"
                   }
                 >
-                  <Menu size={23} />
+                  <Menu size={18} />
                   {showUnread && (
                     <span className="absolute top-1.5 start-1.5 size-2 rounded-full bg-destructive" />
                   )}
@@ -405,6 +421,7 @@ export function AppShell({
           id="main-content"
           className={cn(
             "mx-auto max-w-[1600px] px-4 py-7 sm:px-6 lg:px-9 lg:py-8",
+            !onChat && "max-lg:scroll-mt-[calc(4rem+env(safe-area-inset-top))]",
             role === "resident" && !onChat && "pb-24 lg:pb-8",
             onChat && "max-lg:max-w-none max-lg:p-0",
           )}

@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, LoaderCircle, Plus, CircleCheck, CircleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const ModalCloseContext = createContext<(() => void) | null>(null);
@@ -153,6 +153,9 @@ export function ActionButton({
   variant = "outline",
   confirm,
   ariaLabel,
+  title,
+  className,
+  size = "sm",
   success = "عملیات با موفقیت انجام شد.",
 }: {
   action: () => Promise<void>;
@@ -160,6 +163,9 @@ export function ActionButton({
   variant?: "outline" | "default" | "ghost" | "destructive";
   confirm?: string;
   ariaLabel?: string;
+  title?: string;
+  className?: string;
+  size?: ButtonProps["size"];
   success?: string;
 }) {
   const [pending, start] = useTransition();
@@ -178,9 +184,11 @@ export function ActionButton({
     <>
       <Button
         variant={variant}
-        size="sm"
+        size={size}
         disabled={pending}
         aria-label={ariaLabel}
+        title={title}
+        className={className}
         onClick={() => (confirm ? setOpen(true) : run())}
       >
         {pending ? <LoaderCircle className="animate-spin" size={14} /> : null}

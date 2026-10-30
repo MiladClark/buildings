@@ -227,7 +227,7 @@ export function UnitsView({ units }: { units: Unit[] }) {
                       description="تغییرات برای محاسبه دوره‌های بعد استفاده می‌شوند."
                       trigger={
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="ghost"
                           aria-label={`ویرایش واحد ${u.label}`}
                         >

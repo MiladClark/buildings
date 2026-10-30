@@ -1,9 +1,11 @@
 "use client";
 import { Select } from "@/components/ui/select";
 import { tableExportFilename } from "@/lib/export/filenames";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { cn } from "@/lib/utils";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -17,11 +19,11 @@ import {
 import {
   ArrowDown,
   ArrowUp,
-  Search,
   ChevronLeft,
   ChevronRight,
   Download,
   CircleCheck,
+  ArrowDownUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +67,44 @@ export type GridColumn<T> = {
   label: string;
   type?: "money" | "number" | "status";
 };
+type MobileGridConfig<T> = {
+  title: keyof T & string;
+  subtitle?: keyof T & string;
+  status?: keyof T & string;
+  amount?: keyof T & string;
+  details: (keyof T & string)[];
+};
+
+function gridValue<T>(column: GridColumn<T>, value: unknown, mobile = false) {
+  if (mobile && (value === null || value === undefined || value === ""))
+    return "—";
+  if (column.type === "money")
+    return (
+      <span
+        className={cn(
+          "font-medium tabular-nums",
+          mobile ? "break-words text-sm" : "whitespace-nowrap text-xs",
+        )}
+      >
+        {formatToman(Number(value || 0))}
+      </span>
+    );
+  if (column.type === "number") return fa(String(value ?? "ثبت نشده"));
+  if (column.type === "status") {
+    const status = String(value);
+    return (
+      <span
+        className={`status ${["تسویه‌شده", "تأییدشده", "مسکونی", "نهایی‌شده", "انجام‌شده"].includes(status) ? "status-success" : ["بدهکار", "در انتظار بررسی", "پیش‌نویس", "سررسید گذشته", "پرداخت ناقص", "پرداخت‌نشده", "در انتظار رسیدگی"].includes(status) ? "status-warning" : "status-neutral"}`}
+      >
+        {status === "تسویه‌شده" && (
+          <CircleCheck size={13} strokeWidth={2.25} aria-hidden="true" />
+        )}
+        {status}
+      </span>
+    );
+  }
+  return fa(String(value ?? "ثبت نشده"));
+}
 export function DataGrid<T extends object>({
   data,
   columns: config,
@@ -74,6 +114,8 @@ export function DataGrid<T extends object>({
   pageSize = 10,
   emptyTitle = "هنوز اطلاعاتی ثبت نشده",
   emptyDescription = "پس از ثبت اطلاعات، جزئیات در این بخش نمایش داده می‌شود.",
+  mobile,
+  renderMobileAction,
 }: {
   data: T[];
   columns: GridColumn<T>[];
@@ -83,12 +125,22 @@ export function DataGrid<T extends object>({
   pageSize?: number;
   emptyTitle?: string;
   emptyDescription?: string;
+  mobile?: MobileGridConfig<T>;
+  renderMobileAction?: (row: T) => React.ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowLimit, setRowLimit] = useTablePageSize(filename, pageSize);
   const [page, setPage] = useState({ rowLimit, index: 0 });
   const pageSizeId = useId();
+  const mobileList = useRef<HTMLUListElement>(null);
+  const scrollToCards = () => {
+    if (mobile && window.matchMedia("(max-width: 639px)").matches)
+      mobileList.current?.scrollIntoView({
+        block: "start",
+        behavior: "instant",
+      });
+  };
   const showAll = rowLimit === "all";
   const currentPageSize = showAll ? Math.max(1, data.length) : rowLimit;
   // A restored preference or a change in another tab starts on the first page.
@@ -99,34 +151,9 @@ export function DataGrid<T extends object>({
         accessorKey: c.key,
         header: c.label,
         cell: ({ getValue }) => {
-          const v = getValue();
-          if (c.type === "money")
-            return (
-              <span className="whitespace-nowrap text-xs font-medium">
-                {formatToman(Number(v || 0))}
-              </span>
-            );
-          if (c.type === "number") return fa(String(v ?? "ثبت نشده"));
-          if (c.type === "status") {
-            const s = String(v);
-            return (
-              <span
-                className={`status ${["تسویه‌شده", "تأییدشده", "مسکونی", "نهایی‌شده"].includes(s) ? "status-success" : ["بدهکار", "در انتظار بررسی", "پیش‌نویس", "سررسید گذشته", "پرداخت ناقص", "پرداخت‌نشده"].includes(s) ? "status-warning" : "status-neutral"}`}
-              >
-                {s === "تسویه‌شده" && (
-                  <CircleCheck
-                    size={13}
-                    strokeWidth={2.25}
-                    aria-hidden="true"
-                  />
-                )}
-                {s}
-              </span>
-            );
-          }
           return (
             <span className={c.key === config[0].key ? "font-medium" : ""}>
-              {fa(String(v ?? "ثبت نشده"))}
+              {gridValue(c, getValue())}
             </span>
           );
         },
@@ -172,29 +199,104 @@ export function DataGrid<T extends object>({
   const count = table.getFilteredRowModel().rows.length;
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-4">
-        <div className="relative min-w-0 flex-1 sm:max-w-[260px]">
-          <Search
-            size={16}
-            className="pointer-events-none absolute right-3 top-1/2 z-10 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            label={searchPlaceholder}
-            data-search-input=""
-            aria-label={searchPlaceholder}
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              table.setPageIndex(0);
-            }}
-            placeholder={searchPlaceholder}
-            className="w-full pe-3 ps-9 text-[11px]"
-          />
-        </div>
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-3 px-5 pb-4",
+          mobile &&
+            "max-sm:grid max-sm:grid-cols-[minmax(0,1fr)_36px_36px] max-sm:gap-2 max-sm:px-4",
+        )}
+      >
+        <SearchInput
+          label={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            table.setPageIndex(0);
+          }}
+        />
+        {mobile && (
+          <DropdownMenu.Root dir="rtl">
+            <DropdownMenu.Trigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="sm:hidden"
+                aria-label="مرتب‌سازی فهرست"
+                title="مرتب‌سازی"
+              >
+                <ArrowDownUp aria-hidden="true" />
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-[80] max-h-[min(360px,var(--radix-dropdown-menu-content-available-height))] min-w-48 max-w-[calc(100vw-24px)] overflow-y-auto rounded-xl border border-border bg-card p-1.5 text-xs shadow-lg"
+              >
+                <DropdownMenu.Label className="px-3 py-2 text-muted-foreground">
+                  مرتب‌سازی بر اساس
+                </DropdownMenu.Label>
+                <DropdownMenu.RadioGroup
+                  value={
+                    sorting[0]
+                      ? `${sorting[0].id}:${sorting[0].desc ? "desc" : "asc"}`
+                      : "default"
+                  }
+                  onValueChange={(value) => {
+                    const index = value.lastIndexOf(":");
+                    setSorting(
+                      value === "default"
+                        ? []
+                        : [
+                            {
+                              id: value.slice(0, index),
+                              desc: value.slice(index + 1) === "desc",
+                            },
+                          ],
+                    );
+                    table.setPageIndex(0);
+                  }}
+                >
+                  {[
+                    { value: "default", label: "ترتیب پیش‌فرض" },
+                    ...config.flatMap((column) => [
+                      {
+                        value: `${column.key}:asc`,
+                        label: `${column.label}؛ صعودی`,
+                      },
+                      {
+                        value: `${column.key}:desc`,
+                        label: `${column.label}؛ نزولی`,
+                      },
+                    ]),
+                  ].map((option) => (
+                    <DropdownMenu.RadioItem
+                      key={option.value}
+                      value={option.value}
+                      className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 outline-none data-[highlighted]:bg-muted"
+                    >
+                      {option.label}
+                      <DropdownMenu.ItemIndicator>
+                        <CircleCheck className="size-4 text-primary" />
+                      </DropdownMenu.ItemIndicator>
+                    </DropdownMenu.RadioItem>
+                  ))}
+                </DropdownMenu.RadioGroup>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        )}
         <Button
           size="sm"
           variant="ghost"
           disabled={!count}
+          aria-label="دریافت خروجی CSV"
+          title="دریافت خروجی CSV"
+          className={
+            mobile ? "max-sm:size-9 max-sm:min-w-9 max-sm:p-0" : undefined
+          }
           onClick={() =>
             downloadCsv(
               filename,
@@ -214,10 +316,91 @@ export function DataGrid<T extends object>({
           }
         >
           <Download size={15} />
-          خروجی CSV
+          <span className={mobile ? "hidden sm:inline" : undefined}>
+            خروجی CSV
+          </span>
         </Button>
       </div>
-      <div className="w-full overflow-x-auto">
+      {mobile && count > 0 && (
+        <ul
+          ref={mobileList}
+          aria-label="نمای کارتی اطلاعات"
+          className="scroll-mt-[calc(5rem+env(safe-area-inset-top))] divide-y divide-border border-t border-border sm:hidden"
+        >
+          {table.getRowModel().rows.map((row) => {
+            const item = row.original;
+            const columnFor = (key: keyof T & string) =>
+              config.find((column) => column.key === key);
+            const statusColumn = mobile.status && columnFor(mobile.status);
+            const amountColumn = mobile.amount && columnFor(mobile.amount);
+            const fields = mobile.details.flatMap((key) => {
+              const column = columnFor(key);
+              return column ? [{ column, value: item[key] }] : [];
+            });
+            const actions = renderMobileAction
+              ? renderMobileAction(item)
+              : renderAction?.(item);
+            return (
+              <li key={row.id} className="min-w-0 space-y-4 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="break-words text-sm font-semibold leading-6">
+                      {fa(String(item[mobile.title] ?? "ثبت نشده"))}
+                    </h3>
+                    {mobile.subtitle && (
+                      <p className="mt-1 break-words text-xs leading-6 text-muted-foreground">
+                        {fa(String(item[mobile.subtitle] ?? ""))}
+                      </p>
+                    )}
+                  </div>
+                  {statusColumn &&
+                    gridValue(statusColumn, item[statusColumn.key], true)}
+                </div>
+                {amountColumn && (
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {amountColumn.label}
+                    </span>
+                    <p className="min-w-0 break-words text-lg font-semibold tabular-nums">
+                      {amountColumn.type === "money"
+                        ? formatToman(Number(item[amountColumn.key] || 0))
+                        : fa(String(item[amountColumn.key] ?? "ثبت نشده"))}
+                    </p>
+                  </div>
+                )}
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  {fields.map(({ column, value }, index) => (
+                    <div
+                      key={column.key}
+                      className={cn(
+                        "min-w-0",
+                        fields.length % 2 !== 0 &&
+                          index === fields.length - 1 &&
+                          "col-span-2",
+                      )}
+                    >
+                      <dt className="text-[11px] text-muted-foreground">
+                        {column.label}
+                      </dt>
+                      <dd className="mt-1 break-words text-xs leading-6">
+                        {gridValue(column, value, true)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                {actions && (
+                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-3">
+                    {actions}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div
+        className={cn("w-full overflow-x-auto", mobile && "hidden sm:block")}
+      >
         <table className="w-full min-w-[560px] text-right text-[11px]">
           <thead className="border-y border-border bg-muted/45 text-muted-foreground">
             {table.getHeaderGroups().map((g) => (
@@ -283,11 +466,21 @@ export function DataGrid<T extends object>({
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3.5 text-[10px] text-muted-foreground">
         <span role="status" aria-live="polite" aria-atomic="true">
-          {count
-            ? `${fa(String(pageIndex * currentPageSize + 1))} تا ${fa(String(Math.min((pageIndex + 1) * currentPageSize, count)))} از ${fa(String(count))} مورد`
-            : "۰ مورد"}
+          <span className={mobile ? "hidden sm:inline" : undefined}>
+            {count
+              ? `${fa(String(pageIndex * currentPageSize + 1))} تا ${fa(String(Math.min((pageIndex + 1) * currentPageSize, count)))} از ${fa(String(count))} مورد`
+              : "۰ مورد"}
+          </span>
+          {mobile && (
+            <span className="sm:hidden">{fa(String(count))} مورد</span>
+          )}
         </span>
-        <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            mobile && count <= pageSize && "max-sm:hidden",
+          )}
+        >
           <label htmlFor={pageSizeId}>تعداد ردیف‌ها</label>
           <Select
             id={pageSizeId}
@@ -312,8 +505,15 @@ export function DataGrid<T extends object>({
             <button
               disabled={!table.getCanPreviousPage()}
               aria-label="صفحه قبل"
-              className="rounded-md border border-border p-1.5 disabled:opacity-30"
-              onClick={() => table.previousPage()}
+              className={cn(
+                "rounded-md border border-border p-1.5 disabled:opacity-30",
+                mobile &&
+                  "max-sm:flex max-sm:size-9 max-sm:items-center max-sm:justify-center",
+              )}
+              onClick={() => {
+                table.previousPage();
+                scrollToCards();
+              }}
             >
               <ChevronRight size={13} />
             </button>
@@ -324,8 +524,15 @@ export function DataGrid<T extends object>({
             <button
               disabled={!table.getCanNextPage()}
               aria-label="صفحه بعد"
-              className="rounded-md border border-border p-1.5 disabled:opacity-30"
-              onClick={() => table.nextPage()}
+              className={cn(
+                "rounded-md border border-border p-1.5 disabled:opacity-30",
+                mobile &&
+                  "max-sm:flex max-sm:size-9 max-sm:items-center max-sm:justify-center",
+              )}
+              onClick={() => {
+                table.nextPage();
+                scrollToCards();
+              }}
             >
               <ChevronLeft size={13} />
             </button>

@@ -725,12 +725,11 @@ export function BuildingChat({
                               aria-label="ویرایش متن پیام"
                             />
                           </label>
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex flex-wrap items-center justify-end gap-2">
                             <Button
                               type="button"
                               size="sm"
                               variant="ghost"
-                              className="h-7 px-2 text-xs"
                               onClick={() => setEditingId(null)}
                             >
                               انصراف
@@ -738,7 +737,6 @@ export function BuildingChat({
                             <Button
                               type="button"
                               size="sm"
-                              className="h-7 px-2.5 text-xs"
                               onClick={() => void saveEdit(message)}
                               disabled={savingId === message.id}
                             >

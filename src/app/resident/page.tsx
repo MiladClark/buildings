@@ -15,7 +15,7 @@ import { appNotification } from "@/lib/db/schema";
 import { requireResident } from "@/lib/session";
 import { getFinanceData } from "@/lib/queries/finance";
 import { CostSettlements } from "@/components/finance/cost-settlements";
-import { formatToman } from "@/lib/format/money";
+import { formatToman, formatTomanNumber } from "@/lib/format/money";
 import { formatJalaliDate } from "@/lib/format/jalali";
 export default async function ResidentDashboardPage() {
   const { session, member } = await requireResident();
@@ -56,11 +56,38 @@ export default async function ResidentDashboardPage() {
         .filter((l) => l.invoiceId === latest.invoice.id)
         .sort((a, b) => a.sortOrder - b.sortOrder)
     : [];
+  const summary = [
+    {
+      title: balance < 0 ? "بستانکاری شما" : "مانده قابل پرداخت",
+      amount: Math.abs(balance),
+      description:
+        balance === 0
+          ? account.debtRial > 0
+            ? "اعتبار شما بدهی را پوشش می‌دهد؛ مدیر می‌تواند آن را به هزینه‌ها تخصیص دهد"
+            : "حساب شما تسویه است"
+          : balance < 0
+            ? "برای دوره‌های بعد در حساب شما می‌ماند"
+            : "بدهی فیش‌ها منهای بستانکاری آزاد",
+      icon: Wallet,
+    },
+    {
+      title: "سهم آخرین دوره",
+      amount: latest?.invoice.subtotalRial ?? 0,
+      description: latest?.period.title ?? "هنوز فیشی صادر نشده",
+      icon: Receipt,
+    },
+    {
+      title: "پرداخت‌های تأییدشده شما",
+      amount: payments.reduce((sum, payment) => sum + payment.amountRial, 0),
+      description: "از ابتدای ثبت حساب ساختمان",
+      icon: CircleCheck,
+    },
+  ];
   return (
     <div className="space-y-6">
       <div className="page-heading">
         <div>
-          <h1>{session.user.name.split(" ")[0]} عزیز، به خانه خوش آمدید.</h1>
+          <h1>{session.user.name}، خوش آمدید.</h1>
           <p>واحد {u?.label}؛ فیش‌ها، واریزها و خبرهای ساختمان شما.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -78,48 +105,35 @@ export default async function ResidentDashboardPage() {
           </Button>
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="panel p-6">
-          <Wallet size={22} className="mb-5 text-primary" />
-          <p className="text-xs text-muted-foreground">
-            {balance < 0 ? "بستانکاری شما" : "مانده قابل پرداخت"}
-          </p>
-          <p className="mt-3 text-2xl font-bold">
-            {formatToman(Math.abs(balance))}
-          </p>
-          <p className="mt-3 text-[10px] text-muted-foreground">
-            {balance === 0
-              ? account.debtRial > 0
-                ? "اعتبار شما بدهی را پوشش می‌دهد؛ مدیر می‌تواند آن را به هزینه‌ها تخصیص دهد"
-                : "حساب شما تسویه است"
-              : balance < 0
-                ? "برای دوره‌های بعد در حساب شما می‌ماند"
-                : "بدهی فیش‌ها منهای بستانکاری آزاد"}
-          </p>
-        </div>
-        <div className="panel p-6">
-          <Receipt size={22} className="mb-5 text-primary" />
-          <p className="text-xs text-muted-foreground">سهم آخرین دوره</p>
-          <p className="mt-3 text-2xl font-bold">
-            {formatToman(latest?.invoice.subtotalRial ?? 0)}
-          </p>
-          <p className="mt-3 text-[10px] text-muted-foreground">
-            {latest?.period.title ?? "هنوز فیشی صادر نشده"}
-          </p>
-        </div>
-        <div className="panel p-6">
-          <CircleCheck size={22} className="mb-5 text-primary" />
-          <p className="text-xs text-muted-foreground">
-            پرداخت‌های تأییدشده شما
-          </p>
-          <p className="mt-3 text-2xl font-bold">
-            {formatToman(payments.reduce((s, p) => s + p.amountRial, 0))}
-          </p>
-          <p className="mt-3 text-[10px] text-muted-foreground">
-            از ابتدای ثبت حساب ساختمان
-          </p>
-        </div>
-      </div>
+      <section
+        aria-label="خلاصه حساب واحد"
+        className="grid max-sm:divide-y max-sm:divide-border max-sm:overflow-hidden max-sm:rounded-xl max-sm:border max-sm:border-border max-sm:bg-card sm:grid-cols-3 sm:gap-4"
+      >
+        {summary.map((item) => (
+          <div
+            key={item.title}
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-x-3 gap-y-1.5 p-4 sm:block sm:rounded-[14px] sm:border sm:border-border sm:bg-card sm:p-6"
+          >
+            <item.icon
+              size={22}
+              aria-hidden="true"
+              className="mb-5 hidden text-primary sm:block"
+            />
+            <p className="text-xs leading-6 text-muted-foreground sm:leading-4">
+              {item.title}
+            </p>
+            <p className="min-w-0 break-words text-left text-base font-bold tabular-nums min-[360px]:text-lg sm:mt-3 sm:text-right sm:text-2xl">
+              {formatTomanNumber(item.amount)}{" "}
+              <span className="text-[11px] font-normal text-muted-foreground sm:text-2xl sm:font-bold sm:text-foreground">
+                تومان
+              </span>
+            </p>
+            <p className="col-span-2 text-[11px] leading-6 text-muted-foreground sm:mt-3 sm:text-[10px] sm:leading-normal">
+              {item.description}
+            </p>
+          </div>
+        ))}
+      </section>
       {balance > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--warning)_35%,var(--border))] bg-[var(--warning-bg)] px-4 py-3 text-xs">
           <CircleAlert size={21} className="text-[var(--warning)]" />

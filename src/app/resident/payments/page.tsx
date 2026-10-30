@@ -147,6 +147,12 @@ export default async function ResidentPaymentsPage() {
             { key: "status", label: "وضعیت", type: "status" },
           ]}
           filename="my-payment-requests"
+          mobile={{
+            title: "purpose",
+            status: "status",
+            amount: "amount",
+            details: ["confirmed", "date", "note"],
+          }}
         />
       </section>
     </div>

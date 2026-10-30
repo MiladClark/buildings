@@ -4,7 +4,19 @@ import { Select } from "@/components/ui/select";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowUpLeft, Plus, Download, Wallet, Receipt, Building2, ArrowDownLeft, CircleCheck, ChevronLeft, Landmark, Info } from "lucide-react";
+import {
+  ArrowUpLeft,
+  Plus,
+  Download,
+  Wallet,
+  Receipt,
+  Building2,
+  ArrowDownLeft,
+  CircleCheck,
+  ChevronLeft,
+  Landmark,
+  Info,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DeferredCalendar,
@@ -119,8 +131,8 @@ export function Dashboard({
         <div>
           <h1>نمای کلی ساختمان</h1>
           <p>
-            {name ? `${name.split(" ")[0]} عزیز، ` : ""}مهم‌ترین وضعیت‌های مالی
-            و واحدها را اینجا ببینید.
+            {name ? `${name}، ` : ""}مهم‌ترین وضعیت‌های مالی و واحدها را اینجا
+            ببینید.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -235,7 +247,10 @@ export function Dashboard({
           </Button>
         </div>
       )}
-      <DeferredDashboardCharts timeline={data.cashTimeline} categories={categories} />
+      <DeferredDashboardCharts
+        timeline={data.cashTimeline}
+        categories={categories}
+      />
       <div>
         <section className="panel min-w-0">
           <div className="panel-head">

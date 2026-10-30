@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ActionForm, FormModal } from "./forms";
 import { DataGrid } from "./data-grid";
@@ -196,7 +197,7 @@ function DisbursementForm({
               </div>
               <Button
                 type="button"
-                size="sm"
+                size="icon"
                 variant="ghost"
                 disabled={items.length === 1}
                 aria-label={`حذف قلم ${index + 1}`}
@@ -593,7 +594,7 @@ function MobileCostList({
   return (
     <div className="lg:hidden">
       <div className="px-5 pb-4">
-        <Input
+        <SearchInput
           aria-label="جست‌وجوی هزینه در موبایل"
           label="جست‌وجوی هزینه یا دوره"
           placeholder="جست‌وجوی هزینه یا دوره"

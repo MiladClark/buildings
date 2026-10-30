@@ -23,7 +23,7 @@ export default async function PendingPage() {
           className="mx-auto mb-5 text-primary"
           strokeWidth={1.75}
         />
-        <h1 className="text-xl font-bold">حساب شما آماده است.</h1>
+        <h1>حساب شما آماده است.</h1>
         <p className="my-5 text-sm leading-8 text-muted-foreground">
           اگر مدیر شماره شما را از قبل نساخته باشد، از او بخواهید در «حساب
           ساکنان» حساب را به واحدتان وصل کند. بعد از اتصال، فیش‌ها اینجا در

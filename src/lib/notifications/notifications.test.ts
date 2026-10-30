@@ -18,6 +18,7 @@ vi.mock("@/lib/db", async () => {
 import { db } from "@/lib/db";
 import * as s from "@/lib/db/schema";
 import { enqueueNotice } from "./store";
+import { getNotificationPreview } from "./inbox";
 import { runNotificationCycle } from "./worker";
 import { defaultPolicy, defaultPreferences } from "./types";
 import {
@@ -151,6 +152,71 @@ async function dueTomorrow() {
     })
     .where(eq(s.expenseLine.id, "cost"));
 }
+
+describe("header notification preview", () => {
+  it("isolates accounts and finds older unread notices beyond the latest preview", async () => {
+    await db.insert(s.appNotification).values([
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `read-${String(index).padStart(2, "0")}`,
+        userId: "r",
+        title: `Read ${index}`,
+        body: "Own notice",
+        read: true,
+        kind: "system" as const,
+        href: "/resident/invoices",
+        createdAt: now,
+      })),
+      ...Array.from({ length: 18 }, (_, index) => ({
+        id: `unread-${index}`,
+        userId: "r",
+        title: "Older unread",
+        body: "Own notice",
+        kind: "system" as const,
+        href: "/resident/invoices",
+        createdAt: new Date(now.getTime() - (index + 1) * 1000),
+      })),
+      {
+        id: "foreign",
+        userId: "o",
+        title: "Private",
+        body: "Other account",
+        kind: "system",
+        createdAt: new Date(now.getTime() + 1000),
+      },
+    ]);
+    const preview = await getNotificationPreview("r");
+    expect(preview.all).toHaveLength(15);
+    expect(preview.all[0].id).toBe("read-19");
+    expect(preview.all.every((notice) => notice.read)).toBe(true);
+    expect(preview.unread).toHaveLength(15);
+    expect(preview.unreadCount).toBe(18);
+    expect(preview.unread[0].id).toBe("unread-0");
+    expect(preview.unread.at(-1)?.id).toBe("unread-14");
+    expect(preview.all.some((notice) => notice.id === "foreign")).toBe(false);
+    expect(preview.unread.some((notice) => notice.id === "foreign")).toBe(
+      false,
+    );
+    expect(preview.all[0].createdAt).toBe(now.toISOString());
+  });
+  it("returns an empty preview and normalizes unsafe destinations", async () => {
+    expect(await getNotificationPreview("r")).toEqual({
+      all: [],
+      unread: [],
+      unreadCount: 0,
+    });
+    await db
+      .insert(s.appNotification)
+      .values({
+        id: "unsafe-destination",
+        userId: "r",
+        title: "Test",
+        body: "Test",
+        kind: "system",
+        href: "https://untrusted.test",
+      });
+    expect((await getNotificationPreview("r")).all[0].href).toBe("/");
+  });
+});
 
 describe("notification ledger and delivery", () => {
   it("commits the inbox and one delivery per device atomically, deduplicated per user", async () => {

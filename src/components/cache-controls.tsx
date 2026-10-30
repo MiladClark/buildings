@@ -3,11 +3,9 @@
 import { useEffect, useState, useTransition } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
-import {
-  clearBuildingCache,
-  reloadBuildingCache,
-} from "@/lib/actions/cache";
+import { clearBuildingCache, reloadBuildingCache } from "@/lib/actions/cache";
 
 export function CacheControls() {
   const [pending, start] = useTransition();
@@ -49,26 +47,34 @@ export function CacheControls() {
 
   return (
     <div className="flex items-center">
-      <button
+      <Button
         type="button"
+        size="icon"
+        variant="ghost"
         aria-label="بارگذاری مجدد کش"
         title="بارگذاری مجدد کش"
         disabled={pending}
         onClick={reload}
-        className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-primary disabled:opacity-50"
+        className="text-muted-foreground hover:text-primary"
       >
         <RefreshCw size={19} />
-      </button>
-      <button
+      </Button>
+      <Button
         type="button"
+        size="icon"
+        variant="ghost"
         aria-label={confirming ? "تأیید پاک کردن کش" : "پاک کردن کش"}
         title={confirming ? "برای پاک کردن دوباره بزنید" : "پاک کردن کش"}
         disabled={pending}
         onClick={clear}
-        className={`rounded-lg p-2 disabled:opacity-50 ${confirming ? "bg-destructive/10 text-destructive" : "text-muted-foreground hover:bg-muted hover:text-primary"}`}
+        className={
+          confirming
+            ? "bg-destructive/10 text-destructive"
+            : "text-muted-foreground hover:text-primary"
+        }
       >
         <Trash2 size={19} />
-      </button>
+      </Button>
     </div>
   );
 }
