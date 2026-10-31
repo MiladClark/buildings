@@ -7,7 +7,7 @@ export function AuthFrame({
   centered?: boolean;
 }) {
   return (
-    <div className="grid min-h-[100dvh] lg:grid-cols-2">
+    <div className="grid min-h-[100svh] lg:min-h-[100dvh] lg:grid-cols-2">
       <section className="relative hidden flex-col justify-between overflow-hidden border-l border-border bg-secondary/70 px-14 py-12 lg:flex xl:px-20">
         <div className="flex items-center gap-3">
           <span className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">

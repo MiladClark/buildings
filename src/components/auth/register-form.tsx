@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { FloatingInput, FloatingSelect } from "@/components/auth/floating-field";
+import {
+  FloatingInput,
+  FloatingSelect,
+} from "@/components/auth/floating-field";
 import { Button } from "@/components/ui/button";
 import {
   englishPassword,
@@ -69,12 +72,14 @@ export function RegisterForm({
           name="firstName"
           label="نام"
           autoComplete="given-name"
+          enterKeyHint="next"
         />
         <FloatingInput
           id="lastName"
           name="lastName"
           label="نام خانوادگی"
           autoComplete="family-name"
+          enterKeyHint="next"
         />
       </div>
       <div className={isFirstUser ? undefined : "grid grid-cols-2 gap-3"}>
@@ -87,6 +92,7 @@ export function RegisterForm({
           dir="ltr"
           required
           autoComplete="tel"
+          enterKeyHint="next"
           onInput={(event) => writeLatinDigits(event.currentTarget)}
         />
         {!isFirstUser && (
@@ -111,6 +117,10 @@ export function RegisterForm({
         minLength={8}
         required
         autoComplete="new-password"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="go"
         onInput={(event) => writeLatinDigits(event.currentTarget)}
       />
       <Button type="submit" disabled={loading} className="w-full">

@@ -431,7 +431,7 @@ export function AppShell({
         {role === "resident" && !onChat && (
           <nav
             aria-label="دسترسی سریع ساکن"
-            className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+            className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
           >
             {residentNav
               .filter(

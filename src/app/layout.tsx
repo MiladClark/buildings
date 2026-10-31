@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Toaster } from "sonner";
 
-import { PwaInstallHint, PwaRegister } from "@/components/pwa";
+import { PwaRegister } from "@/components/pwa";
+import { MobileViewport } from "@/components/mobile-viewport";
 import { vazirmatn } from "@/lib/fonts";
 import { themeInitScript } from "@/lib/theme";
 
@@ -35,7 +36,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  interactiveWidget: "resizes-content",
+  interactiveWidget: "resizes-visual",
   themeColor: "#26745d",
 };
 
@@ -52,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {themeInitScript}
         </Script>
         {children}
-        <PwaInstallHint />
+        <MobileViewport />
         <PwaRegister />
         <Toaster position="top-center" richColors closeButton />
       </body>

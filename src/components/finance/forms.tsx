@@ -5,6 +5,7 @@ import { X, LoaderCircle, Plus, CircleCheck, CircleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { focusDialogOnTouch } from "@/lib/mobile-viewport";
 
 const ModalCloseContext = createContext<(() => void) | null>(null);
 
@@ -122,10 +123,11 @@ export function FormModal({
       <Dialog.Portal>
         <Dialog.Overlay className="motion-overlay fixed inset-0 z-40 bg-black/35 backdrop-blur-[2px]" />
         <Dialog.Content
+          onOpenAutoFocus={focusDialogOnTouch}
           onCloseAutoFocus={onCloseAutoFocus}
           dir="rtl"
           className={cn(
-            "motion-dialog fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl",
+            "mobile-form-dialog motion-dialog fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-32px)] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl",
             contentClassName,
           )}
         >

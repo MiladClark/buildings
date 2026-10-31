@@ -96,8 +96,21 @@ export function LoginForm({
         dir="ltr"
         required
         autoComplete="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="next"
         placeholder="۰۹۱۲۳۴۵۶۷۸۹"
         onInput={(event) => writeLatinDigits(event.currentTarget)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+          const password =
+            event.currentTarget.form?.elements.namedItem("password");
+          if (password instanceof HTMLInputElement) {
+            event.preventDefault();
+            password.focus();
+          }
+        }}
       />
       <FloatingInput
         label="رمز عبور"
@@ -106,6 +119,10 @@ export function LoginForm({
         type="password"
         required
         autoComplete="current-password"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="go"
         onInput={(event) => writeLatinDigits(event.currentTarget)}
       />
       <Button type="submit" disabled={loading} className="w-full">

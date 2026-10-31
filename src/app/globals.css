@@ -154,6 +154,41 @@ button.form-control {
   resize: vertical;
   line-height: 1.8;
 }
+/* A keyboard changes the visible area, not the document layout. Native focus
+   scrolling remains in charge; overlays alone use the visual viewport. */
+@media (max-width: 1023px), (hover: none) and (pointer: coarse) {
+  input.form-control,
+  textarea.form-control,
+  select.form-control {
+    font-size: 16px;
+    scroll-margin-block: 16px;
+  }
+}
+@media (max-width: 1023px) {
+  html:has(#main-content) {
+    scroll-padding-block-start: calc(5rem + env(safe-area-inset-top));
+  }
+  html:has(.mobile-bottom-nav):not([data-keyboard-open]) {
+    scroll-padding-block-end: calc(5rem + env(safe-area-inset-bottom));
+  }
+  .mobile-form-dialog {
+    top: calc(
+      var(--visual-viewport-top, 0px) + max(16px, env(safe-area-inset-top))
+    );
+    max-height: calc(
+      var(--visual-viewport-height, 100svh) -
+        max(16px, env(safe-area-inset-top)) -
+        max(16px, env(safe-area-inset-bottom))
+    );
+    /* Keep the top edge stable instead of re-centering on every IME resize. */
+    translate: -50% 0;
+    scroll-padding-block: 16px;
+  }
+  :root[data-keyboard-open] .mobile-bottom-nav {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
 .select-menu {
   max-height: min(360px, var(--radix-select-content-available-height));
 }

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { ChatMemberView, ChatMessageView } from "@/lib/chat";
 import { markChatSeen } from "@/lib/chat-seen";
+import { viewportGeometry } from "@/lib/mobile-viewport";
 
 const EMOJIS = [
   "😀",
@@ -296,6 +297,7 @@ export function BuildingChat({
       htmlOverflow: html.style.overflow,
       bodyOverflow: body.style.overflow,
     };
+    let frame: number | undefined;
 
     const clearFrame = () => {
       section.style.top = "";
@@ -308,6 +310,7 @@ export function BuildingChat({
     };
 
     const apply = () => {
+      frame = undefined;
       if (!query.matches) {
         clearFrame();
         html.style.overflow = previous.htmlOverflow;
@@ -316,10 +319,14 @@ export function BuildingChat({
       }
 
       const viewport = window.visualViewport;
-      const top = viewport?.offsetTop ?? 0;
-      const height = viewport?.height ?? window.innerHeight;
-      const keyboard = Math.max(0, window.innerHeight - height - top);
-      if (window.scrollY !== 0) window.scrollTo(0, 0);
+      if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
+      const { top, height, keyboardOpen } = viewportGeometry({
+        layoutHeight: window.innerHeight,
+        height: viewport?.height ?? window.innerHeight,
+        top: viewport?.offsetTop ?? 0,
+        scale: viewport?.scale ?? 1,
+        editing: section.contains(document.activeElement),
+      });
       html.style.overflow = "hidden";
       body.style.overflow = "hidden";
       section.style.top = `${top}px`;
@@ -329,21 +336,28 @@ export function BuildingChat({
       section.style.height = `${height}px`;
       const form = section.querySelector("form");
       if (form instanceof HTMLElement) {
-        form.style.paddingBottom = keyboard > 120 ? "0.5rem" : "";
+        form.style.paddingBottom = keyboardOpen ? "0.5rem" : "";
       }
       if (followLatest.current && listRef.current) {
         listRef.current.scrollTop = listRef.current.scrollHeight;
       }
     };
 
+    const schedule = () => {
+      if (frame === undefined) frame = window.requestAnimationFrame(apply);
+    };
+
     apply();
-    query.addEventListener("change", apply);
-    window.visualViewport?.addEventListener("resize", apply);
-    window.visualViewport?.addEventListener("scroll", apply);
+    query.addEventListener("change", schedule);
+    window.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
     return () => {
-      query.removeEventListener("change", apply);
-      window.visualViewport?.removeEventListener("resize", apply);
-      window.visualViewport?.removeEventListener("scroll", apply);
+      if (frame !== undefined) window.cancelAnimationFrame(frame);
+      query.removeEventListener("change", schedule);
+      window.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
       clearFrame();
       html.style.overflow = previous.htmlOverflow;
       body.style.overflow = previous.bodyOverflow;

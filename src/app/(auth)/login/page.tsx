@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { LoginForm } from "@/components/auth/login-form";
+import { PwaInstallCard } from "@/components/pwa";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { GoogleButton, GoogleOption } from "@/components/auth/google-button";
 import { GoogleResidentForm } from "@/components/auth/google-resident-form";
@@ -111,6 +112,7 @@ export default async function LoginPage({
           ساخت حساب کاربری
         </Link>
       </p>
+      <PwaInstallCard />
     </AuthFrame>
   );
 }

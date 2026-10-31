@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { focusDialogOnTouch } from "@/lib/mobile-viewport";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { FieldHint } from "@/components/ui/field-hint";
@@ -310,11 +311,12 @@ export function UnitAccounts(props: Props) {
           <Dialog.Overlay className="motion-overlay fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
           <Dialog.Content
             dir="rtl"
+            onOpenAutoFocus={focusDialogOnTouch}
             onCloseAutoFocus={(e) => {
               e.preventDefault();
               openedCard.current?.focus();
             }}
-            className="motion-dialog fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[calc(100%-24px)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
+            className="mobile-form-dialog motion-dialog fixed left-1/2 top-1/2 z-50 flex max-h-[92dvh] w-[calc(100%-24px)] max-w-5xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
           >
             <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-5 py-5 sm:px-7">
               <div>
