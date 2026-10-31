@@ -42,7 +42,7 @@ export default async function IndependentExpensePage({
   return (
     <div className="space-y-6">
       <Link
-        href="/manager/expenses#independent-costs"
+        href="/manager/expenses?view=costs"
         className="text-xs text-muted-foreground"
       >
         بازگشت به دفتر هزینه‌ها
@@ -81,6 +81,43 @@ export default async function IndependentExpensePage({
           </FormModal>
         )}
       </div>
+      <section className="panel p-5 space-y-4">
+        <h2 className="panel-title">محل ثبت هزینه</h2>
+        <p className="text-sm leading-7 text-muted-foreground">
+          {cost.linkedExpenseId
+            ? "این هزینه وارد دوره شده است. پرداخت‌های قبلی بابت سهم همان واحد از این دسته هزینه محاسبه شده‌اند؛ اضافه آن در بستانکاری آزاد قرار دارد."
+            : "این هزینه در هیچ فیش شارژی نیست. واریز به مدیر و پرداخت از جیب واحدها جدا ثبت می‌شوند؛ مبلغ هر واحد تا زمان انتقال هزینه محفوظ می‌ماند و در تسویه شارژهای دیگر مصرف نمی‌شود."}
+        </p>
+        <p className="text-xs leading-7 text-muted-foreground">
+          پرداخت از جیب واحد، طلب همان واحد از ساختمان است و در درآمد نقدی صندوق
+          حساب نمی‌شود. مبلغ واریز همسایه‌ها را دوباره به‌عنوان پرداخت مستقیم
+          وارد نکنید.
+        </p>
+        {period && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/manager/periods/${period.id}`}>
+              مشاهده سهم‌ها و فیش‌های دوره
+            </Link>
+          </Button>
+        )}
+        {cost.maintenanceTicketId && (
+          <Button asChild variant="ghost" size="sm">
+            <Link
+              href={`/manager/maintenance?ticket=${cost.maintenanceTicketId}`}
+            >
+              درخواست مرتبط
+            </Link>
+          </Button>
+        )}
+        <StandaloneCostActions
+          id={id}
+          deleted={!!cost.deletedAt}
+          linked={!!cost.linkedExpenseId}
+          periods={data.periods
+            .filter((p) => p.status === "draft")
+            .map((p) => ({ id: p.id, title: p.title }))}
+        />
+      </section>
       <TreasurySummary treasury={data.treasury} />
       {cost.utilityBill && (
         <section className="panel p-6 space-y-5">
@@ -120,43 +157,7 @@ export default async function IndependentExpensePage({
           </div>
         ))}
       </dl>
-      <section className="panel p-5 space-y-4">
-        <h2 className="panel-title">وضعیت شارژ و حساب واحدها</h2>
-        <p className="text-sm leading-7 text-muted-foreground">
-          {cost.linkedExpenseId
-            ? "این هزینه وارد دوره شده است. پرداخت‌های قبلی بابت سهم همان واحد از این دسته هزینه محاسبه شده‌اند؛ اضافه آن در بستانکاری آزاد قرار دارد."
-            : "این هزینه در هیچ فیش شارژی نیست. واریز به مدیر و پرداخت از جیب واحدها جدا ثبت می‌شوند؛ مبلغ هر واحد تا زمان انتقال هزینه محفوظ می‌ماند و در تسویه شارژهای دیگر مصرف نمی‌شود."}
-        </p>
-        <p className="text-xs leading-7 text-muted-foreground">
-          پرداخت از جیب واحد، طلب همان واحد از ساختمان است و در درآمد نقدی صندوق
-          حساب نمی‌شود. مبلغ واریز همسایه‌ها را دوباره به‌عنوان پرداخت مستقیم
-          وارد نکنید.
-        </p>
-        {period && (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/manager/periods/${period.id}`}>
-              مشاهده سهم‌ها و فیش‌های دوره
-            </Link>
-          </Button>
-        )}
-        {cost.maintenanceTicketId && (
-          <Button asChild variant="ghost" size="sm">
-            <Link
-              href={`/manager/maintenance?ticket=${cost.maintenanceTicketId}`}
-            >
-              درخواست مرتبط
-            </Link>
-          </Button>
-        )}
-        <StandaloneCostActions
-          id={id}
-          deleted={!!cost.deletedAt}
-          linked={!!cost.linkedExpenseId}
-          periods={data.periods
-            .filter((p) => p.status === "draft")
-            .map((p) => ({ id: p.id, title: p.title }))}
-        />
-      </section>
+
       {!cost.deletedAt && (
         <div className="flex flex-wrap justify-between gap-4 items-center">
           <div>

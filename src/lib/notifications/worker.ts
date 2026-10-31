@@ -71,7 +71,8 @@ async function scheduleBuilding(
     for (const m of members.filter(
       (m) =>
         a.audience === "all" ||
-        (a.audience === "residents" && m.role === "resident") ||
+        (a.audience === "residents" &&
+          (m.role === "resident" || (m.role === "manager" && m.unitId))) ||
         (a.audience === "managers" && m.role === "manager") ||
         (a.audience === "unit" && m.unitId === a.unitId),
     ))
@@ -106,7 +107,7 @@ async function scheduleBuilding(
         );
       if (!slot) continue;
       for (const m of members.filter(
-        (m) => m.role === "resident" && m.unitId,
+        (m) => (m.role === "resident" || m.role === "manager") && m.unitId,
       )) {
         const net =
           state.accounts.find((a) => a.unitId === m.unitId)?.balanceRial ?? 0;
@@ -186,7 +187,11 @@ async function stillRelevant(
     return !!a && !a.cancelledAt;
   }
   if (notice.kind === "charge_due" && c?.periodId) {
-    if (member.role !== "resident" || member.unitId !== c.unitId) return false;
+    if (
+      !["resident", "manager"].includes(member.role) ||
+      member.unitId !== c.unitId
+    )
+      return false;
     const ledger = await loadSettlementData(tx, notice.buildingId),
       state = buildSettlementState(ledger);
     const p = ledger.periods.find((p) => p.id === c.periodId);

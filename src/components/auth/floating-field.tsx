@@ -2,6 +2,7 @@
 
 import { useId, type ComponentProps } from "react";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Select } from "@/components/ui/select";
 
 /** Native labels share the app's floating treatment, including autofill and reset. */
@@ -12,10 +13,11 @@ export function FloatingInput({
 }: ComponentProps<typeof Input> & { label: string }) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
+  const Control = props.type === "tel" ? PhoneInput : Input;
   return (
     <div className="form-field">
       <label htmlFor={fieldId}>{label}</label>
-      <Input {...props} id={fieldId} />
+      <Control {...props} id={fieldId} />
     </div>
   );
 }

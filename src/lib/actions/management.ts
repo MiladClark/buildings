@@ -29,6 +29,7 @@ import {
   type RecoverableEntity,
 } from "@/lib/billing/corrections";
 import { reconcileDraftPayments } from "@/lib/billing/settlement-store";
+import { mutationResult } from "@/lib/action-result";
 
 async function refresh() {
   await invalidateCurrentBuildingCache();
@@ -224,101 +225,115 @@ export async function setRecordDeleted(
   id: string,
   deleted: boolean,
 ) {
-  const { member, session } = await requireManager();
-  const bid = member.buildingId,
-    actor = session.user.id;
-  await db.transaction(async (tx) => {
-    if (type === "payment")
-      await correctReceipt(tx, bid, id, deleted ? "delete" : "restore", actor);
-    else if (type === "expense")
-      await correctExpense(tx, bid, id, deleted ? "delete" : "restore", actor);
-    else if (type === "period" && deleted)
-      await removePeriod(tx, bid, id, actor);
-    else if (type === "category") {
-      const row = await tx.query.expenseCategory.findFirst({
-        where: and(
-          eq(expenseCategory.id, id),
-          eq(expenseCategory.buildingId, bid),
-        ),
-      });
-      if (!row || row.slug === monthlyChargeSlug || row.active !== deleted)
-        throw new Error("وضعیت دسته تغییر کرده است.");
-      await tx
-        .update(expenseCategory)
-        .set({ active: !deleted })
-        .where(eq(expenseCategory.id, id));
-      await reconcileDraftPayments(tx, bid);
-      await logManagementEvent(
-        tx,
-        bid,
-        actor,
-        type,
-        id,
-        deleted ? "delete" : "restore",
-        row.name,
-        row,
-      );
-    } else if (type === "request") {
-      const row = await tx.query.paymentRequest.findFirst({
-        where: eq(paymentRequest.id, id),
-      });
-      const owner =
-        row &&
-        (await tx.query.unit.findFirst({
-          where: and(eq(unit.id, row.unitId), eq(unit.buildingId, bid)),
-        }));
-      if (!row || !owner || Boolean(row.deletedAt) !== !deleted)
-        throw new Error("اعلام واریز پیدا نشد یا وضعیتش تغییر کرده است.");
-      await tx
-        .update(paymentRequest)
-        .set({ deletedAt: deleted ? new Date() : null })
-        .where(eq(paymentRequest.id, id));
-      await logManagementEvent(
-        tx,
-        bid,
-        actor,
-        type,
-        id,
-        deleted ? "delete" : "restore",
-        `اعلام واریز واحد ${owner.label}`,
-        row,
-      );
-    } else if (
-      type === "unit" ||
-      type === "maintenance" ||
-      (type === "period" && !deleted)
-    ) {
-      const table =
-        type === "unit"
-          ? unit
-          : type === "maintenance"
-            ? maintenanceTicket
-            : billingPeriod;
-      const [row] = await tx
-        .select()
-        .from(table)
-        .where(and(eq(table.id, id), eq(table.buildingId, bid)));
-      if (!row || Boolean(row.deletedAt) !== !deleted)
-        throw new Error("وضعیت این مورد تغییر کرده است.");
-      await tx
-        .update(table)
-        .set({ deletedAt: deleted ? new Date() : null })
-        .where(eq(table.id, id));
-      await reconcileDraftPayments(tx, bid);
-      const label = "label" in row ? `واحد ${row.label}` : row.title;
-      await logManagementEvent(
-        tx,
-        bid,
-        actor,
-        type,
-        id,
-        deleted ? "delete" : "restore",
-        label,
-        row,
-      );
-    } else throw new Error("عملیات معتبر نیست.");
+  return mutationResult(async () => {
+    const { member, session } = await requireManager();
+    const bid = member.buildingId,
+      actor = session.user.id;
+    await db.transaction(async (tx) => {
+      if (type === "payment")
+        await correctReceipt(
+          tx,
+          bid,
+          id,
+          deleted ? "delete" : "restore",
+          actor,
+        );
+      else if (type === "expense")
+        await correctExpense(
+          tx,
+          bid,
+          id,
+          deleted ? "delete" : "restore",
+          actor,
+        );
+      else if (type === "period" && deleted)
+        await removePeriod(tx, bid, id, actor);
+      else if (type === "category") {
+        const row = await tx.query.expenseCategory.findFirst({
+          where: and(
+            eq(expenseCategory.id, id),
+            eq(expenseCategory.buildingId, bid),
+          ),
+        });
+        if (!row || row.slug === monthlyChargeSlug || row.active !== deleted)
+          throw new Error("وضعیت دسته تغییر کرده است.");
+        await tx
+          .update(expenseCategory)
+          .set({ active: !deleted })
+          .where(eq(expenseCategory.id, id));
+        await reconcileDraftPayments(tx, bid);
+        await logManagementEvent(
+          tx,
+          bid,
+          actor,
+          type,
+          id,
+          deleted ? "delete" : "restore",
+          row.name,
+          row,
+        );
+      } else if (type === "request") {
+        const row = await tx.query.paymentRequest.findFirst({
+          where: eq(paymentRequest.id, id),
+        });
+        const owner =
+          row &&
+          (await tx.query.unit.findFirst({
+            where: and(eq(unit.id, row.unitId), eq(unit.buildingId, bid)),
+          }));
+        if (!row || !owner || Boolean(row.deletedAt) !== !deleted)
+          throw new Error("اعلام واریز پیدا نشد یا وضعیتش تغییر کرده است.");
+        await tx
+          .update(paymentRequest)
+          .set({ deletedAt: deleted ? new Date() : null })
+          .where(eq(paymentRequest.id, id));
+        await logManagementEvent(
+          tx,
+          bid,
+          actor,
+          type,
+          id,
+          deleted ? "delete" : "restore",
+          `اعلام واریز واحد ${owner.label}`,
+          row,
+        );
+      } else if (
+        type === "unit" ||
+        type === "maintenance" ||
+        (type === "period" && !deleted)
+      ) {
+        const table =
+          type === "unit"
+            ? unit
+            : type === "maintenance"
+              ? maintenanceTicket
+              : billingPeriod;
+        const [row] = await tx
+          .select()
+          .from(table)
+          .where(and(eq(table.id, id), eq(table.buildingId, bid)));
+        if (!row || Boolean(row.deletedAt) !== !deleted)
+          throw new Error("وضعیت این مورد تغییر کرده است.");
+        await tx
+          .update(table)
+          .set({ deletedAt: deleted ? new Date() : null })
+          .where(eq(table.id, id));
+        await reconcileDraftPayments(tx, bid);
+        const label = "label" in row ? `واحد ${row.label}` : row.title;
+        await logManagementEvent(
+          tx,
+          bid,
+          actor,
+          type,
+          id,
+          deleted ? "delete" : "restore",
+          label,
+          row,
+        );
+      } else throw new Error("عملیات معتبر نیست.");
+    });
+    await refresh();
   });
-  await refresh();
 }
 
 export async function unlinkResident(id: string) {

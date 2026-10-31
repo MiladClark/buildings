@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SearchInput } from "@/components/ui/search-input";
 import { Select } from "@/components/ui/select";
 import { ActionButton, ActionForm, FormModal } from "./forms";
@@ -49,16 +50,23 @@ export function BuildingAccountForm({ units }: { units: UnitOption[] }) {
           <Input name="lastName" maxLength={60} />
         </label>
       </div>
-      <label className="form-field col-span-full">
-        <span>شماره تلفن</span>
-        <Input
-          name="phone"
-          type="tel"
-          dir="ltr"
-          required
-          placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-        />
-      </label>
+      <div className="col-span-full space-y-2">
+        <label className="form-field">
+          <span>شماره تلفن</span>
+          <PhoneInput
+            name="phone"
+            required
+            aria-describedby="account-phone-help"
+          />
+        </label>
+        <p
+          id="account-phone-help"
+          className="text-xs leading-6 text-muted-foreground"
+        >
+          شماره با ارقام فارسی یا پیش‌شمارهٔ ایران هم پذیرفته می‌شود و خودکار به
+          شکل 09123456789 درمی‌آید.
+        </p>
+      </div>
       <label className="form-field">
         <span>نقش حساب</span>
         <Select
@@ -78,9 +86,12 @@ export function BuildingAccountForm({ units }: { units: UnitOption[] }) {
           name="unitId"
           aria-label={role === "manager" ? "واحد مدیر (اختیاری)" : "واحد ساکن"}
           required={role === "resident"}
+          disabled={role === "resident" && units.length === 0}
           defaultValue={role === "resident" ? units[0]?.id : ""}
         >
-          <option value="">بدون واحد</option>
+          <option value="">
+            {role === "manager" ? "بدون واحد" : "واحد را انتخاب کنید"}
+          </option>
           {units.map((u) => (
             <option key={u.id} value={u.id}>
               واحد {u.label}
@@ -88,6 +99,15 @@ export function BuildingAccountForm({ units }: { units: UnitOption[] }) {
           ))}
         </Select>
       </label>
+      {role === "resident" && units.length === 0 && (
+        <p
+          role="status"
+          className="col-span-full text-xs leading-7 text-muted-foreground"
+        >
+          برای همه واحدهای فعال حساب ساخته شده است. برای تغییر حساب هر واحد از
+          «نقش و دسترسی» همان حساب استفاده کنید.
+        </p>
+      )}
       <label className="form-field">
         <span>
           رمز ورود اولیه {role === "resident" ? "(اختیاری)" : "برای شماره جدید"}
@@ -118,7 +138,10 @@ export function BuildingAccountForm({ units }: { units: UnitOption[] }) {
           : "ساکن فقط پنل و اطلاعات واحد خودش را می‌بیند."}
       </p>
       <div className="account-form-actions col-span-full border-t border-border pt-5">
-        <Button type="submit">
+        <Button
+          type="submit"
+          disabled={role === "resident" && units.length === 0}
+        >
           {role === "manager" ? "ثبت مدیر ساختمان" : "ثبت حساب ساکن"}
         </Button>
         <span className="text-xs text-muted-foreground">
@@ -146,13 +169,7 @@ function RoleForm({
     >
       <label className="form-field">
         <span>شماره تلفن این حساب</span>
-        <Input
-          name="phone"
-          type="tel"
-          defaultValue={row.phone ?? ""}
-          dir="ltr"
-          placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-        />
+        <PhoneInput name="phone" defaultValue={row.phone ?? ""} />
       </label>
       <label className="form-field">
         <span>نقش حساب</span>

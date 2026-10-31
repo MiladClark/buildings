@@ -9,7 +9,7 @@ import {
   requireManager,
   requireSession,
 } from "@/lib/session";
-export async function listMaintenance() {
+export async function listMaintenance(personalOnly = false) {
   const s = await requireSession();
   const m = await getMembershipForUser(s.user.id);
   if (!m) throw new Error("دسترسی مجاز نیست.");
@@ -19,7 +19,7 @@ export async function listMaintenance() {
     .where(
       and(
         isNull(maintenanceTicket.deletedAt),
-        m.role === "manager"
+        m.role === "manager" && !personalOnly
           ? eq(maintenanceTicket.buildingId, m.buildingId)
           : and(
               eq(maintenanceTicket.buildingId, m.buildingId),

@@ -1,7 +1,7 @@
 import { MaintenanceView } from "@/components/finance/maintenance";
 import { listMaintenance } from "@/lib/actions/maintenance";
 export default async function MaintenancePage() {
-  const data = await listMaintenance();
+  const data = await listMaintenance(true);
   return (
     <MaintenanceView
       manager={false}

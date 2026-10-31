@@ -16,9 +16,15 @@ import {
 } from "@/lib/actions/notifications";
 import { isoDate, formatJalaliDate } from "@/lib/format/jalali";
 
-export async function NotificationsPage({ tab = "inbox" }: { tab?: string }) {
-  const data = await getNotificationPanel(),
-    manager = data.role === "manager",
+export async function NotificationsPage({
+  tab = "inbox",
+  resident = false,
+}: {
+  tab?: string;
+  resident?: boolean;
+}) {
+  const data = await getNotificationPanel(resident),
+    manager = !resident && data.role === "manager",
     base = manager ? "/manager/notifications" : "/resident/notifications";
   const tabs = [
     ["inbox", "صندوق من"],

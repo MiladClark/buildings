@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { Toaster } from "sonner";
+import { AppNotifications } from "@/components/ui/app-notifications";
 
 import { PwaRegister } from "@/components/pwa";
 import { MobileViewport } from "@/components/mobile-viewport";
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <MobileViewport />
         <PwaRegister />
-        <Toaster position="top-center" richColors closeButton />
+        <AppNotifications />
       </body>
     </html>
   );

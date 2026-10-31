@@ -401,15 +401,15 @@ export function DataGrid<T extends object>({
       <div
         className={cn("w-full overflow-x-auto", mobile && "hidden sm:block")}
       >
-        <table className="w-full min-w-[560px] text-right text-[11px]">
-          <thead className="border-y border-border bg-muted/45 text-muted-foreground">
+        <table className="w-full min-w-[560px] text-right text-xs">
+          <thead className="border-y border-border/70 text-muted-foreground">
             {table.getHeaderGroups().map((g) => (
               <tr key={g.id}>
                 {g.headers.map((h) => (
                   <th
                     key={h.id}
                     scope="col"
-                    className="h-11 whitespace-nowrap px-5 font-normal"
+                    className="h-12 whitespace-nowrap px-5 font-medium"
                     aria-sort={
                       h.column.getIsSorted() === "asc"
                         ? "ascending"
@@ -439,10 +439,13 @@ export function DataGrid<T extends object>({
             {table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className="h-[66px] border-b border-border/70 transition-colors last:border-0 hover:bg-muted/40"
+                className="h-16 border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40"
               >
                 {row.getVisibleCells().map((cell) => (
-                  <td className="whitespace-nowrap px-5" key={cell.id}>
+                  <td
+                    className="whitespace-nowrap px-5 py-3 align-middle"
+                    key={cell.id}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}

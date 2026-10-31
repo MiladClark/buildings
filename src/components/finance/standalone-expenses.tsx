@@ -13,7 +13,9 @@ import {
 
 export function StandaloneExpenses({
   rows,
+  initialFilter = "all",
 }: {
+  initialFilter?: string;
   rows: {
     id: string;
     description: string;
@@ -26,7 +28,7 @@ export function StandaloneExpenses({
     deleted: boolean;
   }[];
 }) {
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState(initialFilter);
   return (
     <section className="panel" id="independent-costs">
       <div className="panel-head">
@@ -71,14 +73,26 @@ export function StandaloneExpenses({
         emptyTitle="هزینه مستقلی در این فهرست نیست"
         emptyDescription="از «ثبت هزینه جدید»، حالت «مستقل؛ فعلاً خارج از شارژ» را انتخاب کنید."
         renderAction={(r) => (
-          <RowActions
-            items={[
-              {
-                label: "پرونده هزینه",
-                href: `/manager/expenses/independent/${r.id}`,
-              },
-            ]}
-          />
+          <div className="flex items-center gap-2">
+            {!r.deleted && r.state !== "مستقل" && (
+              <ActionButton
+                action={unbillStandaloneExpense.bind(null, r.id)}
+                variant="outline"
+                confirm="هزینه مستقل از دوره خارج شود؟ واریزها حفظ می‌شوند؛ اگر فیش صادر شده، دوره برای اصلاح باز می‌شود."
+                success="هزینه به دفتر مستقل برگشت و واریزهای آن حفظ شدند."
+              >
+                خارج‌کردن از دوره
+              </ActionButton>
+            )}
+            <RowActions
+              items={[
+                {
+                  label: "پرونده هزینه",
+                  href: `/manager/expenses/independent/${r.id}`,
+                },
+              ]}
+            />
+          </div>
         )}
       />
     </section>

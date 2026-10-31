@@ -29,6 +29,8 @@ type HistoryRow = Omit<Disbursement, "paidAt" | "createdAt" | "cancelledAt"> & {
 };
 
 export function TreasurySummary({ treasury }: { treasury: Treasury }) {
+  const [expanded, setExpanded] = useState(false);
+  const breakdownId = useId();
   return (
     <section className="panel p-5 space-y-4" aria-label="حساب ساختمان">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -39,30 +41,44 @@ export function TreasurySummary({ treasury }: { treasury: Treasury }) {
           </p>
         </div>
         <Button variant="outline" asChild size="sm">
-          <Link href="/manager/expenses#fund-payments">
+          <Link href="/manager/expenses?view=payments#fund-payments">
             ثبت پرداخت و ریز خرید
           </Link>
         </Button>
       </div>
-      <dl className="grid gap-4 sm:grid-cols-3 text-sm">
-        {[
-          ["دریافت تأییدشده از واحدها", treasury.receivedRial],
-          ["پرداخت واقعی از حساب", treasury.paidRial],
-          ["مانده برآورد هزینه‌های پرداخت‌نشده", treasury.pendingRial],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="mt-2 font-medium tabular-nums">
-              {formatToman(Number(value))}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <p className="text-xs text-muted-foreground leading-7">
-        ثبت هزینه یا برآورد خرید، موجودی را کم نمی‌کند. فقط پرداخت تأییدشده از
-        حساب کسر می‌شود. موجودی بر اساس دریافت‌ها و پرداخت‌های ثبت‌شده در اپ
-        است.
-      </p>
+      <button
+        type="button"
+        className="text-xs text-primary sm:hidden"
+        aria-expanded={expanded}
+        aria-controls={breakdownId}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? "بستن جزئیات موجودی" : "جزئیات دریافت و پرداخت حساب"}
+      </button>
+      <div
+        id={breakdownId}
+        className={expanded ? "space-y-4" : "hidden space-y-4 sm:block"}
+      >
+        <dl className="grid gap-4 sm:grid-cols-3 text-sm">
+          {[
+            ["دریافت تأییدشده از واحدها", treasury.receivedRial],
+            ["پرداخت واقعی از حساب", treasury.paidRial],
+            ["مانده برآورد هزینه‌های پرداخت‌نشده", treasury.pendingRial],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+              <dd className="mt-2 font-medium tabular-nums">
+                {formatToman(Number(value))}
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p className="text-xs text-muted-foreground leading-7">
+          ثبت هزینه یا برآورد خرید، موجودی را کم نمی‌کند. فقط پرداخت تأییدشده از
+          حساب کسر می‌شود. موجودی بر اساس دریافت‌ها و پرداخت‌های ثبت‌شده در اپ
+          است.
+        </p>
+      </div>
     </section>
   );
 }

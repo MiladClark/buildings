@@ -35,10 +35,12 @@ export function ResidentNotificationMenu({
   children,
   count,
   onCountChange,
+  role = "resident",
 }: {
   children: ReactNode;
   count: number;
   onCountChange: (count: number) => void;
+  role?: "manager" | "resident";
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -147,7 +149,7 @@ export function ResidentNotificationMenu({
             </div>
             <Button asChild size="icon" variant="ghost">
               <Link
-                href="/resident/notifications?tab=preferences"
+                href={`/${role}/notifications?tab=preferences`}
                 aria-label="تنظیمات اعلان‌ها"
                 title="تنظیمات اعلان‌ها"
                 onClick={() => setOpen(false)}
@@ -330,7 +332,7 @@ export function ResidentNotificationMenu({
             </Button>
             <Button asChild variant="outline" className="w-full min-w-0 px-2">
               <Link
-                href="/resident/notifications"
+                href={`/${role}/notifications`}
                 onClick={() => setOpen(false)}
               >
                 مشاهده همه

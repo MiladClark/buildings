@@ -11,8 +11,7 @@ export function latinDigits(value: string) {
 const arabicScript =
   /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
-export const englishPasswordMessage =
-  "رمز عبور باید فقط با حروف انگلیسی باشد.";
+export const englishPasswordMessage = "رمز عبور باید فقط با حروف انگلیسی باشد.";
 
 /** Digits may be Persian; letters may not. Persian digits are already ASCII here. */
 export function englishPassword(value: string) {
@@ -36,19 +35,53 @@ export function phoneToAuthEmail(phone: string) {
   return `${phone}@residents.internal`;
 }
 
+// Contacts copied from RTL apps can include invisible direction markers.
+function compactPhone(value: string) {
+  return latinDigits(value).replace(
+    /[\s().\-\u200e\u200f\u061c\u202a-\u202e\u2066-\u2069]/g,
+    "",
+  );
+}
+
+function phoneEdit(value: string) {
+  const compact = compactPhone(value);
+  // Wait for the mobile prefix so typing +98 / 0098 remains possible.
+  const prefix = compact.match(/^(?:\+98|0098|98)0?(?=9)/)?.[0];
+  const removed = prefix?.length ?? 0;
+  const added = prefix || /^9\d{9}$/.test(compact) ? "0" : "";
+  return { compact, removed, added, value: added + compact.slice(removed) };
+}
+
+/** Format incomplete input without throwing or silently discarding invalid text. */
+export function formatIranMobileInput(value: string) {
+  return phoneEdit(value).value;
+}
+
+/** Normalize typing/paste in place, keeping the caret near the edited digits. */
+export function writeIranMobile(input: HTMLInputElement) {
+  const original = input.value;
+  const edit = phoneEdit(original);
+  if (edit.value === original) return;
+  const mapPosition = (position: number) => {
+    const compactPosition = compactPhone(original.slice(0, position)).length;
+    return compactPosition <= edit.removed
+      ? Math.min(compactPosition, edit.added.length)
+      : compactPosition - edit.removed + edit.added.length;
+  };
+  const start = input.selectionStart;
+  const end = input.selectionEnd;
+  const direction = input.selectionDirection;
+  input.value = edit.value;
+  if (start !== null && end !== null)
+    input.setSelectionRange(
+      mapPosition(start),
+      mapPosition(end),
+      direction ?? undefined,
+    );
+}
+
 export function normalizeIranMobile(value: string) {
-  const compact = latinDigits(value)
-    .trim()
-    .replace(/[\s().-]/g, "");
-  if (!compact || compact.length > 16)
-    throw new Error("شماره تلفن را به صورت ۰۹۱۲۳۴۵۶۷۸۹ وارد کنید.");
-
-  let local = compact;
-  if (local.startsWith("+")) local = local.slice(1);
-  if (local.startsWith("0098")) local = `0${local.slice(4)}`;
-  else if (local.startsWith("98")) local = `0${local.slice(2)}`;
-  else if (/^9\d{9}$/.test(local)) local = `0${local}`;
-
+  const local = formatIranMobileInput(value);
   if (!/^09\d{9}$/.test(local))
     throw new Error("شماره تلفن را به صورت ۰۹۱۲۳۴۵۶۷۸۹ وارد کنید.");
   return local;

@@ -9,6 +9,8 @@ import {
   normalizeIranMobile,
   phoneToAuthEmail,
   registrationUnitNumber,
+  formatIranMobileInput,
+  writeIranMobile,
 } from "./phone";
 
 describe("registration units", () => {
@@ -33,6 +35,10 @@ describe("Iranian mobile numbers", () => {
     "00989123456789",
     "989123456789",
     "9123456789",
+    "+۹۸ (۹۱۲) ۳۴۵-۶۷۸۹",
+    "+98 (0) 912 345 6789",
+    "۰۰۹۸۰۹۱۲۳۴۵۶۷۸۹",
+    "\u200e+98\u00a0912\u200f 345 6789\u202c",
   ])("stores %s as 09123456789", (input) => {
     expect(normalizeIranMobile(input)).toBe("09123456789");
   });
@@ -41,6 +47,9 @@ describe("Iranian mobile numbers", () => {
     expect(() => normalizeIranMobile("02112345678")).toThrow(/۰۹۱۲/);
     expect(() => normalizeIranMobile("")).toThrow(/۰۹۱۲/);
     expect(() => normalizeIranMobile("091234567")).toThrow(/۰۹۱۲/);
+    expect(() => normalizeIranMobile("+449123456789")).toThrow(/۰۹۱۲/);
+    expect(() => normalizeIranMobile("091234567890")).toThrow(/۰۹۱۲/);
+    expect(() => normalizeIranMobile("0912abc3456789")).toThrow(/۰۹۱۲/);
   });
 
   it("maps a phone to a hidden mailbox and leaves real emails unchanged", () => {
@@ -59,6 +68,80 @@ describe("Iranian mobile numbers", () => {
     expect(englishPassword("Secret۱۲۳")).toBe("Secret123");
     expect(() => englishPassword("رمز۱۲۳")).toThrow(/انگلیسی/);
   });
+});
+
+describe("live phone entry", () => {
+  it.each([
+    ["", ""],
+    ["۰۹۱", "091"],
+    ["٠٩١٢", "0912"],
+    ["+", "+"],
+    ["+98", "+98"],
+    ["0098", "0098"],
+    ["+۹۸ ۹", "09"],
+    ["۰۰۹۸۹", "09"],
+    ["98912", "0912"],
+    ["+98 912 641 4551", "09126414551"],
+    ["۹۱۲۶۴۱۴۵۵۱", "09126414551"],
+    ["+44 912 641 4551", "+449126414551"],
+    ["0912abc", "0912abc"],
+    ["091264145511", "091264145511"],
+  ])(
+    "formats %j as %j without requiring a complete number",
+    (input, expected) => {
+      expect(formatIranMobileInput(input)).toBe(expected);
+      expect(formatIranMobileInput(expected)).toBe(expected);
+    },
+  );
+
+  function field(value: string, start = value.length, end = start) {
+    const input = {
+      value,
+      selectionStart: start,
+      selectionEnd: end,
+      selectionDirection: "none",
+      setSelectionRange(nextStart: number, nextEnd: number) {
+        input.selectionStart = nextStart;
+        input.selectionEnd = nextEnd;
+      },
+    };
+    return input;
+  }
+
+  it("normalizes a paste and leaves the caret at the end", () => {
+    const input = field("\u200e+۹۸ (۹۱۲) ۶۴۱-۴۵۵۱");
+    writeIranMobile(input as unknown as HTMLInputElement);
+    expect(input.value).toBe("09126414551");
+    expect(input.selectionStart).toBe(11);
+    expect(input.selectionEnd).toBe(11);
+  });
+
+  it("keeps the selection beside the same digits when editing in the middle", () => {
+    const input = field("+۹۸ ۹۱۲ ۶۴۱ ۴۵۵۱", 8, 11);
+    writeIranMobile(input as unknown as HTMLInputElement);
+    expect(input.value).toBe("09126414551");
+    expect(input.selectionStart).toBe(4);
+    expect(input.selectionEnd).toBe(7);
+  });
+
+  it.each(["+989126414551", "00989126414551", "989126414551", "۰۹۱۲۶۴۱۴۵۵۱"])(
+    "supports entering %s one character at a time, clearing and replacing it",
+    (text) => {
+      const input = field("");
+      for (const character of text) {
+        input.value += character;
+        input.selectionStart = input.selectionEnd = input.value.length;
+        writeIranMobile(input as unknown as HTMLInputElement);
+      }
+      expect(input.value).toBe("09126414551");
+      input.value = "";
+      writeIranMobile(input as unknown as HTMLInputElement);
+      expect(input.value).toBe("");
+      input.value = "٠٩١٢٣٤٥٦٧٨٩";
+      writeIranMobile(input as unknown as HTMLInputElement);
+      expect(input.value).toBe("09123456789");
+    },
+  );
 });
 
 describe("claiming a manager-created account", () => {

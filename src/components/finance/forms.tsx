@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { focusDialogOnTouch } from "@/lib/mobile-viewport";
+import { assertActionSuccess, actionErrorMessage } from "@/lib/action-result";
 
 const ModalCloseContext = createContext<(() => void) | null>(null);
 
@@ -17,7 +18,7 @@ export function ActionForm({
   onSuccess,
   closeOnSuccess = true,
 }: {
-  action: (form: FormData) => Promise<void>;
+  action: (form: FormData) => Promise<unknown>;
   children: React.ReactNode;
   className?: string;
   success?: string;
@@ -34,15 +35,12 @@ export function ActionForm({
         start(async () => {
           setMessage("");
           try {
-            await action(form);
+            assertActionSuccess(await action(form));
             toast.success(success);
             onSuccess?.();
             if (closeOnSuccess) closeModal?.();
           } catch (e) {
-            const msg =
-              e instanceof Error
-                ? e.message
-                : "ذخیره انجام نشد. دوباره تلاش کنید.";
+            const msg = actionErrorMessage(e);
             setMessage(msg);
             toast.error(msg);
           }
@@ -160,7 +158,7 @@ export function ActionButton({
   size = "sm",
   success = "عملیات با موفقیت انجام شد.",
 }: {
-  action: () => Promise<void>;
+  action: () => Promise<unknown>;
   children: React.ReactNode;
   variant?: "outline" | "default" | "ghost" | "destructive";
   confirm?: string;
@@ -172,14 +170,18 @@ export function ActionButton({
 }) {
   const [pending, start] = useTransition();
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
   const run = () =>
     start(async () => {
+      setError("");
       try {
-        await action();
+        assertActionSuccess(await action());
         toast.success(success);
         setOpen(false);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "عملیات انجام نشد.");
+        const message = actionErrorMessage(e);
+        setError(message);
+        toast.error(message);
       }
     });
   return (
@@ -197,11 +199,22 @@ export function ActionButton({
         {children}
       </Button>
       {confirm && (
-        <Dialog.Root open={open} onOpenChange={setOpen}>
+        <Dialog.Root
+          open={open}
+          onOpenChange={(value) => {
+            if (!pending) setOpen(value);
+          }}
+        >
           <Dialog.Portal>
             <Dialog.Overlay className="motion-overlay fixed inset-0 z-40 bg-black/35" />
             <Dialog.Content
               dir="rtl"
+              onEscapeKeyDown={(event) => {
+                if (pending) event.preventDefault();
+              }}
+              onPointerDownOutside={(event) => {
+                if (pending) event.preventDefault();
+              }}
               className="motion-dialog fixed left-1/2 top-1/2 z-50 w-[calc(100%-32px)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card p-6"
             >
               <Dialog.Title className="text-lg font-bold">
@@ -210,12 +223,22 @@ export function ActionButton({
               <Dialog.Description className="my-5 text-sm leading-7 text-muted-foreground">
                 {confirm}
               </Dialog.Description>
+              {error && (
+                <p
+                  role="alert"
+                  className="mb-5 rounded-lg bg-destructive/10 p-3 text-xs leading-7 text-destructive"
+                >
+                  {error}
+                </p>
+              )}
               <div className="flex gap-3">
                 <Button onClick={run} disabled={pending}>
                   تأیید و ادامه
                 </Button>
                 <Dialog.Close asChild>
-                  <Button variant="outline">انصراف</Button>
+                  <Button disabled={pending} variant="outline">
+                    انصراف
+                  </Button>
                 </Dialog.Close>
               </div>
             </Dialog.Content>

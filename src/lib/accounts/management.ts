@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { account, membership, session, unit, user } from "@/lib/db/schema";
 import type { LedgerTransaction } from "@/lib/billing/settlement-store";
 import { logManagementEvent } from "@/lib/billing/corrections";
@@ -26,6 +26,45 @@ async function validUnit(
   });
   if (!chosen || chosen.deletedAt)
     throw new Error("واحد معتبر از همین ساختمان انتخاب کنید.");
+}
+
+/** Managers can open their own unit's resident panel without changing identity. */
+export async function setManagerUnit(
+  tx: LedgerTransaction,
+  actorId: string,
+  unitId: string | null,
+) {
+  const actor = await managerMembership(tx, actorId);
+  await validUnit(tx, actor.buildingId, unitId);
+  if (unitId && unitId !== actor.unitId) {
+    const assigned = await tx.query.membership.findFirst({
+      where: and(
+        eq(membership.buildingId, actor.buildingId),
+        eq(membership.unitId, unitId),
+        ne(membership.userId, actorId),
+      ),
+    });
+    if (assigned)
+      throw new Error(
+        "این واحد حساب دارد؛ از «اتصال حساب شماره‌ایِ واحد من» برای وصل کردن حساب خودتان استفاده کنید.",
+      );
+  }
+  await tx
+    .update(membership)
+    .set({ unitId })
+    .where(eq(membership.id, actor.id));
+  await logManagementEvent(
+    tx,
+    actor.buildingId,
+    actorId,
+    "membership",
+    actor.id,
+    "edit",
+    "انتخاب واحد مدیر",
+    { unitId: actor.unitId },
+    { unitId },
+  );
+  return actor.buildingId;
 }
 export async function changeBuildingRole(
   tx: LedgerTransaction,
@@ -157,6 +196,19 @@ export async function addBuildingAccount(
       "شماره به دو حساب متصل است؛ ابتدا از تنظیمات حساب، اتصال شماره را اصلاح کنید.",
     );
   let person = people[0];
+  if (input.unitId) {
+    const assigned = await tx.query.membership.findFirst({
+      where: and(
+        eq(membership.buildingId, actor.buildingId),
+        eq(membership.unitId, input.unitId),
+        person ? ne(membership.userId, person.id) : undefined,
+      ),
+    });
+    if (assigned)
+      throw new Error(
+        "برای این واحد قبلاً حساب ساخته شده است؛ حساب همان واحد را ویرایش کنید.",
+      );
+  }
   if (person) {
     const memberships = await tx.query.membership.findMany({
       where: eq(membership.userId, person.id),

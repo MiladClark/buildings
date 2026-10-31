@@ -1,16 +1,21 @@
-import { eq } from "drizzle-orm";
+import Link from "next/link";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { account, membership, user } from "@/lib/db/schema";
+import { account, membership, unit, user } from "@/lib/db/schema";
 import { requireSession } from "@/lib/session";
 import { googleSignInEnabled } from "@/lib/auth/google-config";
 import {
   saveOwnProfile,
   changeOwnPassword,
+  saveOwnUnit,
 } from "@/lib/actions/account-settings";
 import { ActionForm } from "./forms";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { GoogleAccountLink } from "./google-account-link";
+import { ConnectResidentAccount } from "./connect-resident-account";
 
 export async function AccountSettings() {
   const login = await requireSession();
@@ -26,6 +31,32 @@ export async function AccountSettings() {
     googleSignInEnabled(),
   ]);
   if (!person || !member) return null;
+  const assignedUnits =
+    member.role === "manager"
+      ? await db
+          .select({ unitId: membership.unitId })
+          .from(membership)
+          .where(
+            and(
+              eq(membership.buildingId, member.buildingId),
+              ne(membership.userId, login.user.id),
+            ),
+          )
+      : [];
+  const assignedUnitIds = new Set(assignedUnits.map((m) => m.unitId));
+  const activeUnits =
+    member.role === "manager"
+      ? await db
+          .select({ id: unit.id, label: unit.label })
+          .from(unit)
+          .where(
+            and(eq(unit.buildingId, member.buildingId), isNull(unit.deletedAt)),
+          )
+          .orderBy(unit.sortOrder, unit.label)
+      : [];
+  const ownUnitOptions = activeUnits.filter(
+    (u) => u.id === member.unitId || !assignedUnitIds.has(u.id),
+  );
   const hasGoogle = identities.some((a) => a.provider === "google");
   const email = person.email.endsWith("@residents.internal")
     ? ""
@@ -42,6 +73,51 @@ export async function AccountSettings() {
         </div>
       </div>
       <div className="panel account-settings-sheet">
+        {member.role === "manager" && (
+          <section id="my-unit" className="account-settings-row scroll-mt-24">
+            <div className="space-y-2">
+              <h2>واحد من</h2>
+              <p>
+                واحد خودتان را انتخاب کنید تا با سوییچ هدر، فیش‌ها و پرداخت‌های
+                آن را در پنل عادی ببینید.
+              </p>
+            </div>
+            <div className="space-y-6">
+              <ActionForm
+                action={saveOwnUnit}
+                success="واحد شما ذخیره شد؛ از سوییچ هدر وارد پنل واحدتان شوید."
+                className="grid gap-5"
+              >
+                <label className="form-field">
+                  <span>واحد خودم</span>
+                  <Select
+                    name="unitId"
+                    defaultValue={member.unitId ?? ""}
+                    aria-label="واحد خودم"
+                  >
+                    <option value="">واحدی ندارم</option>
+                    {ownUnitOptions.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        واحد {u.label}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <div className="account-form-actions">
+                  <Button type="submit" variant="outline">
+                    ذخیره واحد من
+                  </Button>
+                  {member.unitId && (
+                    <Button asChild variant="ghost">
+                      <Link href="/resident">نمایش پنل واحد من</Link>
+                    </Button>
+                  )}
+                </div>
+              </ActionForm>
+              <ConnectResidentAccount />
+            </div>
+          </section>
+        )}
         <section className="account-settings-row">
           <div className="space-y-2">
             <h2>مشخصات حساب</h2>
@@ -65,13 +141,9 @@ export async function AccountSettings() {
               </label>
               <label className="form-field">
                 <span>شماره تلفن</span>
-                <Input
+                <PhoneInput
                   name="phone"
                   defaultValue={person.phone ?? ""}
-                  type="tel"
-                  dir="ltr"
-                  autoComplete="tel"
-                  placeholder="۰۹۱۲۳۴۵۶۷۸۹"
                   required
                 />
               </label>

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Button } from "./button";
 import { FormModal } from "@/components/finance/forms";
 import { cn } from "@/lib/utils";
+import { assertActionSuccess, actionErrorMessage } from "@/lib/action-result";
 
 export type RowAction = {
   label: string;
@@ -37,7 +38,7 @@ export type RowAction = {
       success?: never;
     }
   | {
-      action: () => Promise<void>;
+      action: () => Promise<unknown>;
       confirm?: string;
       success?: string;
       href?: never;
@@ -73,6 +74,7 @@ export function RowActions({
     return initial < 0 ? null : initial;
   });
   const [pending, start] = useTransition();
+  const [error, setError] = useState("");
   const current = selected === null ? undefined : items[selected];
   const focusTrigger = (event: Event) => {
     event.preventDefault();
@@ -81,14 +83,15 @@ export function RowActions({
   const run = (item: RowAction) => {
     if (!item.action) return;
     start(async () => {
+      setError("");
       try {
-        await item.action!();
+        assertActionSuccess(await item.action!());
         toast.success(item.success ?? "عملیات با موفقیت انجام شد.");
         setSelected(null);
       } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "عملیات انجام نشد.",
-        );
+        const message = actionErrorMessage(error);
+        setError(message);
+        toast.error(message);
       }
     });
   };
@@ -149,6 +152,7 @@ export function RowActions({
                   disabled={item.disabled || pending}
                   className={style}
                   onSelect={() => {
+                    setError("");
                     if (item.dialog || item.confirm) setSelected(index);
                     else run(item);
                   }}
@@ -196,6 +200,14 @@ export function RowActions({
             <Dialog.Description className="my-5 text-sm leading-7 text-muted-foreground">
               {current?.confirm}
             </Dialog.Description>
+            {error && (
+              <p
+                role="alert"
+                className="mb-5 rounded-lg bg-destructive/10 p-3 text-xs leading-7 text-destructive"
+              >
+                {error}
+              </p>
+            )}
             <div className="flex gap-3">
               <Button
                 disabled={pending}

@@ -6,6 +6,8 @@ import {
 } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { z } from "zod";
+import { db } from "@/lib/db";
+import { connectManagerResidentAccount } from "@/lib/accounts/profile";
 
 import {
   connectGoogleResident,
@@ -16,6 +18,35 @@ export const residentConnection = () =>
   ({
     id: "resident-connection",
     endpoints: {
+      connectManagerResident: createAuthEndpoint(
+        "/resident/connect-manager",
+        {
+          method: "POST",
+          body: z.object({
+            phone: z.string().min(1).max(40),
+            password: z.string().max(200).default(""),
+          }),
+          use: [sessionMiddleware],
+        },
+        async (ctx) => {
+          try {
+            await db.transaction((tx) =>
+              connectManagerResidentAccount(
+                tx,
+                ctx.context.session.user.id,
+                ctx.context.session.session.id,
+                ctx.body,
+                ctx.context.password.verify,
+              ),
+            );
+            return ctx.json({ ok: true });
+          } catch (error) {
+            if (error instanceof Error && /[\u0600-\u06FF]/.test(error.message))
+              throw new APIError("BAD_REQUEST", { message: error.message });
+            throw error;
+          }
+        },
+      ),
       completeGoogleResident: createAuthEndpoint(
         "/resident/complete-google",
         {
@@ -52,7 +83,9 @@ export const residentConnection = () =>
     },
     rateLimit: [
       {
-        pathMatcher: (path) => path === "/resident/complete-google",
+        pathMatcher: (path) =>
+          path === "/resident/complete-google" ||
+          path === "/resident/connect-manager",
         window: 60,
         max: 5,
       },

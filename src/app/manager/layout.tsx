@@ -22,6 +22,7 @@ export default async function ManagerLayout({
       role="manager"
       title={ctx.building.name}
       userName={session.user.name}
+      hasResidentUnit={Boolean(ctx.membership.unitId)}
     >
       {children}
     </AppShell>

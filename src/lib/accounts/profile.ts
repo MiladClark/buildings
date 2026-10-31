@@ -9,12 +9,18 @@ import {
   membership,
   payment,
   paymentRequest,
+  notificationPreference,
   rateAdjustment,
+  scheduledAnnouncement,
   session,
   user,
 } from "@/lib/db/schema";
 import type { LedgerTransaction } from "@/lib/billing/settlement-store";
-import { normalizeIranMobile, phoneToAuthEmail } from "@/lib/auth/phone";
+import {
+  englishPassword,
+  normalizeIranMobile,
+  phoneToAuthEmail,
+} from "@/lib/auth/phone";
 import { logManagementEvent } from "@/lib/billing/corrections";
 
 async function activeAccount(
@@ -120,6 +126,18 @@ export async function updateAccountProfile(
         .update(managementEvent)
         .set({ actorId: userId })
         .where(eq(managementEvent.actorId, target.id));
+      await tx
+        .update(scheduledAnnouncement)
+        .set({ createdBy: userId })
+        .where(eq(scheduledAnnouncement.createdBy, target.id));
+      const ownPreferences = await tx.query.notificationPreference.findFirst({
+        where: eq(notificationPreference.userId, userId),
+      });
+      if (!ownPreferences)
+        await tx
+          .update(notificationPreference)
+          .set({ userId })
+          .where(eq(notificationPreference.userId, target.id));
       if (!member.unitId && targetMember.unitId)
         await tx
           .update(membership)
@@ -159,6 +177,116 @@ export async function updateAccountProfile(
     { name, phone },
   );
   return member.buildingId;
+}
+
+/** Both accounts must be owned: a manager session plus the resident's password. */
+export async function connectManagerResidentAccount(
+  tx: LedgerTransaction,
+  userId: string,
+  currentSessionId: string,
+  input: { phone: string; password: string },
+  verifyPassword: (input: {
+    hash: string;
+    password: string;
+  }) => Promise<boolean>,
+) {
+  const { person, member } = await activeAccount(tx, userId, currentSessionId);
+  if (member.role !== "manager") throw new Error("دسترسی مدیریت ندارید.");
+  const phone = normalizeIranMobile(input.phone);
+  const matches = await tx.query.user.findMany({
+    where: (u, { or, eq }) =>
+      or(eq(u.phone, phone), eq(u.email, phoneToAuthEmail(phone))),
+  });
+  const target = matches[0];
+  if (matches.length !== 1 || !target || target.id === userId)
+    throw new Error(
+      "حساب جداگانه‌ای برای این شماره پیدا نشد؛ واحد خودتان را از «واحد من» انتخاب کنید.",
+    );
+  const targetMembers = await tx.query.membership.findMany({
+    where: eq(membership.userId, target.id),
+  });
+  const targetMember = targetMembers[0];
+  if (
+    targetMembers.length !== 1 ||
+    targetMember.role !== "resident" ||
+    targetMember.buildingId !== member.buildingId ||
+    !targetMember.unitId ||
+    (member.unitId && member.unitId !== targetMember.unitId)
+  )
+    throw new Error(
+      "حساب شماره باید ساکن همین ساختمان و مربوط به واحد خودتان باشد.",
+    );
+  const chosen = await tx.query.unit.findFirst({
+    where: (u, { and, eq, isNull }) =>
+      and(
+        eq(u.id, targetMember.unitId!),
+        eq(u.buildingId, member.buildingId),
+        isNull(u.deletedAt),
+      ),
+  });
+  if (!chosen) throw new Error("حساب شماره به یک واحد فعال متصل نیست.");
+  const identities = await tx.query.account.findMany({
+    where: eq(account.userId, target.id),
+  });
+  const credential = identities.find(
+    (a) => a.providerId === "credential" && a.password,
+  );
+  const active = identities.some(
+    (a) => a.password || a.providerId !== "credential",
+  );
+  if (
+    active &&
+    (!credential?.password ||
+      !(await verifyPassword({
+        hash: credential.password,
+        password: englishPassword(input.password),
+      })))
+  )
+    throw new Error(
+      "شماره یا رمز حساب واحد درست نیست. اگر با گوگل وارد می‌شوید، ابتدا در حساب واحد رمز تعیین کنید.",
+    );
+  const ownIdentities = await tx.query.account.findMany({
+    where: eq(account.userId, userId),
+  });
+  const ownCredential = ownIdentities.find(
+    (a) => a.providerId === "credential",
+  );
+  for (const identity of identities) {
+    if (identity.providerId === "credential") {
+      if (!ownCredential) {
+        await tx
+          .update(account)
+          .set({ userId, accountId: userId, updatedAt: new Date() })
+          .where(eq(account.id, identity.id));
+      } else {
+        if (!ownCredential.password && identity.password)
+          await tx
+            .update(account)
+            .set({ password: identity.password, updatedAt: new Date() })
+            .where(eq(account.id, ownCredential.id));
+        await tx.delete(account).where(eq(account.id, identity.id));
+      }
+    } else if (
+      ownIdentities.some(
+        (a) =>
+          a.providerId === identity.providerId &&
+          a.accountId === identity.accountId,
+      )
+    ) {
+      await tx.delete(account).where(eq(account.id, identity.id));
+    } else {
+      await tx
+        .update(account)
+        .set({ userId, updatedAt: new Date() })
+        .where(eq(account.id, identity.id));
+    }
+  }
+  // Credentials are moved only after proving ownership. The shared reconciler
+  // preserves history and revokes the old account's sessions and push devices.
+  return updateAccountProfile(tx, userId, currentSessionId, {
+    name: person.name,
+    phone,
+  });
 }
 export async function setOwnAccountPassword(
   tx: LedgerTransaction,

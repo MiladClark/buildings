@@ -152,7 +152,7 @@ export default async function BillsPage({
                     href={
                       c.target.standaloneExpenseId
                         ? `/manager/expenses/independent/${c.target.standaloneExpenseId}`
-                        : "/manager/expenses#fund-payments"
+                        : "/manager/expenses?view=payments#fund-payments"
                     }
                   >
                     اسناد پرداخت

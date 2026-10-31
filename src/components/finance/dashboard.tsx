@@ -137,7 +137,9 @@ export function Dashboard({
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link href="/manager/expenses#fund-payments">پرداخت هزینه‌ها</Link>
+            <Link href="/manager/expenses?view=payments#fund-payments">
+              پرداخت هزینه‌ها
+            </Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href="/api/export/finance">

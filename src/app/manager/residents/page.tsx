@@ -48,6 +48,8 @@ export default async function ResidentsPage() {
   const unitOptions = units
     .filter((u) => !u.deletedAt)
     .map(({ id, label }) => ({ id, label }));
+  const assignedUnits = new Set(people.map(({ member: m }) => m.unitId));
+  const availableUnits = unitOptions.filter((u) => !assignedUnits.has(u.id));
   return (
     <div className="space-y-6">
       <div className="page-heading">
@@ -72,7 +74,7 @@ export default async function ResidentsPage() {
               </Button>
             }
           >
-            <BuildingAccountForm units={unitOptions} />
+            <BuildingAccountForm units={availableUnits} />
           </FormModal>
         </div>
       </div>

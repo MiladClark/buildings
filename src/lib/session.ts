@@ -38,7 +38,11 @@ export async function requireManager() {
 export async function requireResident() {
   const session = await requireSession();
   const member = await getMembershipForUser(session.user.id);
-  if (!member || member.role !== "resident") {
+  if (
+    !member ||
+    (member.role !== "resident" &&
+      !(member.role === "manager" && member.unitId))
+  ) {
     throw new Error("FORBIDDEN");
   }
   return { session, member };

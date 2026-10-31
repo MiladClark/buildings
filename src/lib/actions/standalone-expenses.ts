@@ -2,12 +2,14 @@
 import { invalidateCurrentBuildingCache } from "@/lib/cache/building";
 import { db } from "@/lib/db";
 import { requireManager } from "@/lib/session";
+import { mutationResult } from "@/lib/action-result";
 import type { UtilityBill } from "@/lib/billing/utility-bill";
 import {
   saveStandaloneCost,
   includeStandaloneCost,
   detachStandaloneCost,
   setStandaloneCostDeleted,
+  makeExpenseStandalone,
 } from "@/lib/billing/standalone-expenses";
 
 async function refresh() {
@@ -56,22 +58,36 @@ export async function moveStandaloneExpense(
   await refresh();
 }
 export async function unbillStandaloneExpense(id: string) {
-  const { member, session } = await requireManager();
-  await db.transaction((tx) =>
-    detachStandaloneCost(tx, member.buildingId, id, session.user.id),
-  );
-  await refresh();
+  return mutationResult(async () => {
+    const { member, session } = await requireManager();
+    await db.transaction((tx) =>
+      detachStandaloneCost(tx, member.buildingId, id, session.user.id),
+    );
+    await refresh();
+  });
+}
+
+export async function removeExpenseFromPeriod(id: string) {
+  return mutationResult(async () => {
+    const { member, session } = await requireManager();
+    await db.transaction((tx) =>
+      makeExpenseStandalone(tx, member.buildingId, id, session.user.id),
+    );
+    await refresh();
+  });
 }
 export async function deleteStandaloneExpense(id: string, deleted: boolean) {
-  const { member, session } = await requireManager();
-  await db.transaction((tx) =>
-    setStandaloneCostDeleted(
-      tx,
-      member.buildingId,
-      id,
-      deleted,
-      session.user.id,
-    ),
-  );
-  await refresh();
+  return mutationResult(async () => {
+    const { member, session } = await requireManager();
+    await db.transaction((tx) =>
+      setStandaloneCostDeleted(
+        tx,
+        member.buildingId,
+        id,
+        deleted,
+        session.user.id,
+      ),
+    );
+    await refresh();
+  });
 }

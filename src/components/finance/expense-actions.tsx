@@ -4,7 +4,8 @@ import { Select } from "@/components/ui/select";
 import { BillCoverageField } from "./bill-coverage-field";
 
 import { useState } from "react";
-import { ActionForm, FormModal } from "./forms";
+import { ActionButton, ActionForm, FormModal } from "./forms";
+import { removeExpenseFromPeriod } from "@/lib/actions/standalone-expenses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { JalaliDateField } from "./calendar";
@@ -245,5 +246,24 @@ export function ExpenseActions({
         },
       ]}
     />
+  );
+}
+
+export function ExpenseScopeButton({
+  id,
+  draft,
+}: {
+  id: string;
+  draft: boolean;
+}) {
+  return (
+    <ActionButton
+      action={removeExpenseFromPeriod.bind(null, id)}
+      variant="outline"
+      success="هزینه از دوره خارج شد و در دفتر مستقل ماند؛ پرداخت‌های قبلی حفظ شدند."
+      confirm={`${draft ? "" : "فیش‌های فعلی برای اصلاح باطل می‌شوند و باید دوباره صادر شوند. "}این هزینه از دوره خارج و مستقل شود؟ پرداخت‌های واقعی حفظ می‌شوند؛ واریزهای مشخصِ همین هزینه با آن منتقل می‌شوند و واریزهای کلیِ شارژ در دوره می‌مانند.`}
+    >
+      خارج‌کردن از دوره
+    </ActionButton>
   );
 }

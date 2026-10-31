@@ -10,6 +10,7 @@ import {
 import { eq, sql } from "drizzle-orm";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { serializeSignedCookie } from "better-call";
 vi.mock("@/lib/db", async () => {
   const { PGlite } = await import("@electric-sql/pglite");
   const { drizzle } = await import("drizzle-orm/pglite");
@@ -23,8 +24,14 @@ import {
   addBuildingAccount,
   changeBuildingRole,
   setManagedPassword,
+  setManagerUnit,
 } from "./management";
-import { updateAccountProfile, setOwnAccountPassword } from "./profile";
+import {
+  updateAccountProfile,
+  setOwnAccountPassword,
+  connectManagerResidentAccount,
+} from "./profile";
+import { residentConnection } from "@/lib/auth/resident-plugin";
 const httpAuth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -32,9 +39,11 @@ const httpAuth = betterAuth({
     transaction: true,
   }),
   baseURL: "http://localhost:3300",
+  advanced: { disableOriginCheck: false, disableCSRFCheck: false },
   secret: "local-test-secret-not-for-real-deployments",
   emailAndPassword: { enabled: true },
   rateLimit: { enabled: false },
+  plugins: [residentConnection()],
 });
 const now = () => new Date();
 let managerHash: string, otherHash: string;
@@ -235,6 +244,36 @@ describe("direct building account roles", () => {
       await db.query.account.findFirst({ where: eq(s.account.userId, id) }),
     ).toBeUndefined();
   });
+  it.each([false, true])(
+    "rejects a second account for an assigned unit (active: %s)",
+    async (active) => {
+      await resident(active);
+      await expect(
+        add({ phone: "09121111111", role: "resident", unitId: "one" }),
+      ).rejects.toThrow("برای این واحد قبلاً حساب ساخته شده");
+      expect(await db.select().from(s.user)).toHaveLength(2);
+      const id = await add({
+        phone: "09121111111",
+        role: "resident",
+        unitId: "two",
+      });
+      expect(
+        await db.query.membership.findFirst({
+          where: eq(s.membership.userId, id),
+        }),
+      ).toMatchObject({ role: "resident", unitId: "two" });
+    },
+  );
+  it("counts a manager's assigned unit as occupied for new accounts", async () => {
+    await db
+      .update(s.membership)
+      .set({ unitId: "one" })
+      .where(eq(s.membership.id, "manager-member"));
+    await expect(add({ role: "resident", unitId: "one" })).rejects.toThrow(
+      "برای این واحد قبلاً حساب ساخته شده",
+    );
+    expect(await db.select().from(s.user)).toHaveLength(1);
+  });
   it("promotes an existing active number without a duplicate user or password reset", async () => {
     await resident(true);
     expect(await add({ passwordHash: managerHash })).toBe("resident");
@@ -354,6 +393,279 @@ describe("direct building account roles", () => {
     );
   });
 });
+describe("manager's own resident panel", () => {
+  const link = async (password = "Resident-test-1405!") => {
+    const context = await httpAuth.$context;
+    return db.transaction((tx) =>
+      connectManagerResidentAccount(
+        tx,
+        "manager",
+        "manager-session",
+        { phone: "+۹۸ ۹۱۲ ۳۴۵ ۶۷۸۹", password },
+        context.password.verify,
+      ),
+    );
+  };
+  const chooseUnit = (unitId: string | null, actor = "manager") =>
+    db.transaction((tx) => setManagerUnit(tx, actor, unitId));
+
+  it("saves the manager's own unit without changing role or credentials", async () => {
+    await chooseUnit("one");
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      role: "manager",
+      unitId: "one",
+    });
+    expect(await db.query.account.findFirst()).toMatchObject({
+      password: managerHash,
+    });
+    await chooseUnit(null);
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      role: "manager",
+      unitId: null,
+    });
+    await expect(chooseUnit("foreign-unit")).rejects.toThrow("همین ساختمان");
+    await resident(true);
+    await expect(chooseUnit("one")).rejects.toThrow("این واحد حساب دارد");
+    await expect(chooseUnit("one", "resident")).rejects.toThrow(
+      "دسترسی مدیریت",
+    );
+  });
+
+  it("connects both owned accounts, preserving email, unit, history and the manager's password", async () => {
+    await resident(true);
+    await db.insert(s.paymentRequest).values({
+      id: "prior-payment",
+      userId: "resident",
+      unitId: "one",
+      amountRial: 1000,
+    });
+    await db.insert(s.appNotification).values({
+      id: "prior-notice",
+      userId: "resident",
+      title: "پرداخت",
+      body: "ثبت شد",
+    });
+    await db.insert(s.account).values({
+      id: "resident-google",
+      userId: "resident",
+      providerId: "google",
+      accountId: "resident-google-sub",
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    await link();
+    expect(await db.select().from(s.user)).toHaveLength(1);
+    expect(await db.query.user.findFirst()).toMatchObject({
+      id: "manager",
+      email: "manager@test.local",
+      phone: "09123456789",
+    });
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      userId: "manager",
+      role: "manager",
+      unitId: "one",
+    });
+    expect(await db.query.paymentRequest.findFirst()).toMatchObject({
+      userId: "manager",
+      unitId: "one",
+      amountRial: 1000,
+    });
+    expect(await db.query.appNotification.findFirst()).toMatchObject({
+      userId: "manager",
+    });
+    expect(
+      await db.query.account.findFirst({
+        where: eq(s.account.id, "resident-google"),
+      }),
+    ).toMatchObject({ userId: "manager" });
+    expect(
+      await db.query.session.findFirst({
+        where: eq(s.session.id, "resident-session"),
+      }),
+    ).toBeUndefined();
+    expect(
+      await db.query.session.findFirst({
+        where: eq(s.session.id, "manager-session"),
+      }),
+    ).toBeDefined();
+    expect(
+      (await signIn("manager@test.local", "Manager-test-1405!")).status,
+    ).toBe(200);
+    const byPhone = await db.query.user.findFirst({
+      where: eq(s.user.phone, "09123456789"),
+    });
+    expect((await signIn(byPhone!.email, "Manager-test-1405!")).status).toBe(
+      200,
+    );
+    expect(
+      JSON.stringify(await db.select().from(s.managementEvent)),
+    ).not.toContain("Resident-test-1405!");
+  });
+
+  it("lets a Google-only manager keep using the verified resident password for phone login", async () => {
+    await db.delete(s.account).where(eq(s.account.userId, "manager"));
+    await db.insert(s.account).values({
+      id: "manager-google",
+      userId: "manager",
+      providerId: "google",
+      accountId: "manager-google-sub",
+      createdAt: now(),
+      updatedAt: now(),
+    });
+    await resident(true);
+    await link();
+    expect(
+      (await signIn("manager@test.local", "Resident-test-1405!")).status,
+    ).toBe(200);
+    expect(
+      await db.query.account.findFirst({
+        where: eq(s.account.id, "manager-google"),
+      }),
+    ).toBeDefined();
+  });
+
+  it("connects an unused resident shell without requesting a password", async () => {
+    await resident();
+    await link("");
+    expect(await db.select().from(s.user)).toHaveLength(1);
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      userId: "manager",
+      role: "manager",
+      unitId: "one",
+    });
+  });
+
+  it("does not alter either account when the resident password is incorrect", async () => {
+    await resident(true);
+    await expect(link("incorrect-password")).rejects.toThrow("شماره یا رمز");
+    expect(await db.select().from(s.user)).toHaveLength(2);
+    expect(
+      await db.query.account.findFirst({
+        where: eq(s.account.id, "resident-credential"),
+      }),
+    ).toMatchObject({ userId: "resident", password: otherHash });
+    expect(
+      await db.query.session.findFirst({
+        where: eq(s.session.id, "resident-session"),
+      }),
+    ).toBeDefined();
+  });
+
+  it.each([
+    "foreign",
+    "manager",
+    "different-unit",
+    "deleted-unit",
+    "expired-session",
+  ])("rejects an invalid connection: %s", async (kind) => {
+    await resident(
+      true,
+      kind === "foreign" ? "foreign" : "building",
+      kind === "manager" ? "manager" : "resident",
+    );
+    if (kind === "different-unit") await chooseUnit("two");
+    if (kind === "deleted-unit")
+      await db
+        .update(s.unit)
+        .set({ deletedAt: now() })
+        .where(eq(s.unit.id, "one"));
+    if (kind === "expired-session")
+      await db
+        .update(s.session)
+        .set({ expiresAt: new Date(0) })
+        .where(eq(s.session.id, "manager-session"));
+    await expect(link()).rejects.toThrow();
+    expect(await db.select().from(s.user)).toHaveLength(2);
+  });
+
+  async function postConnection(
+    cookie?: string,
+    origin = "http://localhost:3300",
+    handler = httpAuth.handler,
+  ) {
+    return handler(
+      new Request("http://localhost:3300/api/auth/resident/connect-manager", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: origin,
+          ...(cookie ? { Cookie: cookie } : {}),
+          "x-forwarded-for": "192.0.2.39",
+        },
+        body: JSON.stringify({
+          phone: "09123456789",
+          password: "wrong-password",
+        }),
+      }),
+    );
+  }
+  async function managerCookie() {
+    return (
+      await serializeSignedCookie(
+        "better-auth.session_token",
+        "manager-token",
+        httpAuth.options.secret!,
+      )
+    ).split(";")[0];
+  }
+  it("connects through the auth endpoint and keeps the current manager session valid", async () => {
+    await resident(true);
+    const cookie = await managerCookie();
+    const response = await httpAuth.handler(
+      new Request("http://localhost:3300/api/auth/resident/connect-manager", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "http://localhost:3300",
+          Cookie: cookie,
+        },
+        body: JSON.stringify({
+          phone: "+۹۸ ۹۱۲ ۳۴۵ ۶۷۸۹",
+          password: "Resident-test-1405!",
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    const sessionResponse = await httpAuth.handler(
+      new Request("http://localhost:3300/api/auth/get-session", {
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(await sessionResponse.json()).toMatchObject({
+      user: { id: "manager", email: "manager@test.local" },
+      session: { id: "manager-session" },
+    });
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      role: "manager",
+      unitId: "one",
+    });
+  });
+  it("protects the connection endpoint with a signed session, same origin and rate limit", async () => {
+    await resident(true);
+    expect((await postConnection()).status).toBe(401);
+    expect(
+      (await postConnection(await managerCookie(), "https://attacker.example"))
+        .status,
+    ).toBe(403);
+    const limited = betterAuth({
+      ...httpAuth.options,
+      rateLimit: { enabled: true, window: 60, max: 1000 },
+    });
+    for (let attempt = 0; attempt < 6; attempt++)
+      expect(
+        (
+          await postConnection(
+            await managerCookie(),
+            undefined,
+            limited.handler,
+          )
+        ).status,
+      ).toBe(attempt < 5 ? 400 : 429);
+    expect(await db.select().from(s.user)).toHaveLength(2);
+  });
+});
+
 describe("one identity for email and mobile", () => {
   it("saves the normalized phone without a password prompt or changing the email identity", async () => {
     await profile({ phone: "+۹۸۹۱۲۳۴۵۶۷۸۹" });

@@ -20,6 +20,7 @@ import {
   includeStandaloneCost,
   detachStandaloneCost,
   setStandaloneCostDeleted,
+  makeExpenseStandalone,
 } from "./standalone-expenses";
 import { correctExpense, removePeriod, correctReceipt } from "./corrections";
 import { loadSettlementData, insertUnitPayment } from "./settlement-store";
@@ -126,6 +127,120 @@ async function fixture() {
 }
 
 describe("actual fund payments", () => {
+  it("converts a paid period expense to independent, preserving receipts, outlays and cash through another round trip", async () => {
+    const f = await fixture();
+    const expenseId = crypto.randomUUID();
+    await db.insert(s.expenseLine).values({
+      id: expenseId,
+      periodId: f.periodId,
+      categoryId: f.categoryId,
+      description: "تجهیزات و لوازم",
+      coverageMonths: 3,
+      amountRial: 19_000_000,
+      expenseDate: new Date("2026-10-25"),
+    });
+    await db.transaction((tx) =>
+      insertUnitPayment(
+        tx,
+        {
+          unitId: f.unitId,
+          periodId: f.periodId,
+          categoryId: f.categoryId,
+          amountRial: 19_000_000,
+          paidAt: new Date("2026-10-26"),
+          method: "bank_transfer",
+        },
+        f.buildingId,
+      ),
+    );
+    await f.pay(
+      f.input({
+        expenseId,
+        standaloneExpenseId: undefined,
+        amountRial: 14_644_000,
+      }),
+    );
+    await finalizeBillingPeriod(f.periodId);
+    const before = await f.state();
+    const id = await db.transaction((tx) =>
+      makeExpenseStandalone(tx, f.buildingId, expenseId),
+    );
+    const after = await f.state();
+    expect(after.balanceRial).toBe(before.balanceRial);
+    expect(after.paidRial).toBe(before.paidRial);
+    expect(after.receivedRial).toBe(before.receivedRial);
+    expect(
+      after.costs.find((c) => c.target.standaloneExpenseId === id),
+    ).toMatchObject({
+      title: "تجهیزات و لوازم",
+      periodId: null,
+      settled: true,
+      paidFromFundRial: 14_644_000,
+    });
+    expect(
+      await db.query.billingPeriod.findFirst({
+        where: eq(s.billingPeriod.id, f.periodId),
+      }),
+    ).toMatchObject({ status: "draft" });
+    expect(
+      await db.query.expenseLine.findFirst({
+        where: eq(s.expenseLine.id, expenseId),
+      }),
+    ).toMatchObject({ sourceStandaloneId: id, deletedAt: expect.any(Date) });
+    const held = (await loadSettlementData(db, f.buildingId)).payments.filter(
+      (p) => p.standaloneExpenseId === id,
+    );
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({
+      amountRial: 19_000_000,
+      periodId: null,
+      categoryId: null,
+    });
+    await expect(
+      db.transaction((tx) =>
+        makeExpenseStandalone(tx, f.buildingId, expenseId),
+      ),
+    ).rejects.toThrow("هزینه فعال");
+    await db.transaction((tx) =>
+      includeStandaloneCost(tx, f.buildingId, id, f.periodId),
+    );
+    const linkedAgain = await db.query.standaloneExpense.findFirst({
+      where: eq(s.standaloneExpense.id, id),
+    });
+    expect(
+      await db.query.expenseLine.findFirst({
+        where: eq(s.expenseLine.id, linkedAgain!.linkedExpenseId!),
+      }),
+    ).toMatchObject({ coverageMonths: 3 });
+    await db.transaction((tx) => detachStandaloneCost(tx, f.buildingId, id));
+    expect((await f.state()).balanceRial).toBe(before.balanceRial);
+    expect(
+      (await f.state()).costs.filter((c) => c.title === "تجهیزات و لوازم"),
+    ).toHaveLength(1);
+  });
+  it("does not move general charge receipts or another building's cost", async () => {
+    const f = await fixture(),
+      other = await fixture();
+    const expenseId = crypto.randomUUID();
+    await db.insert(s.expenseLine).values({
+      id: expenseId,
+      periodId: f.periodId,
+      categoryId: f.categoryId,
+      amountRial: 10_000_000,
+      expenseDate: new Date("2026-10-25"),
+    });
+    await expect(
+      db.transaction((tx) =>
+        makeExpenseStandalone(tx, other.buildingId, expenseId),
+      ),
+    ).rejects.toThrow("پیدا نشد");
+    await db.transaction((tx) =>
+      makeExpenseStandalone(tx, f.buildingId, expenseId),
+    );
+    const payments = (await loadSettlementData(db, f.buildingId)).payments;
+    expect(payments).toHaveLength(1);
+    expect(payments[0].standaloneExpenseId).toBeNull();
+  });
   it("keeps all collected cash until a payment is confirmed, including independent costs", async () => {
     const f = await fixture();
     expect(await f.state()).toMatchObject({

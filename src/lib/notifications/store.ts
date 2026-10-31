@@ -103,7 +103,7 @@ export async function notifyUnits(
     .where(
       and(
         eq(membership.buildingId, buildingId),
-        eq(membership.role, "resident"),
+        inArray(membership.role, ["resident", "manager"]),
         inArray(membership.unitId, unitIds),
       ),
     );

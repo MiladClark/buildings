@@ -3,6 +3,7 @@ import {
   billingPeriod,
   expenseCategory,
   expenseLine,
+  expenseDisbursement,
   payment,
   paymentApplication,
   standaloneExpense,
@@ -14,7 +15,11 @@ import {
   syncInvoicePayments,
   type LedgerTransaction,
 } from "./settlement-store";
-import { correctExpense, logManagementEvent } from "./corrections";
+import {
+  correctExpense,
+  logManagementEvent,
+  reopenPeriod,
+} from "./corrections";
 import { validateMaintenanceLink } from "./maintenance-link";
 import { paymentDestination } from "./charge-model";
 import { assertCostHasNoDisbursements } from "./disbursements";
@@ -160,10 +165,15 @@ export async function includeStandaloneCost(
       "برای انتقال هزینه واقعی، دسته‌ای با تقسیم بر واحد یا نفرات انتخاب کنید؛ دسته شارژ ثابت مناسب نیست.",
     );
   const lineId = crypto.randomUUID();
+  const previousLine = await tx.query.expenseLine.findFirst({
+    where: eq(expenseLine.sourceStandaloneId, id),
+    orderBy: (line, { desc }) => desc(line.createdAt),
+  });
   await tx.insert(expenseLine).values({
     id: lineId,
     sourceStandaloneId: id,
     billingTreatment,
+    coverageMonths: previousLine?.coverageMonths ?? null,
     periodId,
     categoryId: cost.categoryId,
     amountRial: cost.amountRial,
@@ -266,6 +276,117 @@ export async function detachStandaloneCost(
     cost.description,
     cost,
   );
+}
+
+/** Move a real period cost back to the independent book without undoing cash. */
+export async function makeExpenseStandalone(
+  tx: LedgerTransaction,
+  buildingId: string,
+  expenseId: string,
+  actorId?: string,
+) {
+  const line = await tx.query.expenseLine.findFirst({
+    where: eq(expenseLine.id, expenseId),
+  });
+  const period =
+    line &&
+    (await tx.query.billingPeriod.findFirst({
+      where: and(
+        eq(billingPeriod.id, line.periodId),
+        eq(billingPeriod.buildingId, buildingId),
+        isNull(billingPeriod.deletedAt),
+      ),
+    }));
+  if (!line || line.deletedAt || !period)
+    throw new Error("هزینه فعال این دوره پیدا نشد.");
+  const source = await tx.query.standaloneExpense.findFirst({
+    where: eq(standaloneExpense.linkedExpenseId, expenseId),
+  });
+  if (source) {
+    await detachStandaloneCost(tx, buildingId, source.id, actorId);
+    return source.id;
+  }
+  if (line.sourceStandaloneId)
+    throw new Error(
+      "این هزینه قبلاً مستقل شده است؛ پرونده مستقل آن را باز کنید.",
+    );
+  const category = await tx.query.expenseCategory.findFirst({
+    where: and(
+      eq(expenseCategory.id, line.categoryId),
+      eq(expenseCategory.buildingId, buildingId),
+    ),
+  });
+  if (
+    !category ||
+    ["fixed_per_unit", "excluded"].includes(category.allocationMethod)
+  )
+    throw new Error(
+      "شارژ ثابت یا دسته خارج از محاسبه، هزینه واقعی قابل انتقال نیست.",
+    );
+  await reopenPeriod(tx, buildingId, period.id, actorId);
+  const id = crypto.randomUUID();
+  await tx.insert(standaloneExpense).values({
+    id,
+    buildingId,
+    categoryId: line.categoryId,
+    amountRial: line.amountRial,
+    description: line.description || category.name,
+    expenseDate: line.expenseDate,
+    maintenanceTicketId: line.maintenanceTicketId,
+    utilityBill: line.utilityBill,
+    linkedExpenseId: expenseId,
+  });
+  await tx
+    .update(expenseLine)
+    .set({ sourceStandaloneId: id })
+    .where(eq(expenseLine.id, expenseId));
+  // Actual fund outlays belong to the cost, including cancelled audit records.
+  await tx
+    .update(expenseDisbursement)
+    .set({ expenseId: null, standaloneExpenseId: id })
+    .where(
+      and(
+        eq(expenseDisbursement.buildingId, buildingId),
+        eq(expenseDisbursement.expenseId, expenseId),
+      ),
+    );
+  const siblings = await tx
+    .select()
+    .from(expenseLine)
+    .where(
+      and(
+        eq(expenseLine.periodId, period.id),
+        eq(expenseLine.categoryId, line.categoryId),
+        isNull(expenseLine.deletedAt),
+      ),
+    );
+  // Category earmarks identify this cost only when it is the category's sole line.
+  // General charge receipts and ambiguous category funds stay in the period.
+  if (siblings.length === 1)
+    await tx
+      .update(payment)
+      .set({ standaloneExpenseId: id })
+      .where(
+        and(
+          eq(payment.buildingId, buildingId),
+          eq(payment.periodId, period.id),
+          eq(payment.categoryId, line.categoryId),
+          isNull(payment.standaloneExpenseId),
+        ),
+      );
+  await detachStandaloneCost(tx, buildingId, id, actorId);
+  await logManagementEvent(
+    tx,
+    buildingId,
+    actorId,
+    "standalone_expense",
+    id,
+    "create",
+    line.description || category.name,
+    line,
+    { sourceExpenseId: expenseId },
+  );
+  return id;
 }
 
 export async function setStandaloneCostDeleted(

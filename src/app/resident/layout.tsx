@@ -14,12 +14,15 @@ export default async function ResidentLayout({
 
   const ctx = await getBuildingForUser(session.user.id);
   if (!ctx) redirect("/pending");
+  if (ctx.membership.role === "manager" && !ctx.membership.unitId)
+    redirect("/manager/account#my-unit");
 
   return (
     <AppShell
       role="resident"
       title={ctx.building.name}
       userName={session.user.name}
+      managerAccess={ctx.membership.role === "manager"}
     >
       {children}
     </AppShell>

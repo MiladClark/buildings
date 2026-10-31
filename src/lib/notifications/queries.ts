@@ -12,7 +12,7 @@ import {
 import { requireSession, getMembershipForUser } from "@/lib/session";
 import { getPushIdentity } from "./push";
 import { readPolicy, readPreferences } from "./policy";
-export async function getNotificationPanel() {
+export async function getNotificationPanel(personalOnly = false) {
   const session = await requireSession(),
     member = await getMembershipForUser(session.user.id);
   if (!member) throw new Error("حساب به ساختمان وصل نیست.");
@@ -45,7 +45,8 @@ export async function getNotificationPanel() {
     role: member.role,
     buildingId: member.buildingId,
   };
-  if (member.role !== "manager") return { ...personal, management: null };
+  if (member.role !== "manager" || personalOnly)
+    return { ...personal, management: null };
   const [rule, announcements, units, deliveryCounts] = await Promise.all([
     db.query.notificationRule.findFirst({
       where: eq(notificationRule.buildingId, member.buildingId),

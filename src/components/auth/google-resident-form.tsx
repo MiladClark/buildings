@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { authClient } from "@/lib/auth-client";
@@ -102,17 +103,7 @@ export function GoogleResidentForm({
         </div>
         <div className="form-field">
           <Label htmlFor="google-phone">شماره تلفن</Label>
-          <Input
-            id="google-phone"
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            dir="ltr"
-            autoComplete="tel"
-            placeholder="۰۹۱۲۳۴۵۶۷۸۹"
-            required
-            maxLength={40}
-          />
+          <PhoneInput id="google-phone" name="phone" required />
         </div>
         <div className="form-field">
           <Label htmlFor="google-unit">واحد شما</Label>

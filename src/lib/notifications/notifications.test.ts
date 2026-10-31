@@ -17,7 +17,7 @@ vi.mock("@/lib/db", async () => {
 });
 import { db } from "@/lib/db";
 import * as s from "@/lib/db/schema";
-import { enqueueNotice } from "./store";
+import { enqueueNotice, notifyUnits } from "./store";
 import { getNotificationPreview } from "./inbox";
 import { runNotificationCycle } from "./worker";
 import { defaultPolicy, defaultPreferences } from "./types";
@@ -154,6 +154,45 @@ async function dueTomorrow() {
 }
 
 describe("header notification preview", () => {
+  it("sends unit notices to a manager linked to that unit", async () => {
+    await db
+      .update(s.membership)
+      .set({ unitId: "u" })
+      .where(eq(s.membership.id, "mm"));
+    await db.transaction((tx) =>
+      notifyUnits(tx, "b", ["u"], "فیش واحد", "صادر شد", "invoice"),
+    );
+    const notices = await db.select().from(s.appNotification);
+    expect(notices.map((n) => n.userId).sort()).toEqual(["m", "r"]);
+  });
+  it("keeps charge reminders and resident announcements for a manager's own unit", async () => {
+    await db
+      .update(s.membership)
+      .set({ unitId: "u" })
+      .where(eq(s.membership.id, "mm"));
+    await dueTomorrow();
+    await db
+      .insert(s.scheduledAnnouncement)
+      .values({
+        id: "residents-message",
+        buildingId: "b",
+        createdBy: "m",
+        title: "خبر ساکنان",
+        body: "برای همه ساکنان",
+        audience: "residents",
+        sendAt: now,
+      });
+    const send = sender();
+    await runNotificationCycle(now, send);
+    const notices = await db.select().from(s.appNotification);
+    expect(
+      notices.some((n) => n.userId === "m" && n.kind === "charge_due"),
+    ).toBe(true);
+    expect(
+      notices.some((n) => n.userId === "m" && n.kind === "announcement"),
+    ).toBe(true);
+    expect(send).toHaveBeenCalled();
+  });
   it("isolates accounts and finds older unread notices beyond the latest preview", async () => {
     await db.insert(s.appNotification).values([
       ...Array.from({ length: 20 }, (_, index) => ({
@@ -204,16 +243,14 @@ describe("header notification preview", () => {
       unread: [],
       unreadCount: 0,
     });
-    await db
-      .insert(s.appNotification)
-      .values({
-        id: "unsafe-destination",
-        userId: "r",
-        title: "Test",
-        body: "Test",
-        kind: "system",
-        href: "https://untrusted.test",
-      });
+    await db.insert(s.appNotification).values({
+      id: "unsafe-destination",
+      userId: "r",
+      title: "Test",
+      body: "Test",
+      kind: "system",
+      href: "https://untrusted.test",
+    });
     expect((await getNotificationPreview("r")).all[0].href).toBe("/");
   });
 });

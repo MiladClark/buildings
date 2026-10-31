@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
   ChevronDown,
   Bell,
+  ArrowLeftRight,
 } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CHAT_SEEN_EVENT, readChatSeen } from "@/lib/chat-seen";
@@ -98,11 +99,15 @@ export function AppShell({
   role,
   title,
   userName = "",
+  managerAccess = role === "manager",
+  hasResidentUnit = false,
   children,
 }: {
   role: "manager" | "resident";
   title: string;
   userName?: string;
+  managerAccess?: boolean;
+  hasResidentUnit?: boolean;
   children: React.ReactNode;
 }) {
   const path = usePathname();
@@ -412,6 +417,37 @@ export function AppShell({
             </span>
           </div>
           <div className="flex items-center">
+            {managerAccess && (
+              <Link
+                href={
+                  role === "resident"
+                    ? "/manager"
+                    : hasResidentUnit
+                      ? "/resident"
+                      : "/manager/account#my-unit"
+                }
+                title={
+                  role === "resident"
+                    ? "بازگشت به مدیریت"
+                    : hasResidentUnit
+                      ? "نمایش پنل واحد من"
+                      : "انتخاب واحد من"
+                }
+                aria-label={
+                  role === "resident"
+                    ? "بازگشت به مدیریت"
+                    : hasResidentUnit
+                      ? "نمایش پنل واحد من"
+                      : "انتخاب واحد من"
+                }
+                className="inline-flex min-h-9 items-center gap-2 rounded-lg px-2 text-xs text-primary transition-colors hover:bg-secondary focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                <ArrowLeftRight size={18} aria-hidden="true" />
+                <span className="hidden sm:inline">
+                  {role === "resident" ? "مدیریت" : "واحد من"}
+                </span>
+              </Link>
+            )}
             <NotificationBell role={role} />
             {role === "manager" && <CacheControls />}
             <ThemeToggle />

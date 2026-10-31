@@ -2,13 +2,26 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
-import { requireSession } from "@/lib/session";
+import { requireManager, requireSession } from "@/lib/session";
 import { englishPassword } from "@/lib/auth/phone";
 import {
   updateAccountProfile,
   setOwnAccountPassword,
 } from "@/lib/accounts/profile";
 import { invalidateBuildingCache } from "@/lib/cache/building";
+import { setManagerUnit } from "@/lib/accounts/management";
+
+export async function saveOwnUnit(form: FormData) {
+  const { session } = await requireManager();
+  const buildingId = await db.transaction((tx) =>
+    setManagerUnit(
+      tx,
+      session.user.id,
+      String(form.get("unitId") ?? "").trim() || null,
+    ),
+  );
+  await invalidateBuildingCache(buildingId);
+}
 
 export async function saveOwnProfile(form: FormData) {
   const login = await requireSession();

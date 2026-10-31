@@ -6,5 +6,5 @@ export default async function Page({
   searchParams: Promise<{ tab?: string }>;
 }) {
   await requireSession();
-  return <NotificationsPage tab={(await searchParams).tab} />;
+  return <NotificationsPage resident tab={(await searchParams).tab} />;
 }

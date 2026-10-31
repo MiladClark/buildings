@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,30 +45,21 @@ export function NotificationBell({ role }: { role: "manager" | "resident" }) {
       )}
     </>
   );
-  if (role === "resident")
-    return (
-      <ResidentNotificationMenu count={count} onCountChange={setCount}>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="relative text-muted-foreground"
-          aria-label={label}
-          title="اعلان‌ها"
-        >
-          {icon}
-        </Button>
-      </ResidentNotificationMenu>
-    );
   return (
-    <Button
-      asChild
-      size="icon"
-      variant="ghost"
-      className="relative text-muted-foreground"
+    <ResidentNotificationMenu
+      role={role}
+      count={count}
+      onCountChange={setCount}
     >
-      <Link href={`/${role}/notifications`} aria-label={label}>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="relative text-muted-foreground"
+        aria-label={label}
+        title="اعلان‌ها"
+      >
         {icon}
-      </Link>
-    </Button>
+      </Button>
+    </ResidentNotificationMenu>
   );
 }

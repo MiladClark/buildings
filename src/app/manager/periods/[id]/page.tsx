@@ -1,6 +1,9 @@
 import { Select } from "@/components/ui/select";
 import { PeriodActions } from "@/components/finance/period-actions";
-import { ExpenseActions } from "@/components/finance/expense-actions";
+import {
+  ExpenseActions,
+  ExpenseScopeButton,
+} from "@/components/finance/expense-actions";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { and, eq } from "drizzle-orm";
@@ -316,33 +319,39 @@ export default async function PeriodDetailPage({
                 <span className="text-xs font-medium">
                   {formatToman(e.amountRial)}
                 </span>
-                <ExpenseActions
-                  standaloneId={
-                    data.standaloneExpenses.find(
-                      (cost) => cost.linkedExpenseId === e.id,
-                    )?.id
-                  }
-                  expense={{
-                    billingTreatment: e.billingTreatment,
-                    coverageMonths: e.coverageMonths,
-                    utilityBill: e.utilityBill,
-                    id: e.id,
-                    maintenanceTicketId: e.maintenanceTicketId,
-                    categoryId: e.categoryId,
-                    amount: e.amountRial,
-                    description: e.description ?? "",
-                    date: e.expenseDate.toISOString(),
-                    draft: period.status === "draft",
-                  }}
-                  tickets={data.maintenance
-                    .filter((t) => !t.deletedAt)
-                    .map((t) => ({ id: t.id, title: t.title }))}
-                  categories={data.categories
-                    .filter(
-                      (c) => c.active && c.allocationMethod !== "excluded",
-                    )
-                    .map((c) => ({ id: c.id, name: c.name }))}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <ExpenseScopeButton
+                    id={e.id}
+                    draft={period.status === "draft"}
+                  />
+                  <ExpenseActions
+                    standaloneId={
+                      data.standaloneExpenses.find(
+                        (cost) => cost.linkedExpenseId === e.id,
+                      )?.id
+                    }
+                    expense={{
+                      billingTreatment: e.billingTreatment,
+                      coverageMonths: e.coverageMonths,
+                      utilityBill: e.utilityBill,
+                      id: e.id,
+                      maintenanceTicketId: e.maintenanceTicketId,
+                      categoryId: e.categoryId,
+                      amount: e.amountRial,
+                      description: e.description ?? "",
+                      date: e.expenseDate.toISOString(),
+                      draft: period.status === "draft",
+                    }}
+                    tickets={data.maintenance
+                      .filter((t) => !t.deletedAt)
+                      .map((t) => ({ id: t.id, title: t.title }))}
+                    categories={data.categories
+                      .filter(
+                        (c) => c.active && c.allocationMethod !== "excluded",
+                      )
+                      .map((c) => ({ id: c.id, name: c.name }))}
+                  />
+                </div>
               </div>
             ))
           ) : (
