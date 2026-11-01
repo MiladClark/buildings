@@ -51,16 +51,15 @@ export default async function ResidentsPage() {
   const assignedUnits = new Set(people.map(({ member: m }) => m.unitId));
   const availableUnits = unitOptions.filter((u) => !assignedUnits.has(u.id));
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1160px] space-y-6">
       <div className="page-heading">
         <div>
           <h1>حساب‌ها و دسترسی‌ها</h1>
           <p>
-            شماره را ثبت کنید و نقش ساکن یا مدیر ساختمان را انتخاب کنید؛ ورود
-            همه از همان صفحه ورود است.
+            حساب‌های ساختمان، واحد مرتبط و سطح دسترسی هر نفر را مدیریت کنید.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline">
             <Link href="/manager/account">تنظیمات حساب من</Link>
           </Button>

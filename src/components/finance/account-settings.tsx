@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { account, membership, unit, user } from "@/lib/db/schema";
 import { requireSession } from "@/lib/session";
@@ -31,19 +31,14 @@ export async function AccountSettings() {
     googleSignInEnabled(),
   ]);
   if (!person || !member) return null;
-  const assignedUnits =
+  const unitAccounts =
     member.role === "manager"
       ? await db
-          .select({ unitId: membership.unitId })
+          .select({ unitId: membership.unitId, name: user.name })
           .from(membership)
-          .where(
-            and(
-              eq(membership.buildingId, member.buildingId),
-              ne(membership.userId, login.user.id),
-            ),
-          )
+          .innerJoin(user, eq(membership.userId, user.id))
+          .where(eq(membership.buildingId, member.buildingId))
       : [];
-  const assignedUnitIds = new Set(assignedUnits.map((m) => m.unitId));
   const activeUnits =
     member.role === "manager"
       ? await db
@@ -54,9 +49,6 @@ export async function AccountSettings() {
           )
           .orderBy(unit.sortOrder, unit.label)
       : [];
-  const ownUnitOptions = activeUnits.filter(
-    (u) => u.id === member.unitId || !assignedUnitIds.has(u.id),
-  );
   const hasGoogle = identities.some((a) => a.provider === "google");
   const email = person.email.endsWith("@residents.internal")
     ? ""
@@ -91,18 +83,31 @@ export async function AccountSettings() {
                 <label className="form-field">
                   <span>واحد خودم</span>
                   <Select
+                    key={member.unitId ?? "no-unit"}
                     name="unitId"
                     defaultValue={member.unitId ?? ""}
                     aria-label="واحد خودم"
                   >
                     <option value="">واحدی ندارم</option>
-                    {ownUnitOptions.map((u) => (
+                    {activeUnits.map((u) => (
                       <option key={u.id} value={u.id}>
                         واحد {u.label}
+                        {unitAccounts.some((a) => a.unitId === u.id)
+                          ? ` · ${unitAccounts
+                              .filter((a) => a.unitId === u.id)
+                              .map((a) => a.name)
+                              .join("، ")}`
+                          : " · بدون حساب"}
                       </option>
                     ))}
                   </Select>
                 </label>
+                <p className="text-xs leading-7 text-muted-foreground">
+                  همه واحدهای فعال، حتی واحدهای دارای حساب، قابل انتخاب‌اند. با
+                  انتخاب واحد، فیش‌ها و پرداخت‌های همان واحد نمایش داده می‌شوند؛
+                  حساب ساکن و رمز ورود او حفظ می‌شوند و حساب جدیدی ساخته
+                  نمی‌شود.
+                </p>
                 <div className="account-form-actions">
                   <Button type="submit" variant="outline">
                     ذخیره واحد من

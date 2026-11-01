@@ -23,6 +23,7 @@ import * as s from "@/lib/db/schema";
 import {
   addBuildingAccount,
   changeBuildingRole,
+  removeBuildingAccount,
   setManagedPassword,
   setManagerUnit,
 } from "./management";
@@ -393,6 +394,183 @@ describe("direct building account roles", () => {
     );
   });
 });
+describe("building account deletion", () => {
+  const remove = (id = "resident-member", actor = "manager") =>
+    db.transaction((tx) => removeBuildingAccount(tx, actor, id));
+
+  it.each([false, true])(
+    "removes a resident's access and releases their phone (active: %s)",
+    async (active) => {
+      await resident(active);
+      if (active)
+        await db.insert(s.account).values({
+          id: "resident-google",
+          userId: "resident",
+          providerId: "google",
+          accountId: "google-sub",
+          createdAt: now(),
+          updatedAt: now(),
+        });
+      await db.insert(s.pushSubscription).values({
+        id: "device",
+        userId: "resident",
+        buildingId: "building",
+        endpoint: "https://push.example/device",
+        keys: { p256dh: "key", auth: "auth" },
+        deviceName: "تلفن",
+      });
+      await remove();
+      expect(
+        await db.query.membership.findFirst({
+          where: eq(s.membership.userId, "resident"),
+        }),
+      ).toBeUndefined();
+      expect(
+        await db.query.account.findFirst({
+          where: eq(s.account.userId, "resident"),
+        }),
+      ).toBeUndefined();
+      expect(
+        await db.query.session.findFirst({
+          where: eq(s.session.userId, "resident"),
+        }),
+      ).toBeUndefined();
+      expect(await db.query.pushSubscription.findFirst()).toBeUndefined();
+      expect(
+        await db.query.user.findFirst({ where: eq(s.user.id, "resident") }),
+      ).toMatchObject({ name: "همسایه", phone: null, emailVerified: false });
+      expect(
+        (await signIn("09123456789@residents.internal", "Resident-test-1405!"))
+          .status,
+      ).not.toBe(200);
+      const replacement = await add({ role: "resident", unitId: "one" });
+      expect(replacement).not.toBe("resident");
+      expect(
+        await db.query.user.findFirst({
+          where: eq(s.user.phone, "09123456789"),
+        }),
+      ).toMatchObject({ id: replacement });
+    },
+  );
+
+  it("preserves receipts, payment requests, maintenance and audit authorship", async () => {
+    await resident(true);
+    await db.insert(s.payment).values({
+      id: "receipt",
+      buildingId: "building",
+      unitId: "one",
+      amountRial: 1000,
+      method: "cash",
+      paidAt: now(),
+      recordedByUserId: "resident",
+    });
+    await db.insert(s.paymentRequest).values({
+      id: "request",
+      unitId: "one",
+      userId: "resident",
+      amountRial: 1000,
+    });
+    await db.insert(s.maintenanceTicket).values({
+      id: "ticket",
+      buildingId: "building",
+      unitId: "one",
+      createdBy: "resident",
+      title: "رسیدگی",
+    });
+    await remove();
+    expect(await db.query.payment.findFirst()).toMatchObject({
+      amountRial: 1000,
+      recordedByUserId: "resident",
+    });
+    expect(await db.query.paymentRequest.findFirst()).toMatchObject({
+      amountRial: 1000,
+      userId: "resident",
+    });
+    expect(await db.query.maintenanceTicket.findFirst()).toMatchObject({
+      createdBy: "resident",
+    });
+    expect(
+      await db.query.unit.findFirst({ where: eq(s.unit.id, "one") }),
+    ).toBeDefined();
+    expect(await db.query.managementEvent.findFirst()).toMatchObject({
+      action: "delete",
+      actorId: "manager",
+      entityId: "resident-member",
+    });
+  });
+
+  it("protects the last manager and requires another manager's login for self deletion", async () => {
+    await expect(remove("manager-member")).rejects.toThrow("آخرین مدیر");
+    await resident(true, "building", "manager");
+    await expect(remove("manager-member")).rejects.toThrow(
+      "با حساب مدیر دیگری وارد شوید",
+    );
+    // After signing in as the second manager, the original account can be removed.
+    await remove("manager-member", "resident");
+    expect(
+      await db.query.membership.findFirst({
+        where: eq(s.membership.userId, "manager"),
+      }),
+    ).toBeUndefined();
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      userId: "resident",
+      role: "manager",
+    });
+    expect(
+      await db.query.session.findFirst({
+        where: eq(s.session.userId, "manager"),
+      }),
+    ).toBeUndefined();
+    await expect(remove("resident-member", "resident")).rejects.toThrow(
+      "آخرین مدیر",
+    );
+  });
+
+  it("deletes another active manager and rejects foreign buildings and resident actors", async () => {
+    await resident(true, "building", "manager");
+    await remove();
+    expect(await db.query.membership.findFirst()).toMatchObject({
+      userId: "manager",
+      role: "manager",
+    });
+    await db.execute(sql`DELETE FROM "user" WHERE id = 'resident'`);
+    await resident(true, "foreign");
+    await expect(remove()).rejects.toThrow("پیدا نشد");
+    await expect(remove("manager-member", "resident")).rejects.toThrow(
+      "دسترسی مدیریت",
+    );
+    expect(
+      await db.query.account.findFirst({
+        where: eq(s.account.userId, "resident"),
+      }),
+    ).toBeDefined();
+  });
+
+  it("preserves the identity and credentials used by another building", async () => {
+    await resident(true);
+    await db.insert(s.membership).values({
+      id: "other-member",
+      userId: "resident",
+      buildingId: "foreign",
+      unitId: "foreign-unit",
+      role: "resident",
+    });
+    await remove();
+    expect(
+      await db.query.membership.findFirst({
+        where: eq(s.membership.userId, "resident"),
+      }),
+    ).toMatchObject({ id: "other-member" });
+    expect(
+      await db.query.user.findFirst({ where: eq(s.user.id, "resident") }),
+    ).toMatchObject({ phone: "09123456789" });
+    expect(
+      (await signIn("09123456789@residents.internal", "Resident-test-1405!"))
+        .status,
+    ).toBe(200);
+  });
+});
+
 describe("manager's own resident panel", () => {
   const link = async (password = "Resident-test-1405!") => {
     const context = await httpAuth.$context;
@@ -425,11 +603,64 @@ describe("manager's own resident panel", () => {
     });
     await expect(chooseUnit("foreign-unit")).rejects.toThrow("همین ساختمان");
     await resident(true);
-    await expect(chooseUnit("one")).rejects.toThrow("این واحد حساب دارد");
+    await chooseUnit("one");
     await expect(chooseUnit("one", "resident")).rejects.toThrow(
       "دسترسی مدیریت",
     );
   });
+
+  it.each([false, true])(
+    "uses an existing unit account's ledger without creating or merging identities (active: %s)",
+    async (active) => {
+      await resident(active);
+      await db.insert(s.payment).values({
+        id: "shared-receipt",
+        buildingId: "building",
+        unitId: "one",
+        amountRial: 2500,
+        method: "cash",
+        paidAt: now(),
+        recordedByUserId: "resident",
+      });
+      await chooseUnit("one");
+      const members = await db.select().from(s.membership);
+      expect(members).toHaveLength(2);
+      expect(members.find((m) => m.userId === "manager")).toMatchObject({
+        role: "manager",
+        unitId: "one",
+      });
+      expect(members.find((m) => m.userId === "resident")).toMatchObject({
+        role: "resident",
+        unitId: "one",
+      });
+      expect(await db.query.payment.findFirst()).toMatchObject({
+        unitId: "one",
+        amountRial: 2500,
+        recordedByUserId: "resident",
+      });
+      if (active)
+        expect(
+          (
+            await signIn(
+              "09123456789@residents.internal",
+              "Resident-test-1405!",
+            )
+          ).status,
+        ).toBe(200);
+      await chooseUnit("two");
+      await chooseUnit(null);
+      expect(
+        await db.query.membership.findFirst({
+          where: eq(s.membership.userId, "resident"),
+        }),
+      ).toMatchObject({ unitId: "one" });
+      await db
+        .update(s.unit)
+        .set({ deletedAt: now() })
+        .where(eq(s.unit.id, "two"));
+      await expect(chooseUnit("two")).rejects.toThrow("واحد معتبر");
+    },
+  );
 
   it("connects both owned accounts, preserving email, unit, history and the manager's password", async () => {
     await resident(true);

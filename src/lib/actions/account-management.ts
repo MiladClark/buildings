@@ -7,9 +7,18 @@ import { invalidateBuildingCache } from "@/lib/cache/building";
 import {
   addBuildingAccount,
   changeBuildingRole,
+  removeBuildingAccount,
   setManagedPassword,
   type BuildingRole,
 } from "@/lib/accounts/management";
+
+export async function deleteBuildingAccount(memberId: string) {
+  const { session, member } = await requireManager();
+  await db.transaction((tx) =>
+    removeBuildingAccount(tx, session.user.id, memberId),
+  );
+  await invalidateBuildingCache(member.buildingId);
+}
 
 async function optionalPasswordHash(value: FormDataEntryValue | null) {
   if (!value) return undefined;

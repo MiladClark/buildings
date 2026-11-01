@@ -1,5 +1,14 @@
 import { and, eq, ne } from "drizzle-orm";
-import { account, membership, session, unit, user } from "@/lib/db/schema";
+import {
+  account,
+  building,
+  membership,
+  notificationPreference,
+  pushSubscription,
+  session,
+  unit,
+  user,
+} from "@/lib/db/schema";
 import type { LedgerTransaction } from "@/lib/billing/settlement-store";
 import { logManagementEvent } from "@/lib/billing/corrections";
 import { normalizeIranMobile, phoneToAuthEmail } from "@/lib/auth/phone";
@@ -9,8 +18,18 @@ export async function managerMembership(
   tx: LedgerTransaction,
   actorId: string,
 ) {
-  const actor = await tx.query.membership.findFirst({
+  let actor = await tx.query.membership.findFirst({
     where: and(eq(membership.userId, actorId), eq(membership.role, "manager")),
+  });
+  if (!actor) throw new Error("دسترسی مدیریت ندارید.");
+  // Serialize access changes so concurrent requests cannot remove every manager.
+  await tx
+    .select({ id: building.id })
+    .from(building)
+    .where(eq(building.id, actor.buildingId))
+    .for("update");
+  actor = await tx.query.membership.findFirst({
+    where: and(eq(membership.id, actor.id), eq(membership.role, "manager")),
   });
   if (!actor) throw new Error("دسترسی مدیریت ندارید.");
   return actor;
@@ -36,19 +55,6 @@ export async function setManagerUnit(
 ) {
   const actor = await managerMembership(tx, actorId);
   await validUnit(tx, actor.buildingId, unitId);
-  if (unitId && unitId !== actor.unitId) {
-    const assigned = await tx.query.membership.findFirst({
-      where: and(
-        eq(membership.buildingId, actor.buildingId),
-        eq(membership.unitId, unitId),
-        ne(membership.userId, actorId),
-      ),
-    });
-    if (assigned)
-      throw new Error(
-        "این واحد حساب دارد؛ از «اتصال حساب شماره‌ایِ واحد من» برای وصل کردن حساب خودتان استفاده کنید.",
-      );
-  }
   await tx
     .update(membership)
     .set({ unitId })
@@ -65,6 +71,87 @@ export async function setManagerUnit(
     { unitId },
   );
   return actor.buildingId;
+}
+
+export async function removeBuildingAccount(
+  tx: LedgerTransaction,
+  actorId: string,
+  memberId: string,
+) {
+  const actor = await managerMembership(tx, actorId);
+  const target = await tx.query.membership.findFirst({
+    where: and(
+      eq(membership.id, memberId),
+      eq(membership.buildingId, actor.buildingId),
+    ),
+  });
+  if (!target) throw new Error("حساب این ساختمان پیدا نشد.");
+  if (target.role === "manager") {
+    const managers = await tx.query.membership.findMany({
+      where: and(
+        eq(membership.buildingId, actor.buildingId),
+        eq(membership.role, "manager"),
+      ),
+    });
+    if (managers.length <= 1)
+      throw new Error(
+        "آخرین مدیر ساختمان قابل حذف نیست؛ ابتدا مدیر دیگری اضافه کنید.",
+      );
+  }
+  if (target.userId === actorId)
+    throw new Error(
+      "برای حذف حساب خودتان، ابتدا با حساب مدیر دیگری وارد شوید.",
+    );
+  const person = await tx.query.user.findFirst({
+    where: eq(user.id, target.userId),
+  });
+  await tx.delete(membership).where(eq(membership.id, target.id));
+  await tx.delete(session).where(eq(session.userId, target.userId));
+  await tx
+    .delete(pushSubscription)
+    .where(
+      and(
+        eq(pushSubscription.userId, target.userId),
+        eq(pushSubscription.buildingId, actor.buildingId),
+      ),
+    );
+  const remaining = await tx.query.membership.findFirst({
+    where: eq(membership.userId, target.userId),
+  });
+  if (!remaining) {
+    await tx.delete(account).where(eq(account.userId, target.userId));
+    await tx
+      .delete(notificationPreference)
+      .where(eq(notificationPreference.userId, target.userId));
+    // Keep the historical author for receipts, requests, chat and audit records.
+    // Release sign-in identifiers so a replacement account can use them.
+    await tx
+      .update(user)
+      .set({
+        email: `deleted-${crypto.randomUUID()}@accounts.invalid`,
+        phone: null,
+        emailVerified: false,
+        image: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(user.id, target.userId));
+  }
+  await logManagementEvent(
+    tx,
+    actor.buildingId,
+    actorId,
+    "membership",
+    target.id,
+    "delete",
+    `حذف حساب ${person?.name ?? "کاربر"}`,
+    {
+      userId: target.userId,
+      name: person?.name,
+      role: target.role,
+      unitId: target.unitId,
+    },
+    { accessRemoved: true },
+  );
 }
 export async function changeBuildingRole(
   tx: LedgerTransaction,
